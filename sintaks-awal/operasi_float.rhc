@@ -1,0 +1,86 @@
+-- ============================================================
+-- Tes: Operasi Desimal (Float)
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "Penjumlahan\n"
+    variabel a: desimal = 1.0 + 9.0
+    tampilkan "1.0 + 9.0 = ", a, "\n\n"
+
+    tampilkan "Pengurangan\n"
+    variabel b: desimal = 9.0 - 1.0
+    tampilkan "9.0 - 1.0 = ", b, "\n\n"
+
+    tampilkan "Perkalian\n"
+    variabel c: desimal = 3.0 * 3.0
+    tampilkan "3.0 x 3.0 = ", c, "\n\n"
+
+    tampilkan "Pembagian\n"
+    variabel d: desimal = 8.0 / 2.0
+    tampilkan "8.0 / 2.0 = ", d, "\n\n"
+
+    variabel e: desimal = 5.5
+    jika e == 5.5 maka {
+        tampilkan "Nilai e sama, yaitu = ", e, "\n\n"
+    }
+
+
+    tampilkan "Konversi Integer ke Desimal\n"
+    variabel int_val1: bilangan = 42
+    variabel int_val2: bilangan = -100
+    variabel int_val3: bilangan = 0
+
+    variabel float_val1: desimal = int_val1
+    variabel float_val2: desimal = int_val2
+    variabel float_val3: desimal = int_val3
+
+    tampilkan "bilangan(42) → desimal: ", float_val1, "\n"
+    tampilkan "bilangan(-100) → desimal: ", float_val2, "\n"
+    tampilkan "bilangan(0) → desimal: ", float_val3, "\n\n"
+
+
+    tampilkan "Konversi Desimal ke Integer\n"
+    variabel float_a: desimal = 3.14
+    variabel float_b: desimal = 7.99
+    variabel float_c: desimal = -2.5
+    variabel float_d: desimal = 10.0
+
+    variabel int_a: bilangan = float_a
+    variabel int_b: bilangan = float_b
+    variabel int_c: bilangan = float_c
+    variabel int_d: bilangan = float_d
+
+    tampilkan "desimal(3.14) → bilangan: ", int_a, "\n"
+    tampilkan "desimal(7.99) → bilangan: ", int_b, "\n"
+    tampilkan "desimal(-2.5) → bilangan: ", int_c, "\n"
+    tampilkan "desimal(10.0) → bilangan: ", int_d, "\n\n"
+
+
+    tampilkan "Konversi Teks ke Desimal\n"
+    variabel d1: desimal = ke_desimal("3.14")
+    variabel d2: desimal = ke_desimal("-42.5")
+    variabel d3: desimal = ke_desimal("0.0")
+    variabel d4: desimal = ke_desimal("abc")
+
+    tampilkan "ke_desimal('3.14') = ", d1, "\n"
+    tampilkan "ke_desimal('-42.5') = ", d2, "\n"
+    tampilkan "ke_desimal('0.0') = ", d3, "\n"
+    tampilkan "ke_desimal('abc') = ", d4, " (default 0.0)\n\n"
+
+
+    tampilkan "Konversi Desimal ke Teks\n"
+    variabel f1: desimal = 3.14
+    variabel f2: desimal = -42.5
+    variabel f3: desimal = 0.0
+    variabel f4: desimal = 100.0
+
+    variabel s1: teks = ke_teks(f1)
+    variabel s2: teks = ke_teks(f2)
+    variabel s3: teks = ke_teks(f3)
+    variabel s4: teks = ke_teks(f4)
+
+    tampilkan "ke_teks(3.14) = '", s1, "'\n"
+    tampilkan "ke_teks(-42.5) = '", s2, "'\n"
+    tampilkan "ke_teks(0.0) = '", s3, "'\n"
+    tampilkan "ke_teks(100.0) = '", s4, "'\n"
+}

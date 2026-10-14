@@ -1,0 +1,156 @@
+-- ============================================================
+-- Tes Jamin (Defer)
+-- ============================================================
+
+-- 1. Jamin dasar di fungsi
+fungsi bagi(a: bilangan, b: bilangan) -> Opsi(dengan T = bilangan) {
+    jamin saat keluar {
+        tampilkan "[jamin] bagi() selesai\n"
+    }
+
+    jika b == 0 maka {
+        kembalikan KOSONG()
+    }
+
+    kembalikan ADA(nilai = a / b)
+}
+
+-- 2. Jamin di dalam blok
+prosedur uji_blok() {
+    tampilkan "Masuk prosedur\n"
+
+    {
+        jamin saat keluar {
+            tampilkan "[jamin] blok selesai\n"
+        }
+        tampilkan "Di dalam blok\n"
+    }
+
+    tampilkan "Setelah blok\n"
+}
+
+-- 3. Jamin FIFO
+prosedur uji_fifo() {
+    jamin saat keluar { tampilkan "[jamin 1]\n" }
+    jamin saat keluar { tampilkan "[jamin 2]\n" }
+    jamin saat keluar { tampilkan "[jamin 3]\n" }
+    tampilkan "Isi prosedur\n"
+    -- Output: Isi prosedur, [jamin 1], [jamin 2], [jamin 3]
+}
+
+-- 4. Jamin dengan alokasi
+prosedur uji_alokasi() {
+    variabel ptr: tunjuk ke bilangan = alokasi(bilangan)
+    isi(ptr) = 42
+
+    jamin saat keluar {
+        bebaskan(ptr)
+        tampilkan "Memori dibebaskan\n"
+    }
+
+    tampilkan "Nilai: ", isi(ptr), "\n"
+}
+
+-- 5. Jamin dengan mutex
+tugas_global variabel m: Mutex = mutex()
+
+prosedur uji_mutex() {
+    mutex_kunci(m)
+    jamin saat keluar {
+        mutex_buka(m)
+        tampilkan "Mutex dibuka\n"
+    }
+
+    -- akses data bersama
+    tampilkan "Di dalam mutex\n"
+}
+
+-- 6. Jamin di dalam loop
+prosedur uji_loop() {
+    untuk i dari 1 sampai 3 {
+        jamin saat keluar {
+            tampilkan "[jamin iterasi ", i, "]\n"
+        }
+        tampilkan "iterasi ", i, "\n"
+    }
+}
+
+-- 7. Jamin di dalam pilih
+prosedur uji_pilih(x: bilangan) {
+    pilih x {
+        kasus 1: {
+            jamin saat keluar {
+                tampilkan "[jamin kasus 1]\n"
+            }
+            tampilkan "kasus 1\n"
+        }
+        kasus 2: {
+            jamin saat keluar {
+                tampilkan "[jamin kasus 2]\n"
+            }
+            tampilkan "kasus 2\n"
+        }
+    }
+}
+
+-- 8. Jamin dengan berhenti
+prosedur uji_berhenti() {
+    untuk i dari 1 sampai 5 {
+        jamin saat keluar {
+            tampilkan "[jamin iterasi ", i, "]\n"
+        }
+        jika i == 3 maka {
+            tampilkan "berhenti di i = ", i, "\n"
+            berhenti
+        }
+        tampilkan "i = ", i, "\n"
+    }
+}
+
+-- 9. Jamin dengan kembalikan
+fungsi uji_kembalikan() -> bilangan {
+    jamin saat keluar {
+        tampilkan "[jamin sebelum kembalikan]\n"
+    }
+    kembalikan 100
+}
+
+-- 10. Program utama
+prosedur utama() {
+    tampilkan "=== TEST JAMIN (DEFER) ===\n"
+
+    tampilkan "\n--- 1. Jamin di Fungsi ---\n"
+    pilih bagi(10, 2) {
+        kasus ADA(nilai):
+            tampilkan "Hasil: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Gagal\n"
+    }
+
+    tampilkan "\n--- 2. Jamin di Blok ---\n"
+    uji_blok()
+
+    tampilkan "\n--- 3. Jamin FIFO ---\n"
+    uji_fifo()
+
+    tampilkan "\n--- 4. Jamin dengan Alokasi ---\n"
+    uji_alokasi()
+
+    tampilkan "\n--- 5. Jamin dengan Mutex ---\n"
+    uji_mutex()
+
+    tampilkan "\n--- 6. Jamin di Loop ---\n"
+    uji_loop()
+
+    tampilkan "\n--- 7. Jamin di Pilih ---\n"
+    uji_pilih(1)
+    uji_pilih(2)
+
+    tampilkan "\n--- 8. Jamin dengan Berhenti ---\n"
+    uji_berhenti()
+
+    tampilkan "\n--- 9. Jamin dengan Kembalikan ---\n"
+    tampilkan "Nilai kembali: ", uji_kembalikan(), "\n"
+
+    tampilkan "\n=== SELESAI ===\n"
+}

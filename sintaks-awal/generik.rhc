@@ -1,0 +1,42 @@
+-- tes Generik (Generics)
+
+-- Fungsi generik dengan constraint
+generik T fungsi maks(a: T, b: T) -> T
+dimana T: Terbandingkan
+{
+    kembalikan a > b ? a : b
+}
+
+-- Struktur generik
+generik T struktur Pasangan {
+    kiri: T,
+    kanan: T
+}
+
+-- Cacahan generik
+generik T cacahan Opsi {
+    Ada(T),
+    Kosong
+}
+
+-- Prosedur utama
+prosedur utama() {
+    -- Pemanggilan eksplisit
+    variabel m: bilangan = maks(dengan T = bilangan, 3, 4)
+    tampilkan m, "\n"
+
+    -- Struktur generik
+    variabel p: Pasangan(dengan T = teks)
+    p.kiri = "halo"
+    p.kanan = "dunia"
+    tampilkan p.kiri, " ", p.kanan, "\n"
+
+    -- Cacahan generik
+    variabel o: Opsi(dengan T = bilangan) = Ada(42)
+
+    -- Lambda generik
+    variabel f = lambda(generik T: Terbandingkan)(x: T) {
+        kembalikan x
+    }
+    tampilkan f(5), "\n"
+}

@@ -1,0 +1,75 @@
+-- casting
+
+prosedur utama () {
+    variabel a: bilangan
+    variabel b: desimal
+    variabel c: logika
+    variabel d: karakter
+    variabel e: teks
+
+    -- Integer ke Desimal
+    tampilkan "Integer ke Desimal\n"
+    a = 50
+    b = a
+    tampilkan "50 dalam desimal: ", b, "\n"
+
+    -- Float ke Integer (truncate)
+    tampilkan "\nDesimal ke Integer\n"
+    b = 50.0
+    a = b
+    tampilkan "50.0 dalam integer: ", a, "\n"
+
+    -- Integer ke Boolean
+    tampilkan "\nInteger ke Logika\n"
+    a = 5
+    c = a
+    tampilkan "5 sebagai logika: ", c, "\n"
+    a = 0
+    c = a
+    tampilkan "0 sebagai logika: ", c, "\n"
+
+    -- Boolean ke Integer
+    tampilkan "\nLogika ka Integer\n"
+    c = benar
+    a = c
+    tampilkan "benar sebagai integer: ", a, "\n"
+    c = salah
+    a = c
+    tampilkan "salah sebagai integer: ", a, "\n"
+
+    -- Karakter ke Integer
+    tampilkan "\nKarakter ke Integer\n"
+    d = 'A'
+    a = d
+    tampilkan "ASCII 'A': ", a, "\n"
+
+    -- Integer ke Karakter
+    tampilkan "\nInteger ke Karakter\n"
+    a = 65
+    d = a
+    tampilkan "Karakter dari 65: ", d, "\n"
+
+    -- String ke Integer
+    tampilkan "\nString ke Integer\n"
+    e = "123"
+    a = e
+    tampilkan "'123' sebagai integer: ", a, "\n"
+
+    -- Integer ke String
+    tampilkan "\nInteger ke String\n"
+    a = 123
+    e = a
+    tampilkan "123 sebagai string: ", e, "\n"
+
+    -- String ke Desimal
+    tampilkan "\nString ke Desimal\n"
+    e = "3.14"
+    b = e
+    tampilkan "'3.14' sebagai desimal: ", b, "\n"
+
+    -- Desimal ke String
+    tampilkan "\nDesimal ke String\n"
+    b = 3.14
+    e = b
+    tampilkan "3.14 sebagai string: ", e, "\n"
+}

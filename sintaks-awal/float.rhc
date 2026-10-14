@@ -1,0 +1,125 @@
+-- ============================================================
+-- Tes: Desimal (Double)
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "=== TEST DESIMAL ===\n\n"
+
+    -- Test 1: Nilai positif
+    tampilkan "--- Test 1: Bilangan Positif ---\n"
+    variabel d1: desimal = 1.5
+    variabel d2: desimal = 3.14
+    variabel d3: desimal = 5.5
+    variabel d4: desimal = 0.0
+    variabel d5: desimal = 0.1
+    variabel d6: desimal = 0.001
+    variabel d7: desimal = 100.5
+    variabel d8: desimal = 999.999
+    variabel d9: desimal = 1.0
+    variabel d10: desimal = 2.718281828
+
+    tampilkan "  1.5          = ", d1, "\n"
+    tampilkan "  3.14         = ", d2, "\n"
+    tampilkan "  5.5          = ", d3, "\n"
+    tampilkan "  0.0          = ", d4, "\n"
+    tampilkan "  0.1          = ", d5, "\n"
+    tampilkan "  0.001        = ", d6, "\n"
+    tampilkan "  100.5        = ", d7, "\n"
+    tampilkan "  999.999      = ", d8, "\n"
+    tampilkan "  1.0          = ", d9, "\n"
+    tampilkan "  2.718281828  = ", d10, "\n\n"
+
+    -- Test 2: Nilai negatif
+    tampilkan "--- Test 2: Bilangan Negatif ---\n"
+    variabel dn1: desimal = -1.5
+    variabel dn2: desimal = -3.14
+    variabel dn3: desimal = -5.5
+    variabel dn4: desimal = -0.0
+    variabel dn5: desimal = -0.1
+    variabel dn6: desimal = -100.5
+    variabel dn7: desimal = -999.999
+    variabel dn8: desimal = -1.0
+
+    tampilkan "  -1.5         = ", dn1, "\n"
+    tampilkan "  -3.14        = ", dn2, "\n"
+    tampilkan "  -5.5         = ", dn3, "\n"
+    tampilkan "  -0.0         = ", dn4, "\n"
+    tampilkan "  -0.1         = ", dn5, "\n"
+    tampilkan "  -100.5       = ", dn6, "\n"
+    tampilkan "  -999.999     = ", dn7, "\n"
+    tampilkan "  -1.0         = ", dn8, "\n\n"
+
+    -- Test 3: Bilangan sangat kecil
+    tampilkan "--- Test 3: Bilangan Sangat Kecil ---\n"
+    variabel ds1: desimal = 0.000001
+    variabel ds2: desimal = 0.0000001
+    variabel ds3: desimal = 1e-10
+    variabel ds4: desimal = -0.000001
+    variabel ds5: desimal = -0.0000001
+
+    tampilkan "   0.000001    = ", ds1, "\n"
+    tampilkan "   0.0000001   = ", ds2, "\n"
+    tampilkan "   1e-10       = ", ds3, "\n"
+    tampilkan "  -0.000001    = ", ds4, "\n"
+    tampilkan "  -0.0000001   = ", ds5, "\n\n"
+
+    -- Test 4: Bilangan sangat besar
+    tampilkan "--- Test 4: Bilangan Sangat Besar ---\n"
+    variabel db1: desimal = 1000000.5
+    variabel db2: desimal = 9999999.999
+    variabel db3: desimal = 1e10
+    variabel db4: desimal = -1000000.5
+
+    tampilkan "   1000000.5   = ", db1, "\n"
+    tampilkan "   9999999.999 = ", db2, "\n"
+    tampilkan "   1e10        = ", db3, "\n"
+    tampilkan "  -1000000.5   = ", db4, "\n\n"
+
+    -- Test 5: Bilangan bulat sebagai desimal
+    tampilkan "--- Test 5: Bilangan Bulat sebagai Desimal ---\n"
+    variabel di1: desimal = 1.0
+    variabel di2: desimal = 0.0
+    variabel di3: desimal = 42.0
+    variabel di4: desimal = -7.0
+    variabel di5: desimal = 100.0
+    variabel di6: desimal = -0.0
+
+    tampilkan "   1.0         = ", di1, "\n"
+    tampilkan "   0.0         = ", di2, "\n"
+    tampilkan "   42.0        = ", di3, "\n"
+    tampilkan "  -7.0         = ", di4, "\n"
+    tampilkan "   100.0       = ", di5, "\n"
+    tampilkan "  -0.0         = ", di6, "\n\n"
+
+    -- Test 6: Nilai khusus (presisi)
+    tampilkan "--- Test 6: Nilai Presisi ---\n"
+    variabel dp1: desimal = 0.123456789
+    variabel dp2: desimal = 1.23456789
+    variabel dp3: desimal = 12.3456789
+    variabel dp4: desimal = 123.456789
+    variabel dp5: desimal = 1234.56789
+    variabel dp6: desimal = 12345.6789
+    variabel dp7: desimal = -0.123456789
+
+    tampilkan "   0.123456789  = ", dp1, "\n"
+    tampilkan "   1.23456789   = ", dp2, "\n"
+    tampilkan "   12.3456789   = ", dp3, "\n"
+    tampilkan "   123.456789   = ", dp4, "\n"
+    tampilkan "   1234.56789   = ", dp5, "\n"
+    tampilkan "   12345.6789   = ", dp6, "\n"
+    tampilkan "  -0.123456789  = ", dp7, "\n\n"
+
+    -- Test 7: Konstanta matematika
+    tampilkan "--- Test 7: Konstanta Pendekatan ---\n"
+    variabel pi: desimal = 3.141592653589793
+    variabel e: desimal = 2.718281828459045
+    variabel phi: desimal = 1.618033988749895
+    variabel sqrt2: desimal = 1.414213562373095
+
+    tampilkan "   pi           = ", pi, "\n"
+    tampilkan "   e            = ", e, "\n"
+    tampilkan "   phi          = ", phi, "\n"
+    tampilkan "   sqrt(2)      = ", sqrt2, "\n\n"
+
+    tampilkan "=== SELESAI ===\n"
+}

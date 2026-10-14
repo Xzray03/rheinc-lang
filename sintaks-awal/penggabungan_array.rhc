@@ -1,0 +1,84 @@
+-- ============================================================
+-- Tes: Penggabungan Array
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    -- Deklarasi larik pertama dengan 5 elemen
+    variabel a: larik[5] dari bilangan
+    a = [10, 20, 30, 40, 50]
+
+    -- Deklarasi larik kedua dengan 3 elemen
+    variabel b: larik[3] dari bilangan
+    b = [60, 70, 80]
+
+    -- Deklarasi variabel untuk menampung hasil gabungan
+    variabel c: larik dari bilangan
+
+    -- Tampilkan judul program
+    tampilkan "═══ PROGRAM UJI COBA GABUNG ARRAY ═══\n"
+
+    -- Tampilkan isi larik a
+    tampilkan "Larik a (5 elemen):\n"
+    tampilkan "  a[0] = ", a[0], "\n"
+    tampilkan "  a[1] = ", a[1], "\n"
+    tampilkan "  a[2] = ", a[2], "\n"
+    tampilkan "  a[3] = ", a[3], "\n"
+    tampilkan "  a[4] = ", a[4], "\n"
+
+    -- Tampilkan isi larik b
+    tampilkan "\nLarik b (3 elemen):\n"
+    tampilkan "  b[0] = ", b[0], "\n"
+    tampilkan "  b[1] = ", b[1], "\n"
+    tampilkan "  b[2] = ", b[2], "\n"
+
+    tampilkan "\n--- Menggabungkan Larik a dan Larik b ---\n"
+
+    gabung(a, b) -> c
+
+    -- Tampilkan hasil penggabungan
+    tampilkan "Hasil penggabungan (larik c):\n"
+    tampilkan "  c[0] = ", c[0], "\n"
+    tampilkan "  c[1] = ", c[1], "\n"
+    tampilkan "  c[2] = ", c[2], "\n"
+    tampilkan "  c[3] = ", c[3], "\n"
+    tampilkan "  c[4] = ", c[4], "\n"
+    tampilkan "  c[5] = ", c[5], "\n"
+    tampilkan "  c[6] = ", c[6], "\n"
+    tampilkan "  c[7] = ", c[7], "\n"
+
+    jika (c[0] == 10 dan c[1] == 20 dan c[2] == 30 dan
+         c[3] == 40 dan c[4] == 50 dan c[5] == 60 dan
+         c[6] == 70 dan c[7] == 80) maka {
+        tampilkan "✓ BERHASIL: Penggabungan larik berfungsi dengan benar!\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Hasil penggabungan tidak sesuai harapan!\n"
+    }
+
+    bebaskan(c)
+
+    -- Uji gabung dua larik karakter
+    tampilkan "\n--- Uji larik karakter ---\n"
+
+    variabel teks1: larik[4] dari karakter
+    teks1 = ['R', 'h', 'e', 'i']
+
+    variabel teks2: larik[2] dari karakter
+    teks2 = ['n', 'C']
+
+    variabel teks3: larik dari karakter
+
+    gabung(teks1, teks2) -> teks3
+
+    tampilkan "  teks3[0] = ", teks3[0], "\n"
+    tampilkan "  teks3[1] = ", teks3[1], "\n"
+    tampilkan "  teks3[2] = ", teks3[2], "\n"
+    tampilkan "  teks3[3] = ", teks3[3], "\n"
+    tampilkan "  teks3[4] = ", teks3[4], "\n"
+    tampilkan "  teks3[5] = ", teks3[5], "\n"
+
+    bebaskan(teks3)
+
+    tampilkan "\n═══ PROGRAM SELESAI ═══\n"
+
+    kembalikan 0
+}

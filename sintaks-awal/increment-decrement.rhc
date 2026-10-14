@@ -1,0 +1,64 @@
+-- Increment dan Decrement
+
+prosedur utama () {
+    variabel a: bilangan
+    variabel b: desimal
+    variabel c: logika
+    variabel d: karakter
+
+    -- Integer
+    tampilkan "Integer\n"
+    a = 10
+    tampilkan "Sebelum Increment: "
+    tampilkan a, "\n"
+    a++
+    tampilkan "Setelah Increment: "
+    tampilkan a, "\n"
+    tampilkan "Sebelum Decrement: "
+    tampilkan a, "\n"
+    a--
+    tampilkan "Setelah Decrement: "
+    tampilkan a, "\n"
+
+    -- Desimal
+    tampilkan "\nDesimal\n"
+    b = 10.0
+    tampilkan "Sebelum Increment: "
+    tampilkan b, "\n"
+    b++
+    tampilkan "Setelah Increment: "
+    tampilkan b, "\n"
+    tampilkan "Sebelum Decrement: "
+    tampilkan b, "\n"
+    b--
+    tampilkan "Setelah Decrement: "
+    tampilkan b, "\n"
+
+    -- Logika
+    tampilkan "\nLogika\n"
+    c = 0
+    tampilkan "Sebelum Increment: "
+    tampilkan c, "\n"
+    c++
+    tampilkan "Setelah Increment: "
+    tampilkan c, "\n"
+    tampilkan "Sebelum Decrement: "
+    tampilkan c, "\n"
+    c--
+    tampilkan "Setelah Decrement: "
+    tampilkan c, "\n"
+
+    -- Karakter
+    tampilkan "\nKarakter\n"
+    d = 'A'
+    tampilkan "Sebelum Increment: "
+    tampilkan d, "\n"
+    d++
+    tampilkan "Setelah Increment: "
+    tampilkan d, "\n"
+    tampilkan "Sebelum Decrement: "
+    tampilkan d, "\n"
+    d--
+    tampilkan "Setelah Decrement: "
+    tampilkan d, "\n"
+}

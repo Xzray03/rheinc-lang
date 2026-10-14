@@ -1,0 +1,77 @@
+-- ============================================================
+-- Tes: Operasi Memori
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST OPERASI MEMORI ===\n"
+
+    -- Alokasi
+    tampilkan "=== ALOKASI ===\n"
+
+    variabel ptr1: tunjuk ke bilangan
+    ptr1 = alokasi(bilangan)
+    isi(ptr1) = 100
+    tampilkan "Alokasi bilangan: ", isi(ptr1), "\n"
+
+    -- Alokasi array
+    variabel arr: tunjuk ke bilangan
+    arr = alokasi(5 * ukuran(bilangan))
+
+    untuk i dari 0 sampai 4 {
+        arr[i] = i * 10
+    }
+
+    tampilkan "Alokasi array:\n"
+    untuk i dari 0 sampai 4 {
+        tampilkan "  arr[", i, "] = ", arr[i], "\n"
+    }
+
+    -- Realokasi
+    tampilkan "=== REALOKASI ===\n"
+
+    variabel ptr2: tunjuk ke bilangan
+    ptr2 = alokasi(bilangan)
+    isi(ptr2) = 50
+    tampilkan "Sebelum realokasi: ", isi(ptr2), "\n"
+
+    ptr2 = realokasi(ptr2, 2 * ukuran(bilangan))
+    ptr2[0] = 50
+    ptr2[1] = 100
+    tampilkan "Setelah realokasi: [0]=", ptr2[0], ", [1]=", ptr2[1], "\n"
+
+    -- Salin memori
+    tampilkan "=== SALIN MEMORI ===\n"
+
+    variabel src: larik[3] dari bilangan = [1, 2, 3]
+    variabel dst: larik[3] dari bilangan = [0, 0, 0]
+
+    tampilkan "Sebelum salin:\n"
+    tampilkan "  src: ", src[0], ", ", src[1], ", ", src[2], "\n"
+    tampilkan "  dst: ", dst[0], ", ", dst[1], ", ", dst[2], "\n"
+
+    salin(dst, src, 3 * ukuran(bilangan))
+
+    tampilkan "Setelah salin:\n"
+    tampilkan "  dst: ", dst[0], ", ", dst[1], ", ", dst[2], "\n"
+
+    -- Ukuran tipe
+    tampilkan "=== UKURAN TIPE ===\n"
+
+    tampilkan "ukuran(bilangan8) = ", ukuran(bilangan8), "\n"
+    tampilkan "ukuran(bilangan16) = ", ukuran(bilangan16), "\n"
+    tampilkan "ukuran(bilangan32) = ", ukuran(bilangan32), "\n"
+    tampilkan "ukuran(bilangan64) = ", ukuran(bilangan64), "\n"
+    tampilkan "ukuran(karakter) = ", ukuran(karakter), "\n"
+    tampilkan "ukuran(logika) = ", ukuran(logika), "\n"
+    tampilkan "ukuran(tunjuk ke bilangan) = ", ukuran(tunjuk ke bilangan), "\n"
+
+    -- Bebaskan
+    tampilkan "=== BEBASKAN ===\n"
+
+    bebaskan(ptr1)
+    bebaskan(arr)
+    bebaskan(ptr2)
+    tampilkan "Semua memori telah dibebaskan\n"
+
+    kembalikan 0
+}

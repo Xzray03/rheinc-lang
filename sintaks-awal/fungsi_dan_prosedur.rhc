@@ -1,0 +1,56 @@
+-- ============================================================
+-- Program: Fungsi dan Prosedur
+-- Deskripsi: Demonstrasi pembuatan dan pemanggilan fungsi
+-- ============================================================
+
+-- Fungsi dengan nilai kembalian
+fungsi tambah(a: bilangan, b: bilangan) -> bilangan {
+    kembalikan a + b
+}
+
+-- Fungsi dengan nilai kembalian
+fungsi kali(a: bilangan, b: bilangan) -> bilangan {
+    kembalikan a * b
+}
+
+-- Fungsi untuk menghitung faktorial (rekursif)
+fungsi faktorial(n: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan 1
+    }
+    kembalikan n * faktorial(n - 1)
+}
+
+-- Prosedur tanpa nilai kembalian
+prosedur tampilkan_garis(panjang: bilangan) {
+    untuk i dari 1 sampai panjang {
+        tampilkan "="
+    }
+}
+
+-- Fungsi utama
+fungsi utama() -> bilangan {
+    tampilkan_garis(40)
+    tampilkan "\n   DEMONSTRASI FUNGSI DAN PROSEDUR\n"
+    tampilkan_garis(40)
+    tampilkan "\n"
+
+    variabel x: bilangan = 15
+    variabel y: bilangan = 7
+
+    tampilkan "x = ", x, ", y = ", y, "\n"
+
+    variabel hasil_tambah: bilangan = tambah(x, y)
+    variabel hasil_kali: bilangan = kali(x, y)
+
+    tampilkan "Hasil tambah( ", x, " + ", y, " ) = ", hasil_tambah, "\n"
+    tampilkan "Hasil kali( ", x, " x ", y, " ) = ", hasil_kali, "\n"
+
+    tampilkan "Faktorial dari 5 = ", faktorial(5), "\n"
+    tampilkan "Faktorial dari 7 = ", faktorial(7), "\n"
+
+    tampilkan_garis(40)
+    tampilkan "\n"
+
+    kembalikan 0
+}

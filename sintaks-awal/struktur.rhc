@@ -1,0 +1,193 @@
+-- ============================================================
+-- Program: Struktur Data
+-- Deskripsi: Demonstrasi penggunaan struktur
+-- ============================================================
+
+-- ============================================================
+-- Definisi Struktur
+-- ============================================================
+struktur Alamat {
+    jalan: teks,
+    kota: teks,
+    kode_pos: bilangan
+}
+
+struktur Mahasiswa {
+    nama: teks,
+    nim: teks,
+    usia: bilangan,
+    semester: bilangan,
+    jumlah_sks: bilangan,
+    alamat_rumah: Alamat,
+    ipk: bilangan
+}
+
+prosedur cetak_info_mahasiswa(mhs: Mahasiswa) {
+    tampilkan "Nama     : ", mhs.nama, "\n"
+    tampilkan "NIM      : ", mhs.nim, "\n"
+    tampilkan "Usia     : ", mhs.usia, " tahun\n"
+    tampilkan "Alamat   : ", mhs.alamat_rumah.jalan, ", ", mhs.alamat_rumah.kota, " ", mhs.alamat_rumah.kode_pos, "\n"
+    tampilkan "IPK      : ", mhs.ipk, "\n"
+}
+
+prosedur tambah_sks(mhs: tunjuk ke Mahasiswa, tambahan: bilangan) {
+    mhs->jumlah_sks = mhs->jumlah_sks + tambahan
+    tampilkan "  [Sistem] ", mhs->nama, " menambah ", tambahan, " SKS\n"
+}
+
+prosedur update_ipk(mhs: tunjuk ke Mahasiswa, ipk_baru: bilangan) {
+    jika ipk_baru >= 0 dan ipk_baru <= 4 maka {
+        mhs->ipk = ipk_baru
+        tampilkan "  [Sistem] IPK ", mhs->nama, " diperbarui menjadi ", ipk_baru, "\n"
+    } jika bukan semua diatas  {
+        tampilkan "  [Error] IPK tidak valid! Harus antara 0 - 4\n"
+    }
+}
+
+-- ============================================================
+-- Program Utama
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== DEMONSTRASI STRUKTUR ===\n\n"
+
+    -- ========================================================
+    -- 1. Variabel stack-based (value type)
+    -- ========================================================
+    variabel mhs1: Mahasiswa
+
+    mhs1.nama = "Budi Santoso"
+    mhs1.nim = "2024001"
+    mhs1.usia = 20
+    mhs1.semester = 4
+    mhs1.jumlah_sks = 72
+    mhs1.ipk = 4
+
+    mhs1.alamat_rumah.jalan = "Jl. Merdeka No. 45"
+    mhs1.alamat_rumah.kota = "Jakarta"
+    mhs1.alamat_rumah.kode_pos = 10110
+
+    tampilkan "--- Mahasiswa 1 ---\n"
+    cetak_info_mahasiswa(mhs1)
+    tampilkan "Semester : ", mhs1.semester, "\n"
+    tampilkan "SKS      : ", mhs1.jumlah_sks, "\n\n"
+
+    variabel mhs2: Mahasiswa
+
+    mhs2.nama = "Siti Aminah"
+    mhs2.nim = "2024002"
+    mhs2.usia = 19
+    mhs2.semester = 4
+    mhs2.jumlah_sks = 68
+    mhs2.ipk = 3
+
+    mhs2.alamat_rumah.jalan = "Jl. Sudirman No. 12"
+    mhs2.alamat_rumah.kota = "Bandung"
+    mhs2.alamat_rumah.kode_pos = 40132
+
+    tampilkan "--- Mahasiswa 2 ---\n"
+    cetak_info_mahasiswa(mhs2)
+    tampilkan "Semester : ", mhs2.semester, "\n"
+    tampilkan "SKS      : ", mhs2.jumlah_sks, "\n\n"
+
+    -- ========================================================
+    -- 2. Variabel heap-based (pointer type)
+    -- ========================================================
+    tampilkan "=== DEMONSTRASI POINTER TO STRUCT ===\n"
+
+    variabel ptr_mhs: tunjuk ke Mahasiswa = alokasi(Mahasiswa)
+
+    ptr_mhs->nama = "Andi Pratama"
+    ptr_mhs->nim = "2024003"
+    ptr_mhs->usia = 21
+    ptr_mhs->semester = 6
+    ptr_mhs->jumlah_sks = 96
+    ptr_mhs->ipk = 2
+
+    ptr_mhs->alamat_rumah.jalan = "Jl. Diponegoro No. 7"
+    ptr_mhs->alamat_rumah.kota = "Surabaya"
+    ptr_mhs->alamat_rumah.kode_pos = 60264
+
+    tampilkan "--- Mahasiswa 3 (via Pointer) ---\n"
+    tampilkan "Nama     : ", ptr_mhs->nama, "\n"
+    tampilkan "NIM      : ", ptr_mhs->nim, "\n"
+    tampilkan "Usia     : ", ptr_mhs->usia, " tahun\n"
+    tampilkan "Alamat   : ", ptr_mhs->alamat_rumah.jalan, ", ", ptr_mhs->alamat_rumah.kota, " ", ptr_mhs->alamat_rumah.kode_pos, "\n"
+    tampilkan "IPK      : ", ptr_mhs->ipk, "\n"
+    tampilkan "SKS      : ", ptr_mhs->jumlah_sks, "\n\n"
+
+    -- ========================================================
+    -- 3. Modifikasi data via pointer
+    -- ========================================================
+    tampilkan "=== MODIFIKASI DATA VIA POINTER ===\n"
+
+    tambah_sks(alamat mhs1, 6)
+    tambah_sks(alamat mhs2, 3)
+    tambah_sks(ptr_mhs, 4)
+
+    tampilkan "\n"
+
+    update_ipk(alamat mhs1, 3)
+    update_ipk(alamat mhs2, 3)
+    update_ipk(ptr_mhs, 3)
+
+    tampilkan "\n"
+
+    tampilkan "=== DATA SETELAH MODIFIKASI ===\n\n"
+
+    tampilkan "--- Mahasiswa 1 ---\n"
+    cetak_info_mahasiswa(mhs1)
+    tampilkan "SKS      : ", mhs1.jumlah_sks, "\n\n"
+
+    tampilkan "--- Mahasiswa 2 ---\n"
+    cetak_info_mahasiswa(mhs2)
+    tampilkan "SKS      : ", mhs2.jumlah_sks, "\n\n"
+
+    tampilkan "--- Mahasiswa 3 (Pointer) ---\n"
+    tampilkan "Nama     : ", ptr_mhs->nama, "\n"
+    tampilkan "NIM      : ", ptr_mhs->nim, "\n"
+    tampilkan "IPK      : ", ptr_mhs->ipk, "\n"
+    tampilkan "SKS      : ", ptr_mhs->jumlah_sks, "\n\n"
+
+    -- ========================================================
+    -- 4. Perbandingan dan penghitungan
+    -- ========================================================
+    tampilkan "=== PERBANDINGAN DATA ===\n"
+
+    variabel ipk_tertinggi: bilangan = mhs1.ipk
+    variabel nama_terbaik: teks = mhs1.nama
+
+    jika mhs2.ipk > ipk_tertinggi maka {
+        ipk_tertinggi = mhs2.ipk
+        nama_terbaik = mhs2.nama
+    }
+    jika ptr_mhs->ipk > ipk_tertinggi maka {
+        ipk_tertinggi = ptr_mhs->ipk
+        nama_terbaik = ptr_mhs->nama
+    }
+
+    tampilkan "Mahasiswa dengan IPK tertinggi: ", nama_terbaik, " (", ipk_tertinggi, ")\n"
+
+    variabel sks_terbanyak: bilangan = mhs1.jumlah_sks
+    variabel nama_sks_terbanyak: teks = mhs1.nama
+
+    jika mhs2.jumlah_sks > sks_terbanyak maka {
+        sks_terbanyak = mhs2.jumlah_sks
+        nama_sks_terbanyak = mhs2.nama
+    }
+    jika ptr_mhs->jumlah_sks > sks_terbanyak maka {
+        sks_terbanyak = ptr_mhs->jumlah_sks
+        nama_sks_terbanyak = ptr_mhs->nama
+    }
+
+    tampilkan "Mahasiswa dengan SKS terbanyak: ", nama_sks_terbanyak, " (", sks_terbanyak, " SKS)\n"
+    tampilkan "\n"
+
+    -- ========================================================
+    -- 5. Pembersihan
+    -- ========================================================
+    bebaskan(ptr_mhs)
+    tampilkan "[Sistem] Memori dibersihkan\n"
+
+    kembalikan 0
+}

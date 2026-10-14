@@ -1,0 +1,86 @@
+-- ============================================================
+-- Tes: Operator Bitwise
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST OPERATOR BITWISE ===\n"
+
+    variabel a: bilangan = 0x0F  -- 00001111 (15)
+    variabel b: bilangan = 0x55  -- 01010101 (85)
+
+    tampilkan "a = ", a, " (0x0F, biner: 00001111)\n"
+    tampilkan "b = ", b, " (0x55, biner: 01010101)\n"
+
+    -- AND bitwise
+    variabel hasil_dan: bilangan = a & b
+    tampilkan "a & b  = ", hasil_dan, " (0x05, biner: 00000101)\n"
+
+    -- OR bitwise
+    variabel hasil_atau: bilangan = a | b
+    tampilkan "a | b  = ", hasil_atau, " (0x5F, biner: 01011111)\n"
+
+    -- XOR bitwise
+    variabel hasil_xor: bilangan = a ^ b
+    tampilkan "a ^ b  = ", hasil_xor, " (0x5A, biner: 01011010)\n"
+
+    -- NOT bitwise
+    variabel hasil_not: bilangan = ~a
+    tampilkan "~a     = ", hasil_not, " (komplemen dari 0x0F)\n"
+
+    -- Geser kiri
+    variabel geser_kiri: bilangan = a << 2
+    tampilkan "a << 2 = ", geser_kiri, " (0x3C, biner: 00111100)\n"
+
+    -- Geser kanan
+    variabel geser_kanan: bilangan = b >> 2
+    tampilkan "b >> 2 = ", geser_kanan, " (0x15, biner: 00010101)\n"
+
+    -- Operasi bitwise assignment
+    tampilkan "\n=== ASSIGNMENT BITWISE ===\n"
+
+    variabel x: bilangan = 0x0F
+    tampilkan "x awal = ", x, "\n"
+
+    x &= 0x05
+    tampilkan "x &= 0x05 -> ", x, "\n"
+
+    x |= 0xA0
+    tampilkan "x |= 0xA0 -> ", x, "\n"
+
+    x ^= 0xFF
+    tampilkan "x ^= 0xFF -> ", x, "\n"
+
+    x <<= 1
+    tampilkan "x <<= 1 -> ", x, "\n"
+
+    x >>= 2
+    tampilkan "x >>= 2 -> ", x, "\n"
+
+    -- Flag manipulation
+    tampilkan "\n=== MANIPULASI FLAG ===\n"
+
+    variabel flags: bilangan = 0
+
+    -- Set bit ke-2
+    flags = flags | (1 << 2)
+    tampilkan "Set bit 2: ", flags, "\n"
+
+    -- Set bit ke-4
+    flags = flags | (1 << 4)
+    tampilkan "Set bit 4: ", flags, "\n"
+
+    -- Cek bit ke-2
+    jika (flags & (1 << 2)) != 0 maka {
+        tampilkan "Bit 2 = 1\n"
+    }
+
+    -- Clear bit ke-2
+    flags = flags & ~(1 << 2)
+    tampilkan "Clear bit 2: ", flags, "\n"
+
+    -- Toggle bit ke-4
+    flags = flags ^ (1 << 4)
+    tampilkan "Toggle bit 4: ", flags, "\n"
+
+    kembalikan 0
+}

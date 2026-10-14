@@ -1,0 +1,89 @@
+- Tes Generator (Pembangkit)
+
+-- Pembangkit dasar
+pembangkit fungsi hitung_naik(batas: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    variabel i: bilangan = 0
+    selama i < batas {
+        hasil(i)
+        i = i + 1
+    }
+}
+
+-- Pembangkit banyak nilai
+pembangkit fungsi pasangan() -> Pembangkit(dengan T = bilangan, R = hampa) {
+    hasil(1, 2, 3)
+    hasil(4, 5, 6)
+}
+
+-- Pembangkit delegasi
+pembangkit fungsi gabung(a: Pembangkit(dengan T = bilangan, R = hampa),
+                         b: Pembangkit(dengan T = bilangan, R = hampa))
+    -> Pembangkit(dengan T = bilangan, R = hampa)
+{
+    untuk setiap x dalam a {
+        hasil(x)
+    }
+    untuk setiap x dalam b {
+        hasil(x)
+    }
+}
+
+-- Pembangkit rekursif
+pembangkit fungsi turun(n: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    jika n <= 0 maka {
+        hasil(0)
+    } jika bukan semua diatas {
+        hasil(n)
+        hasil dari turun(n - 1)
+    }
+}
+
+-- Pembangkit dengan pilih
+pembangkit fungsi kategori(x: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    pilih x {
+        kasus 1: {
+            hasil(100)
+        }
+        kasus 2: {
+            hasil(200)
+        }
+        kasus 3: {
+            hasil(300)
+        }
+    }
+}
+
+-- Program utama
+prosedur utama() {
+    -- Pemakaian dasar
+    variabel g: Pembangkit(dengan T = bilangan, R = hampa) = hitung_naik(5)
+    untuk setiap x dalam g {
+        tampilkan x, "\n"
+    }
+
+    -- Pemakaian manual
+    variabel g2: Pembangkit(dengan T = bilangan, R = hampa) = hitung_naik(3)
+    selama bukan pembangkit_selesai(g2) {
+        pilih pembangkit_berikutnya(g2) {
+            kasus ADA(nilai):
+                tampilkan "Manual: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Selesai\n"
+        }
+    }
+
+    -- Delegasi
+    variabel g3: Pembangkit(dengan T = bilangan, R = hampa) = gabung(hitung_naik(3), hitung_naik(3))
+    untuk setiap x dalam g3 {
+        tampilkan "Gabung: ", x, "\n"
+    }
+
+    -- Rekursif
+    untuk setiap x dalam turun(5) {
+        tampilkan "Turun: ", x, "\n"
+    }
+
+    -- Kirim nilai
+    variabel g4: Pembangkit(dengan T = bilangan, R = hampa) = hitung_naik(10)
+    pembangkit_kirim(g4, 42)
+}

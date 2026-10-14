@@ -1,0 +1,6 @@
+-- Pengujian #warning
+
+prosedur utama() {
+    #warning "Ini adalah pesan peringatan yang disengaja"
+    tampilkan "Program tetap berjalan meskipun ada peringatan", "\n"
+}

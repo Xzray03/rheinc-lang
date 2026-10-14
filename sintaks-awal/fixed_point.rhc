@@ -1,0 +1,257 @@
+-- ============================================================
+-- Tes Desimal Tetap (Fixed-Point Decimal)
+-- ============================================================
+
+-- 1. Fungsi dengan parameter desimal_tetap
+fungsi tambah_dt(a: desimal_tetap, b: desimal_tetap) -> desimal_tetap {
+    kembalikan a + b
+}
+
+-- 2. Fungsi mengembalikan desimal_tetap
+fungsi hitung_bunga(pokok: desimal_tetap, persen: desimal_tetap) -> desimal_tetap {
+    kembalikan pokok * (persen / dt("100.00", skala = 2))
+}
+
+-- 3. Program utama
+prosedur utama() {
+    tampilkan "=== TEST DESIMAL TETAP ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Deklarasi
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Deklarasi ---\n"
+
+    variabel a: desimal_tetap("123.45", skala = 2)
+    variabel b: desimal_tetap("67.89", skala = 2)
+
+    tampilkan "a = ", ke_teks(a), "\n"
+    tampilkan "b = ", ke_teks(b), "\n"
+
+    -- --------------------------------------------------------
+    -- B. Literal dt
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Literal ---\n"
+
+    variabel c = dt("1000.00", skala = 2)
+    variabel d = dt("0.001", skala = 3)
+
+    tampilkan "c = ", ke_teks(c), "\n"
+    tampilkan "d = ", ke_teks(d), "\n"
+
+    -- --------------------------------------------------------
+    -- C. Aritmetika dasar
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Aritmetika Dasar ---\n"
+
+    variabel tambah = a + b
+    tampilkan "a + b = ", ke_teks(tambah), "\n"
+
+    variabel kurang = a - b
+    tampilkan "a - b = ", ke_teks(kurang), "\n"
+
+    variabel kali = a * b
+    tampilkan "a * b = ", ke_teks(kali), "\n"
+
+    -- --------------------------------------------------------
+    -- D. Pembagian dengan Opsi
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Pembagian ---\n"
+
+    pilih a / b {
+        kasus ADA(nilai):
+            tampilkan "a / b = ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Pembagian gagal\n"
+    }
+
+    pilih a / dt("0.00", skala = 2) {
+        kasus ADA(nilai):
+            tampilkan "a / 0 = ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Pembagian dengan nol gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- E. Perbandingan
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Perbandingan ---\n"
+
+    jika a > b maka {
+        tampilkan "a > b\n"
+    } jika bukan semua diatas {
+        tampilkan "a <= b\n"
+    }
+
+    jika a == b maka {
+        tampilkan "a == b\n"
+    } jika bukan semua diatas {
+        tampilkan "a != b\n"
+    }
+
+    -- --------------------------------------------------------
+    -- F. Assignment operator
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Assignment ---\n"
+
+    variabel k: desimal_tetap("10.00", skala = 2)
+    tampilkan "k awal = ", ke_teks(k), "\n"
+
+    k += dt("5.50", skala = 2)
+    tampilkan "k += 5.50 = ", ke_teks(k), "\n"
+
+    k -= dt("2.25", skala = 2)
+    tampilkan "k -= 2.25 = ", ke_teks(k), "\n"
+
+    k *= dt("2.00", skala = 2)
+    tampilkan "k *= 2.00 = ", ke_teks(k), "\n"
+
+    k++
+    tampilkan "k++ = ", ke_teks(k), "\n"
+
+    -- --------------------------------------------------------
+    -- G. Konversi teks
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Konversi Teks ---\n"
+
+    variabel s = ke_teks(a)
+    tampilkan "ke_teks(a) = ", s, "\n"
+
+    variabel a2 = ke_desimal_tetap(s, skala = 2)
+    tampilkan "ke_desimal_tetap(s) = ", ke_teks(a2), "\n"
+
+    variabel dari_biasa = ke_desimal_tetap("9999.99", skala = 2)
+    tampilkan "ke_desimal_tetap(\"9999.99\") = ", ke_teks(dari_biasa), "\n"
+
+    -- --------------------------------------------------------
+    -- H. Konversi ke/dari bilangan_tanpa_batas
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Konversi BTB ---\n"
+
+    variabel n: bilangan_tanpa_batas("12345")
+    variabel dt1 = ke_desimal_tetap(n, skala = 2)
+    tampilkan "ke_desimal_tetap(btb(\"12345\"), 2) = ", ke_teks(dt1), "\n"
+
+    variabel n2 = ke_btb(dt1)
+    tampilkan "ke_btb(dt1) = ", ke_teks(n2), "\n"
+
+    -- --------------------------------------------------------
+    -- I. Operasi khusus
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Operasi Khusus ---\n"
+
+    variabel positif = dt("16.00", skala = 2)
+    tampilkan "dt_akar(16.00) = ", ke_teks(dt_akar(positif)), "\n"
+    tampilkan "dt_pangkat(2.00, 3) = ", ke_teks(dt_pangkat(dt("2.00", skala = 2), 3)), "\n"
+    tampilkan "dt_abs(-5.50) = ", ke_teks(dt_abs(dt("-5.50", skala = 2))), "\n"
+    tampilkan "dt_bulat(3.75) = ", ke_teks(dt_bulat(dt("3.75", skala = 2))), "\n"
+    tampilkan "dt_potong(3.75) = ", ke_teks(dt_potong(dt("3.75", skala = 2))), "\n"
+    tampilkan "dt_skala(a) = ", dt_skala(a), "\n"
+
+    -- --------------------------------------------------------
+    -- J. Interaksi dengan larik_dt
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Larik DT ---\n"
+
+    variabel l: larik_dt[5] = [
+        dt("10.00", skala = 2),
+        dt("20.50", skala = 2),
+        dt("30.25", skala = 2),
+        dt("40.75", skala = 2),
+        dt("50.00", skala = 2)
+    ]
+
+    tampilkan "larik_dt:\n"
+    untuk i dari 0 sampai 4 {
+        tampilkan "  l[", i, "] = ", ke_teks(l[i]), "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- K. Baca dari input
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Baca Input ---\n"
+
+    variabel input: desimal_tetap(skala = 2)
+    tampilkan "Masukkan nilai (contoh: 123.45): "
+    baca(input)
+    tampilkan "Anda memasukkan: ", ke_teks(input), "\n"
+
+    -- --------------------------------------------------------
+    -- L. Fungsi dengan desimal_tetap
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Fungsi ---\n"
+
+    variabel hasil = tambah_dt(a, b)
+    tampilkan "tambah_dt(a, b) = ", ke_teks(hasil), "\n"
+
+    variabel bunga = hitung_bunga(dt("1000.00", skala = 2), dt("5.00", skala = 2))
+    tampilkan "hitung_bunga(1000.00, 5.00) = ", ke_teks(bunga), "\n"
+
+    -- --------------------------------------------------------
+    -- M. Desimal tetap di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Di Dalam Struktur ---\n"
+
+    struktur Uang {
+        jumlah: desimal_tetap,
+        mata: teks
+    }
+
+    variabel u: Uang
+    u.jumlah = dt("100000.50", skala = 2)
+    u.mata = "IDR"
+
+    tampilkan "Uang: ", ke_teks(u.jumlah), " ", u.mata, "\n"
+
+    -- --------------------------------------------------------
+    -- N. Desimal tetap di dalam Opsi dan Hasil
+    -- --------------------------------------------------------
+    tampilkan "\n--- N. Opsi dan Hasil ---\n"
+
+    variabel opt: Opsi(dengan T = desimal_tetap) = ADA(nilai = dt("99.99", skala = 2))
+    pilih opt {
+        kasus ADA(nilai):
+            tampilkan "Opsi ADA: ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    variabel hasil2: Hasil(dengan T = desimal_tetap, E = teks) =
+        SUKSES(nilai = dt("88.88", skala = 2))
+    pilih hasil2 {
+        kasus SUKSES(nilai):
+            tampilkan "Hasil SUKSES: ", ke_teks(nilai), "\n"
+        kasus GAGAL(pesan):
+            tampilkan "Hasil GAGAL: ", pesan, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- O. Desimal tetap di dalam Daftar
+    -- --------------------------------------------------------
+    tampilkan "\n--- O. Daftar ---\n"
+
+    variabel daftar: Daftar(dengan T = desimal_tetap, jenis = tunggal) = daftar()
+    daftar_tambah(daftar, dt("1.10", skala = 2))
+    daftar_tambah(daftar, dt("2.20", skala = 2))
+    daftar_tambah(daftar, dt("3.30", skala = 2))
+
+    untuk setiap x dalam daftar {
+        tampilkan "  ", ke_teks(x), "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- P. Desimal tetap dengan pointer
+    -- --------------------------------------------------------
+    tampilkan "\n--- P. Pointer ---\n"
+
+    variabel ptr: tunjuk ke desimal_tetap = alokasi(desimal_tetap)
+    isi(ptr) = dt("777.77", skala = 2)
+
+    tampilkan "isi(ptr) = ", ke_teks(isi(ptr)), "\n"
+
+    isi(ptr) += dt("222.23", skala = 2)
+    tampilkan "setelah += 222.23: ", ke_teks(isi(ptr)), "\n"
+
+    bebaskan(ptr)
+
+    tampilkan "\n=== SELESAI ===\n"
+}

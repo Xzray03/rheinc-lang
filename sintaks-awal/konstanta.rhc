@@ -1,0 +1,39 @@
+-- ============================================================
+-- Tes: Konstanta (Tetap)
+-- ============================================================
+
+-- Konstanta global
+tetap GOL_DARAH: karakter = 'A'
+tetap MAX_SIZE: bilangan = 100
+tetap APP_NAME: teks = "RheinC Test"
+tetap DEBUG_MODE: logika = salah
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST KONSTANTA (TETAP) ===\n"
+
+    -- Konstanta lokal
+    tetap LOKAL_KONSTAN: bilangan = 42
+
+    tampilkan "Konstanta Global:\n"
+    tampilkan "  GOL_DARAH = ", GOL_DARAH, "\n"
+    tampilkan "  MAX_SIZE = ", MAX_SIZE, "\n"
+    tampilkan "  APP_NAME = ", APP_NAME, "\n"
+    tampilkan "  DEBUG_MODE = ", DEBUG_MODE, "\n"
+
+    tampilkan "Konstanta Lokal:\n"
+    tampilkan "  LOKAL_KONSTAN = ", LOKAL_KONSTAN, "\n"
+
+    -- Menggunakan konstanta
+    tampilkan "Penggunaan Konstanta:\n"
+
+    variabel SIZE: bilangan = MAX_SIZE * 10 * 10
+    tampilkan MAX_SIZE, " x 10 x 10 = ", SIZE, "\n"
+
+    jika DEBUG_MODE maka {
+        tampilkan "Debug mode aktif\n"
+    } jika bukan semua diatas {
+        tampilkan "Debug mode tidak aktif\n"
+    }
+
+    kembalikan 0
+}

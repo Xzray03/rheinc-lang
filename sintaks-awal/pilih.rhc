@@ -1,0 +1,115 @@
+-- ============================================================
+-- Tes: Pernyataan Pilih (Switch)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST PERNYATAAN PILIH ===\n"
+
+    -- Test 1: Pilih dengan bilangan
+    tampilkan "Test 1: Pilih bilangan\n"
+
+    variabel nilai: bilangan = 2
+
+    pilih nilai {
+        kasus 1: {
+            tampilkan "Nilai = 1\n"
+        }
+        kasus 2: {
+            tampilkan "Nilai = 2\n"
+        }
+        kasus 3: {
+            tampilkan "Nilai = 3\n"
+        }
+        bawaan: {
+            tampilkan "Nilai bukan 1, 2, atau 3\n"
+        }
+    }
+
+    -- Test 2: Pilih dengan karakter
+    tampilkan "Test 2: Pilih karakter\n"
+
+    variabel grade: karakter = 'B'
+
+    pilih grade {
+        kasus 'A': {
+            tampilkan "Grade A: Sangat Baik\n"
+        }
+        kasus 'B': {
+            tampilkan "Grade B: Baik\n"
+        }
+        kasus 'C': {
+            tampilkan "Grade C: Cukup\n"
+        }
+        kasus 'D': {
+            tampilkan "Grade D: Kurang\n"
+        }
+        bawaan: {
+            tampilkan "Grade E: Tidak Lulus\n"
+        }
+    }
+
+    -- Test 3: Multiple case
+    tampilkan "Test 3: Hari kerja / akhir pekan\n"
+
+    variabel hari: bilangan = 6  -- 1=Senin, 7=Minggu
+
+    pilih hari {
+        kasus 1:
+        kasus 2:
+        kasus 3:
+        kasus 4:
+        kasus 5: {
+            tampilkan "Hari kerja\n"
+            berhenti
+        }
+        kasus 6:
+        kasus 7: {
+            tampilkan "Akhir pekan\n"
+            berhenti
+        }
+        bawaan: {
+            tampilkan "Hari tidak valid\n"
+        }
+    }
+
+    -- Test 4: Fall-through
+    tampilkan "Test 4: Kategori nilai\n"
+
+    variabel skor: bilangan = 85
+
+    pilih skor / 10 {
+        kasus 10:
+        kasus 9: {
+            tampilkan "Nilai A\n"
+        }
+        kasus 8: {
+            tampilkan "Nilai B\n"
+        }
+        kasus 7: {
+            tampilkan "Nilai C\n"
+        }
+        kasus 6: {
+            tampilkan "Nilai D\n"
+        }
+        bawaan: {
+            tampilkan "Nilai E\n"
+        }
+    }
+
+    -- Test 5: Switch tanpa default
+    tampilkan "Test 5: Pilih tanpa bawaan\n"
+
+    variabel kode: bilangan = 99
+
+    pilih kode {
+        kasus 1: {
+            tampilkan "Kode 1\n"
+        }
+        kasus 2: {
+            tampilkan "Kode 2\n"
+        }
+    }
+    tampilkan "Setelah pilih (kode tidak cocok)\n"
+
+    kembalikan 0
+}

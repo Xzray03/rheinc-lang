@@ -1,0 +1,3 @@
+#tambahkan "deklarasi3.rhh"
+
+variabel b: teks = "- Ini adalah teks dari deklarasi2.rhh yang di include melalui deklarasi.rhh"

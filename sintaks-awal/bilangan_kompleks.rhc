@@ -1,0 +1,217 @@
+-- ============================================================
+-- Tes Bilangan Kompleks
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "=== TEST BILANGAN KOMPLEKS ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Deklarasi basis desimal
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Basis Desimal ---\n"
+
+    variabel a: bilangan_kompleks(basis = desimal, real = "3.14", imajiner = "2.71")
+    variabel b: bilangan_kompleks(basis = desimal, real = "1.00", imajiner = "1.00")
+
+    tampilkan "a = ", ke_teks(a), "\n"
+    tampilkan "b = ", ke_teks(b), "\n"
+
+    -- --------------------------------------------------------
+    -- B. Deklarasi basis desimal_tetap
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Basis Desimal Tetap ---\n"
+
+    variabel c: bilangan_kompleks(basis = desimal_tetap, skala = 2, real = "3.14", imajiner = "2.71")
+    variabel d: bilangan_kompleks(basis = desimal_tetap, skala = 2, real = "1.00", imajiner = "1.00")
+
+    tampilkan "c = ", ke_teks(c), "\n"
+    tampilkan "d = ", ke_teks(d), "\n"
+
+    -- --------------------------------------------------------
+    -- C. Literal kx
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Literal kx ---\n"
+
+    variabel e = kx(basis = desimal, real = "5.00", imajiner = "6.00")
+    variabel f = kx(basis = desimal_tetap, skala = 2, real = "5.00", imajiner = "6.00")
+
+    tampilkan "e = ", ke_teks(e), "\n"
+    tampilkan "f = ", ke_teks(f), "\n"
+
+    -- --------------------------------------------------------
+    -- D. Aritmetika dasar
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Aritmetika ---\n"
+
+    variabel tambah = a + b
+    tampilkan "a + b = ", ke_teks(tambah), "\n"
+
+    variabel kurang = a - b
+    tampilkan "a - b = ", ke_teks(kurang), "\n"
+
+    variabel kali = a * b
+    tampilkan "a * b = ", ke_teks(kali), "\n"
+
+    -- --------------------------------------------------------
+    -- E. Pembagian dengan Opsi
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Pembagian ---\n"
+
+    pilih a / b {
+        kasus ADA(nilai):
+            tampilkan "a / b = ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Pembagian gagal\n"
+    }
+
+    variabel nol = kx(basis = desimal, real = "0.00", imajiner = "0.00")
+    pilih a / nol {
+        kasus ADA(nilai):
+            tampilkan "a / 0 = ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Pembagian dengan nol gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- F. Modulus dan konjugat
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Modulus dan Konjugat ---\n"
+
+    tampilkan "|a| = ", ke_teks(kx_modulus(a)), "\n"
+    tampilkan "~a = ", ke_teks(kx_konjugat(a)), "\n"
+    tampilkan "argumen(a) = ", ke_teks(kx_argumen(a)), "\n"
+    tampilkan "polar(a) = ", ke_teks(kx_polar(a)), "\n"
+
+    -- --------------------------------------------------------
+    -- G. Akar dan pangkat
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Akar dan Pangkat ---\n"
+
+    tampilkan "akar(b) = ", ke_teks(kx_akar(b)), "\n"
+    tampilkan "b^2 = ", ke_teks(kx_pangkat(b, 2)), "\n"
+
+    -- --------------------------------------------------------
+    -- H. Trigonometri
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Trigonometri ---\n"
+
+    tampilkan "sin(a) = ", ke_teks(kx_sin(a)), "\n"
+    tampilkan "cos(a) = ", ke_teks(kx_cos(a)), "\n"
+    tampilkan "tan(a) = ", ke_teks(kx_tan(a)), "\n"
+
+    -- --------------------------------------------------------
+    -- I. Perbandingan
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Perbandingan ---\n"
+
+    jika a == b maka {
+        tampilkan "a == b\n"
+    } jika bukan semua diatas {
+        tampilkan "a != b\n"
+    }
+
+    -- --------------------------------------------------------
+    -- J. Assignment
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Assignment ---\n"
+
+    variabel k = kx(basis = desimal, real = "1.00", imajiner = "2.00")
+    tampilkan "k awal = ", ke_teks(k), "\n"
+
+    k += kx(basis = desimal, real = "3.00", imajiner = "4.00")
+    tampilkan "k += (3+4i) = ", ke_teks(k), "\n"
+
+    k *= kx(basis = desimal, real = "2.00", imajiner = "0.00")
+    tampilkan "k *= 2 = ", ke_teks(k), "\n"
+
+    k++
+    tampilkan "k++ = ", ke_teks(k), "\n"
+
+    -- --------------------------------------------------------
+    -- K. Konversi teks
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Konversi Teks ---\n"
+
+    variabel s = ke_teks(a)
+    tampilkan "ke_teks(a) = ", s, "\n"
+
+    variabel a2 = ke_kompleks(s)
+    tampilkan "ke_kompleks(s) = ", ke_teks(a2), "\n"
+
+    -- --------------------------------------------------------
+    -- L. Baca dari input
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Baca Input ---\n"
+
+    variabel input: bilangan_kompleks
+    tampilkan "Masukkan bilangan kompleks (contoh: 3.14 + 2.71i): "
+    baca(input)
+    tampilkan "Anda memasukkan: ", ke_teks(input), "\n"
+
+    -- --------------------------------------------------------
+    -- M. Larik khusus
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Larik Kompleks ---\n"
+
+    variabel l1: larik_kd[3] = [
+        kx(basis = desimal, real = "1.0", imajiner = "2.0"),
+        kx(basis = desimal, real = "3.0", imajiner = "4.0"),
+        kx(basis = desimal, real = "5.0", imajiner = "6.0")
+    ]
+
+    tampilkan "larik_kd:\n"
+    untuk i dari 0 sampai 2 {
+        tampilkan "  l1[", i, "] = ", ke_teks(l1[i]), "\n"
+    }
+
+    variabel l2: larik_kdt[2] = [
+        kx(basis = desimal_tetap, skala = 1, real = "1.0", imajiner = "2.0"),
+        kx(basis = desimal_tetap, skala = 1, real = "3.0", imajiner = "4.0")
+    ]
+
+    tampilkan "larik_kdt:\n"
+    untuk i dari 0 sampai 1 {
+        tampilkan "  l2[", i, "] = ", ke_teks(l2[i]), "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- N. Di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- N. Di Dalam Struktur ---\n"
+
+    struktur Sinyal {
+        nilai: bilangan_kompleks,
+        nama: teks
+    }
+
+    variabel sig: Sinyal
+    sig.nilai = kx(basis = desimal, real = "1.0", imajiner = "2.0")
+    sig.nama = "sinyal1"
+
+    tampilkan "Sinyal: ", sig.nama, " = ", ke_teks(sig.nilai), "\n"
+
+    -- --------------------------------------------------------
+    -- O. Di dalam Opsi dan Hasil
+    -- --------------------------------------------------------
+    tampilkan "\n--- O. Opsi dan Hasil ---\n"
+
+    variabel opt: Opsi(dengan T = bilangan_kompleks) =
+        ADA(nilai = kx(basis = desimal, real = "9.0", imajiner = "8.0"))
+    pilih opt {
+        kasus ADA(nilai):
+            tampilkan "Opsi ADA: ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    variabel hasil: Hasil(dengan T = bilangan_kompleks, E = teks) =
+        SUKSES(nilai = kx(basis = desimal, real = "7.0", imajiner = "6.0"))
+    pilih hasil {
+        kasus SUKSES(nilai):
+            tampilkan "Hasil SUKSES: ", ke_teks(nilai), "\n"
+        kasus GAGAL(pesan):
+            tampilkan "Hasil GAGAL: ", pesan, "\n"
+    }
+
+    tampilkan "\n=== SELESAI ===\n"
+}

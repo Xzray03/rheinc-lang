@@ -1,0 +1,264 @@
+-- ============================================================
+-- Tes Channel (Saluran)
+-- ============================================================
+
+-- Saluran global untuk komunikasi antar pekerja
+tugas_global variabel ch_bilangan: Saluran(dengan T = bilangan) = saluran()
+tugas_global variabel ch_teks: Saluran(dengan T = teks) = saluran()
+
+-- Fungsi: produsen bilangan
+fungsi produsen_bilangan(ch: Saluran(dengan T = bilangan), n: bilangan) -> hampa {
+    untuk i dari 1 sampai n {
+        saluran_kirim(ch, i * 10)
+    }
+    saluran_tutup(ch)
+    kembalikan
+}
+
+-- Fungsi: konsumen bilangan
+fungsi konsumen_bilangan(ch: Saluran(dengan T = bilangan)) -> bilangan {
+    variabel jumlah: bilangan = 0
+    selama benar {
+        pilih saluran_terima(ch) {
+            kasus ADA(nilai):
+                jumlah = jumlah + nilai
+                tampilkan "  Terima: ", nilai, "\n"
+            kasus KOSONG():
+                berhenti
+        }
+    }
+    kembalikan jumlah
+}
+
+-- Fungsi: produsen teks
+fungsi produsen_teks(ch: Saluran(dengan T = teks)) -> hampa {
+    saluran_kirim(ch, "halo")
+    saluran_kirim(ch, "dunia")
+    saluran_kirim(ch, "RheinC")
+    saluran_tutup(ch)
+    kembalikan
+}
+
+-- Fungsi: konsumen teks
+fungsi konsumen_teks(ch: Saluran(dengan T = teks)) -> hampa {
+    selama benar {
+        pilih saluran_terima(ch) {
+            kasus ADA(nilai):
+                tampilkan "  Terima teks: ", nilai, "\n"
+            kasus KOSONG():
+                berhenti
+        }
+    }
+    kembalikan
+}
+
+-- Program utama
+prosedur utama() {
+    tampilkan "=== TEST CHANNEL ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Channel dasar
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Channel Dasar ---\n"
+
+    variabel ch1: Saluran(dengan T = bilangan) = saluran()
+
+    saluran_kirim(ch1, 10)
+    saluran_kirim(ch1, 20)
+    saluran_kirim(ch1, 30)
+
+    untuk i dari 1 sampai 3 {
+        pilih saluran_terima(ch1) {
+            kasus ADA(nilai):
+                tampilkan "Diterima: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Kosong\n"
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- B. Channel dengan ukuran buffer
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Channel dengan Buffer ---\n"
+
+    variabel ch2: Saluran(dengan T = bilangan) = saluran(ukuran = 5)
+
+    saluran_kirim(ch2, 1)
+    saluran_kirim(ch2, 2)
+    saluran_kirim(ch2, 3)
+
+    tampilkan "Buffer terisi: ", saluran_ukuran(ch2), "\n"
+
+    pilih saluran_terima(ch2) {
+        kasus ADA(nilai):
+            tampilkan "Diterima dari buffer: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    -- --------------------------------------------------------
+    -- C. Produsen-Konsumen
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Produsen-Konsumen ---\n"
+
+    variabel ch3: Saluran(dengan T = bilangan) = saluran()
+
+    variabel produsen: Pekerja(dengan T = hampa) = buat_pekerja(produsen_bilangan, ch3, 5)
+    variabel konsumen: Pekerja(dengan T = bilangan) = buat_pekerja(konsumen_bilangan, ch3)
+
+    pekerja_tunggu(produsen)
+
+    pilih pekerja_tunggu(konsumen) {
+        kasus ADA(total):
+            tampilkan "Total dari konsumen: ", total, "\n"
+        kasus KOSONG():
+            tampilkan "Konsumen gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- D. Channel teks
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Channel Teks ---\n"
+
+    variabel ch4: Saluran(dengan T = teks) = saluran()
+
+    variabel p1: Pekerja(dengan T = hampa) = buat_pekerja(produsen_teks, ch4)
+    variabel k1: Pekerja(dengan T = hampa) = buat_pekerja(konsumen_teks, ch4)
+
+    pekerja_tunggu(p1)
+    pekerja_tunggu(k1)
+
+    -- --------------------------------------------------------
+    -- E. Channel global
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Channel Global ---\n"
+
+    variabel p2: Pekerja(dengan T = hampa) = buat_pekerja(produsen_bilangan, ch_bilangan, 3)
+    variabel k2: Pekerja(dengan T = bilangan) = buat_pekerja(konsumen_bilangan, ch_bilangan)
+
+    pekerja_tunggu(p2)
+
+    pilih pekerja_tunggu(k2) {
+        kasus ADA(total):
+            tampilkan "Total global: ", total, "\n"
+        kasus KOSONG():
+            tampilkan "Gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- F. Channel dengan select
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Channel dengan Select ---\n"
+
+    variabel ch5: Saluran(dengan T = bilangan) = saluran()
+    variabel ch6: Saluran(dengan T = teks) = saluran()
+
+    saluran_kirim(ch5, 100)
+    saluran_kirim(ch6, "pesan")
+
+    -- Ambil dari salah satu yang siap
+    pilih saluran_terima(ch5) {
+        kasus ADA(nilai):
+            tampilkan "ch5 siap: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "ch5 kosong\n"
+    }
+
+    pilih saluran_terima(ch6) {
+        kasus ADA(nilai):
+            tampilkan "ch6 siap: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "ch6 kosong\n"
+    }
+
+    -- --------------------------------------------------------
+    -- G. Channel ditutup
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Channel Ditutup ---\n"
+
+    variabel ch7: Saluran(dengan T = bilangan) = saluran()
+
+    saluran_kirim(ch7, 1)
+    saluran_kirim(ch7, 2)
+    saluran_tutup(ch7)
+
+    selama benar {
+        pilih saluran_terima(ch7) {
+            kasus ADA(nilai):
+                tampilkan "Diterima: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Channel ditutup\n"
+                berhenti
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- H. Channel di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Channel di Dalam Struktur ---\n"
+
+    struktur Jalur {
+        ch: Saluran(dengan T = bilangan),
+        nama: teks
+    }
+
+    variabel j: Jalur
+    j.nama = "jalur1"
+    j.ch = saluran()
+
+    saluran_kirim(j.ch, 42)
+
+    pilih saluran_terima(j.ch) {
+        kasus ADA(nilai):
+            tampilkan j.nama, " menerima: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan j.nama, " kosong\n"
+    }
+
+    -- --------------------------------------------------------
+    -- I. Channel di dalam daftar
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Channel di Dalam Daftar ---\n"
+
+    variabel daftar_ch: Daftar(dengan T = Saluran(dengan T = bilangan), jenis = tunggal) = daftar()
+
+    variabel ch8: Saluran(dengan T = bilangan) = saluran()
+    variabel ch9: Saluran(dengan T = bilangan) = saluran()
+
+    daftar_tambah(daftar_ch, ch8)
+    daftar_tambah(daftar_ch, ch9)
+
+    saluran_kirim(ch8, 10)
+    saluran_kirim(ch9, 20)
+
+    untuk setiap ch in daftar_ch {
+        pilih saluran_terima(ch) {
+            kasus ADA(nilai):
+                tampilkan "Dari daftar: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Kosong\n"
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- J. Channel dengan pointer
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Channel dengan Pointer ---\n"
+
+    variabel ptr_ch: tunjuk ke Saluran(dengan T = bilangan) = alokasi(Saluran(dengan T = bilangan))
+    isi(ptr_ch) = saluran()
+
+    saluran_kirim(isi(ptr_ch), 99)
+
+    pilih saluran_terima(isi(ptr_ch)) {
+        kasus ADA(nilai):
+            tampilkan "Dari pointer: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    saluran_tutup(isi(ptr_ch))
+    bebaskan(ptr_ch)
+
+    tampilkan "\n=== SELESAI ===\n"
+}

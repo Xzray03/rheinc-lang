@@ -1,0 +1,72 @@
+-- Tes Sum Type
+
+-- Opsi harus didefinisikan lebih dulu
+generik T cacahan_sum Opsi
+dimana T: Terbandingkan
+{
+    kasus ADA(nilai: T),
+    kasus KOSONG()
+}
+
+-- Hasil
+generik T, E cacahan_sum Hasil {
+    kasus SUKSES(nilai: T),
+    kasus GAGAL(pesan: E)
+}
+
+-- Pohon rekursif lewat Opsi
+cacahan_sum POHON {
+    kasus DAUN(nilai: bilangan),
+    kasus CABANG(anak: Opsi(POHON))
+}
+
+-- Struktur berisi sum type
+struktur Pembungkus {
+    data: Hasil(dengan T = bilangan, E = teks),
+    panjang: bilangan
+}
+
+-- Pemakaian di dalam cacahan
+cacahan Daftar_Tipe {
+    OPSI_BILANGAN = cacahan_sum(Opsi(dengan T = bilangan))
+}
+
+-- Program utama
+prosedur utama() {
+    variabel x: Opsi(dengan T = bilangan) = ADA(nilai = 42)
+    variabel y: Opsi(dengan T = bilangan) = KOSONG()
+
+    variabel hasil: Hasil(dengan T = bilangan, E = teks) =
+        SUKSES(nilai = 100)
+
+    pilih hasil {
+        kasus SUKSES(nilai):
+            tampilkan "Sukses: ", nilai, "\n"
+        kasus GAGAL(pesan):
+            tampilkan "Gagal: ", pesan, "\n"
+    }
+
+    -- Pengambilan lewat cacahan
+    variabel z: Daftar_Tipe.OPSI_BILANGAN = ADA(nilai = 7)
+    pilih z {
+        kasus ADA(nilai):
+            tampilkan "Daftar_Tipe.ADA: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Daftar_Tipe.KOSONG\n"
+    }
+
+    -- Pembacaan otomatis
+    tampilkan "ambil_ada(x) = ", ambil_ada(x), "\n"
+
+    -- Struktur berisi sum type
+    variabel p: Pembungkus
+    p.data = SUKSES(nilai = 200)
+    p.panjang = 3
+
+    pilih p.data {
+        kasus SUKSES(nilai):
+            tampilkan "Pembungkus.SUKSES: ", nilai, "\n"
+        kasus GAGAL(pesan):
+            tampilkan "Pembungkus.GAGAL: ", pesan, "\n"
+    }
+}

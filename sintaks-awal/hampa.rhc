@@ -1,0 +1,45 @@
+-- ============================================================
+-- Tes: Tipe Data Hampa (Void)
+-- ============================================================
+
+-- Prosedur tanpa parameter dan tanpa nilai kembali
+prosedur prosedur_sederhana() {
+    tampilkan "Ini adalah prosedur sederhana\n"
+}
+
+-- Prosedur dengan parameter
+prosedur tampilkan_pesan(pesan: teks, ulang: bilangan) {
+    untuk i dari 1 sampai ulang {
+        tampilkan i, ": ", pesan, "\n"
+    }
+}
+
+-- Pointer ke hampa
+fungsi alokasi_buffer(ukuran: bilangan) -> tunjuk ke hampa {
+    variabel ptr: tunjuk ke hampa = alokasi(ukuran)
+    kembalikan ptr
+}
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST TIPE DATA HAMPA ===\n"
+
+    -- Panggil prosedur
+    prosedur_sederhana()
+
+    tampilkan_pesan("Halo RheinC", 3)
+    tampilkan "\n"
+
+    -- Pointer hampa (void*)
+    tampilkan "\n=== POINTER HAMPA ===\n"
+
+    variabel ptr: tunjuk ke hampa = alokasi_buffer(100)
+    tampilkan "Buffer dialokasikan di: ", alamat(ptr), "\n"
+
+    jika ptr != kosong maka {
+        tampilkan "Alokasi berhasil\n"
+        bebaskan(ptr)
+        tampilkan "Buffer dibebaskan\n"
+    }
+
+    kembalikan 0
+}

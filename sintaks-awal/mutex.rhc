@@ -1,0 +1,124 @@
+-- ============================================================
+-- Tes Mutex
+-- ============================================================
+
+-- Data bersama yang dilindungi mutex
+tugas_global variabel saldo: bilangan = 1000
+tugas_global variabel mutex_saldo: Mutex = mutex()
+
+-- Riwayat transaksi
+tugas_global variabel riwayat: Daftar(dengan T = teks, jenis = tunggal) = daftar()
+tugas_global variabel mutex_riwayat: Mutex = mutex()
+
+-- Fungsi: tarik saldo
+fungsi tarik(jumlah: bilangan) -> Opsi(dengan T = bilangan) {
+    mutex_kunci(mutex_saldo)
+
+    jamin saat keluar {
+        mutex_buka(mutex_saldo)
+    }
+
+    jika jumlah > saldo maka {
+        mutex_kunci(mutex_riwayat)
+        daftar_tambah(riwayat, "Gagal tarik: saldo tidak cukup")
+        mutex_buka(mutex_riwayat)
+        kembalikan KOSONG()
+    }
+
+    saldo = saldo - jumlah
+
+    mutex_kunci(mutex_riwayat)
+    daftar_tambah(riwayat, "Tarik berhasil")
+    mutex_buka(mutex_riwayat)
+
+    kembalikan ADA(nilai = saldo)
+}
+
+-- Fungsi: setor saldo
+fungsi setor(jumlah: bilangan) -> bilangan {
+    mutex_kunci(mutex_saldo)
+
+    jamin saat keluar {
+        mutex_buka(mutex_saldo)
+    }
+
+    saldo = saldo + jumlah
+
+    mutex_kunci(mutex_riwayat)
+    daftar_tambah(riwayat, "Setor berhasil")
+    mutex_buka(mutex_riwayat)
+
+    kembalikan saldo
+}
+
+-- Fungsi: tampilkan saldo
+fungsi lihat_saldo() -> bilangan {
+    mutex_kunci(mutex_saldo)
+
+    jamin saat keluar {
+        mutex_buka(mutex_saldo)
+    }
+
+    kembalikan saldo
+}
+
+-- Program utama
+prosedur utama() {
+    tampilkan "=== TEST MUTEX ===\n"
+
+    -- Saldo awal
+    tampilkan "Saldo awal: ", lihat_saldo(), "\n"
+
+    -- Setor
+    variabel s1: Pekerja(dengan T = bilangan) = buat_pekerja(setor, 500)
+    variabel s2: Pekerja(dengan T = bilangan) = buat_pekerja(setor, 300)
+
+    pilih pekerja_tunggu(s1) {
+        kasus ADA(nilai):
+            tampilkan "Setor 500 -> saldo: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Setor gagal\n"
+    }
+
+    pilih pekerja_tunggu(s2) {
+        kasus ADA(nilai):
+            tampilkan "Setor 300 -> saldo: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Setor gagal\n"
+    }
+
+    -- Tarik
+    pilih tarik(200) {
+        kasus ADA(nilai):
+            tampilkan "Tarik 200 -> saldo: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Tarik gagal\n"
+    }
+
+    -- Tarik melebihi saldo
+    pilih tarik(99999) {
+        kasus ADA(nilai):
+            tampilkan "Tarik 99999 -> saldo: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Tarik 99999 gagal: saldo tidak cukup\n"
+    }
+
+    -- Beberapa pekerja sekaligus
+    variabel p1: Pekerja(dengan T = bilangan) = buat_pekerja(setor, 100)
+    variabel p2: Pekerja(dengan T = bilangan) = buat_pekerja(setor, 200)
+    variabel p3: Pekerja(dengan T = bilangan) = buat_pekerja(setor, 300)
+
+    pekerja_tunggu(p1)
+    pekerja_tunggu(p2)
+    pekerja_tunggu(p3)
+
+    tampilkan "Saldo akhir: ", lihat_saldo(), "\n"
+
+    -- Riwayat
+    tampilkan "\nRiwayat transaksi:\n"
+    untuk setiap r dalam riwayat {
+        tampilkan "  - ", r, "\n"
+    }
+
+    tampilkan "\n=== SELESAI ===\n"
+}

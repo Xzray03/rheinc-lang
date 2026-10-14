@@ -1,0 +1,38 @@
+-- ============================================================
+-- Program: Pengecekan Nilai
+-- Deskripsi: Menentukan grade berdasarkan nilai
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    variabel nilai: bilangan = 85
+
+    tampilkan "=== Pengecekan Nilai ===\n"
+    tampilkan "Nilai anda: ", nilai, "\n"
+
+    jika nilai >= 90 maka {
+        tampilkan "Grade: A (Sangat Baik)\n"
+    } selain itu {
+        jika nilai >= 80 maka {
+            tampilkan "Grade: B (Baik)\n"
+        } selain itu {
+            jika nilai >= 70 maka {
+                tampilkan "Grade: C (Cukup)\n"
+            } selain itu {
+                jika nilai >= 60 maka {
+                    tampilkan "Grade: D (Kurang)\n"
+                } selain itu {
+                    tampilkan "Grade: E (Sangat Kurang)\n"
+                }
+            }
+        }
+    }
+
+    -- Cek kelulusan
+    jika nilai >= 60 maka {
+        tampilkan "Status: LULUS\n"
+    } jika bukan semua diatas {
+        tampilkan "Status: TIDAK LULUS\n"
+    }
+
+    kembalikan 0
+}

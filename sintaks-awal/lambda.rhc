@@ -1,0 +1,38 @@
+-- Pengujian fitur 'lambda(...) { ... }'
+
+-- Fungsi tingkat-tinggi: menerima lambda sebagai argumen (callback)
+fungsi terapkan(f: tunjuk ke fungsi, x: bilangan, y: bilangan) -> bilangan {
+    kembalikan f(x, y)
+}
+
+prosedur utama() {
+    -- Lambda disimpan ke variabel
+    tampilkan "Lambda disimpan dalam variabel:\n"
+    variabel jumlah = lambda(a: bilangan, b: bilangan) { kembalikan a + b }
+    tampilkan jumlah(3, 4), "\n"
+
+    -- Lambda dengan ternary di dalam badannya
+    tampilkan "\nLambda dengan ternary:\n"
+    variabel maksimum = lambda(a: bilangan, b: bilangan) { kembalikan a > b ? a : b }
+    tampilkan maksimum(10, 20), "\n"
+    tampilkan maksimum(99, 3), "\n"
+
+    -- Lambda dioper LANGSUNG sebagai argumen ke fungsi lain (callback)
+    tampilkan "\nLambda sebagai argumen ke fungsi lain (callack):\n"
+    tampilkan terapkan(lambda(a: bilangan, b: bilangan) { kembalikan a * b }, 6, 7), "\n"
+    tampilkan terapkan(lambda(a: bilangan, b: bilangan) { kembalikan a < b ? a : b }, 15, 8), "\n"
+
+    -- Lambda dengan operasi satu baris lain: perbandingan (logika)
+    tampilkan "\nLambda dengan operasi satu baris:\n"
+    variabel sama = lambda(a: bilangan, b: bilangan) { kembalikan a == b }
+    jika sama(5, 5) maka {
+        tampilkan 1, "\n"
+    } jika bukan semua diatas {
+        tampilkan 0, "\n"
+    }
+
+    -- Lambda tanpa parameter
+    tampilkan "\nLambda tanpa parameter:\n"
+    variabel konstanta = lambda() { kembalikan 777 }
+    tampilkan konstanta(), "\n"
+}

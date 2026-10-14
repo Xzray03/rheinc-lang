@@ -1,0 +1,91 @@
+-- ============================================================
+-- Tes: Berhenti (break) dan Lanjut (continue)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST BERHENTI DAN LANJUT ===\n"
+
+    -- Test 1: Berhenti dalam perulangan
+    tampilkan "Test 1: Berhenti saat i == 5\n"
+
+    untuk i dari 1 sampai 10 {
+        jika i == 5 maka {
+            tampilkan "Berhenti di i = ", i, "\n"
+            berhenti
+        }
+        tampilkan "i = ", i, "\n"
+    }
+
+    -- Test 2: Lanjut dalam perulangan
+    tampilkan "Test 2: Lanjut melewati bilangan genap\n"
+
+    untuk i dari 1 sampai 10 {
+        jika i % 2 == 0 maka {
+            lanjut
+        }
+        tampilkan "i = ", i, " (ganjil)\n"
+    }
+
+    -- Test 3: Nested loops dengan berhenti
+    tampilkan "Test 3: Nested loops\n"
+
+    untuk i dari 1 sampai 3 {
+        untuk j dari 1 sampai 3 {
+            jika i * j > 4 maka {
+                tampilkan "Berhenti di i=", i, ", j=", j, "\n"
+                berhenti
+            }
+            tampilkan "  i=", i, ", j=", j, ", i*j=", i*j, "\n"
+        }
+        tampilkan "Setelah inner loop untuk i=", i, "\n"
+    }
+
+    -- Test 4: Berhenti dalam selama
+    tampilkan "Test 4: Berhenti dalam perulangan selama\n"
+
+    variabel hitung: bilangan = 0
+    selama hitung < 10 {
+        hitung = hitung + 1
+        jika hitung == 4 maka {
+            tampilkan "Berhenti di hitung = ", hitung, "\n"
+            berhenti
+        }
+        tampilkan "hitung = ", hitung, "\n"
+    }
+
+    -- Test 5: Lanjut dalam ulangi
+    tampilkan "Test 5: Lanjut dalam ulangi\n"
+
+    variabel n: bilangan = 0
+    ulangi {
+        n = n + 1
+        jika n % 3 == 0 maka {
+            tampilkan "Lanjut di n = ", n, " (kelipatan 3)\n"
+            lanjut
+        }
+        tampilkan "n = ", n, "\n"
+    } selama n < 10
+
+    -- Test 6: Berhenti dalam pilih
+    tampilkan "Test 6: Berhenti dalam pilih\n"
+
+    variabel pilihan: bilangan = 2
+
+    pilih pilihan {
+        kasus 1: {
+            tampilkan "Kasus 1\n"
+            berhenti
+        }
+        kasus 2: {
+            tampilkan "Kasus 2 - akan berhenti\n"
+            berhenti
+            tampilkan "Ini tidak akan dieksekusi\n"
+        }
+        kasus 3: {
+            tampilkan "Kasus 3\n"
+        }
+    }
+    tampilkan "Setelah pilih\n"
+
+    kembalikan 0
+}

@@ -1,0 +1,77 @@
+- Tes Stack (Tumpukan)
+
+prosedur utama() {
+    -- Membuat tumpukan
+    variabel t: Tumpukan(dengan T = bilangan) = tumpukan()
+
+    -- Menambah elemen
+    tumpukan_tambah(t, 10)
+    tumpukan_tambah(t, 20)
+    tumpukan_tambah(t, 30)
+
+    -- Ukuran
+    tampilkan "Ukuran: ", tumpukan_ukuran(t), "\n"
+
+    -- Iterasi (dari atas ke bawah)
+    untuk i dari 0 sampai tumpukan_ukuran(t) {
+        tampilkan "  [", i, "] = ", tumpukan_ke(t, i), "\n"
+    }
+
+    -- Ambil elemen
+    pilih tumpukan_ambil(t) {
+        kasus ADA(nilai):
+            tampilkan "Diambil: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Tumpukan kosong\n"
+    }
+
+    -- Atas tanpa mengeluarkan
+    pilih tumpukan_atas(t) {
+        kasus ADA(nilai):
+            tampilkan "Atas: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Tumpukan kosong\n"
+    }
+
+    -- Cari
+    pilih tumpukan_cari(t, 20) {
+        kasus ADA(posisi):
+            tampilkan "20 ditemukan di posisi ", posisi, "\n"
+        kasus KOSONG():
+            tampilkan "20 tidak ditemukan\n"
+    }
+
+    -- Konversi ke larik
+    variabel l: larik dari bilangan = tumpukan_ke_larik(t)
+    untuk i dari 0 sampai 1 {
+        tampilkan "larik[", i, "] = ", l[i], "\n"
+    }
+
+    -- Konversi dari larik
+    variabel l2: larik[3] dari bilangan = [7, 8, 9]
+    variabel t2: Tumpukan(dengan T = bilangan) = tumpukan_dari_larik(l2)
+
+    tampilkan "t2 ukuran: ", tumpukan_ukuran(t2), "\n"
+
+    -- Bersihkan
+    tumpukan_bersihkan(t)
+    tampilkan "Kosong? ", tumpukan_kosong(t), "\n"
+
+    -- Pointer
+    variabel ptr: tunjuk ke Tumpukan(dengan T = bilangan) = alokasi(Tumpukan(dengan T = bilangan))
+    tumpukan_tambah(isi(ptr), 99)
+    tampilkan "ptr atas: ", tumpukan_atas(isi(ptr)), "\n"
+    bebaskan(ptr)
+
+    -- Tumpukan di dalam struktur
+    struktur Wadah {
+        t: Tumpukan(dengan T = bilangan),
+        nama: teks
+    }
+
+    variabel w: Wadah
+    w.nama = "contoh"
+    w.t = tumpukan()
+    tumpukan_tambah(w.t, 5)
+    tampilkan "w.t atas: ", tumpukan_atas(w.t), "\n"
+}

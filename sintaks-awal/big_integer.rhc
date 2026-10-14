@@ -1,0 +1,376 @@
+-- ============================================================
+-- Contoh Lengkap: Bilangan Tanpa Batas (Big Integer)
+-- ============================================================
+
+-- 1. Fungsi dengan parameter big integer
+fungsi jumlah_btb(a: bilangan_tanpa_batas, b: bilangan_tanpa_batas) -> bilangan_tanpa_batas {
+    kembalikan a + b
+}
+
+-- 2. Fungsi mengembalikan big integer
+fungsi faktorial_btb(n: bilangan) -> bilangan_tanpa_batas {
+    variabel hasil: bilangan_tanpa_batas("1")
+    variabel i: bilangan = 2
+    selama i <= n {
+        hasil = hasil * btb(ke_teks(i))
+        i = i + 1
+    }
+    kembalikan hasil
+}
+
+-- 3. Fungsi fibonacci dengan big integer
+fungsi fibonacci_btb(n: bilangan) -> bilangan_tanpa_batas {
+    variabel a: bilangan_tanpa_batas("0")
+    variabel b: bilangan_tanpa_batas("1")
+    variabel i: bilangan = 0
+    selama i < n {
+        variabel c = a + b
+        a = b
+        b = c
+        i = i + 1
+    }
+    kembalikan a
+}
+
+-- 4. Fungsi untuk menampilkan big integer
+prosedur tampilkan_btb(label: teks, x: bilangan_tanpa_batas) {
+    tampilkan label, " = ", ke_teks(x), "\n"
+}
+
+-- 5. Program utama
+prosedur utama() {
+    tampilkan "=== TEST BILANGAN TANPA BATAS ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Deklarasi + nilai awal (tanpa =, pakai tanda kutip)
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Deklarasi ---\n"
+
+    variabel a: bilangan_tanpa_batas("12345678901234567890")
+    variabel b: bilangan_tanpa_batas("98765432109876543210")
+
+    tampilkan_btb("a", a)
+    tampilkan_btb("b", b)
+
+    -- --------------------------------------------------------
+    -- B. Deklarasi kosong + assignment pakai btb
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Deklarasi Kosong ---\n"
+
+    variabel c: bilangan_tanpa_batas
+    c = btb("999999999999999999999999999999")
+
+    variabel d: bilangan_tanpa_batas
+    d = btb("42")
+
+    tampilkan_btb("c", c)
+    tampilkan_btb("d", d)
+
+    -- --------------------------------------------------------
+    -- C. Aritmetika dasar
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Aritmetika Dasar ---\n"
+
+    variabel tambah = a + b
+    tampilkan_btb("a + b", tambah)
+
+    variabel kurang = b - a
+    tampilkan_btb("b - a", kurang)
+
+    variabel kali = a * b
+    tampilkan_btb("a * b", kali)
+
+    variabel bagi = c / a
+    tampilkan_btb("c / a", bagi)
+
+    variabel sisa = c % a
+    tampilkan_btb("c % a", sisa)
+
+    variabel bagi_bulat = c // a
+    tampilkan_btb("c // a", bagi_bulat)
+
+    -- --------------------------------------------------------
+    -- D. Pangkat
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Pangkat ---\n"
+
+    variabel p1 = btb("2") ** btb("100")
+    tampilkan_btb("2^100", p1)
+
+    variabel p2 = a ** btb("3")
+    tampilkan_btb("a^3", p2)
+
+    -- --------------------------------------------------------
+    -- E. Operator bitwise
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Bitwise ---\n"
+
+    variabel x1: bilangan_tanpa_batas("15")
+    variabel x2: bilangan_tanpa_batas("85")
+
+    tampilkan_btb("x1 & x2", x1 & x2)
+    tampilkan_btb("x1 | x2", x1 | x2)
+    tampilkan_btb("x1 ^ x2", x1 ^ x2)
+    tampilkan_btb("~x1", ~x1)
+    tampilkan_btb("x1 << 2", x1 << 2)
+    tampilkan_btb("x2 >> 2", x2 >> 2)
+
+    -- --------------------------------------------------------
+    -- F. Perbandingan
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Perbandingan ---\n"
+
+    jika a < b maka {
+        tampilkan "a < b\n"
+    } jika bukan semua diatas {
+        tampilkan "a >= b\n"
+    }
+
+    jika a == b maka {
+        tampilkan "a == b\n"
+    } jika bukan semua diatas {
+        tampilkan "a != b\n"
+    }
+
+    jika c > a maka {
+        tampilkan "c > a\n"
+    } jika bukan semua diatas {
+        tampilkan "c <= a\n"
+    }
+
+    -- --------------------------------------------------------
+    -- G. Assignment operator
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Assignment Operator ---\n"
+
+    variabel k: bilangan_tanpa_batas("10")
+    tampilkan_btb("k awal", k)
+
+    k += btb("5")
+    tampilkan_btb("k += 5", k)
+
+    k -= btb("3")
+    tampilkan_btb("k -= 3", k)
+
+    k *= btb("2")
+    tampilkan_btb("k *= 2", k)
+
+    k /= btb("4")
+    tampilkan_btb("k /= 4", k)
+
+    k %= btb("3")
+    tampilkan_btb("k %= 3", k)
+
+    k **= btb("2")
+    tampilkan_btb("k **= 2", k)
+
+    -- --------------------------------------------------------
+    -- H. Increment / Decrement
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Increment / Decrement ---\n"
+
+    variabel n: bilangan_tanpa_batas("100")
+    tampilkan_btb("n awal", n)
+
+    n++
+    tampilkan_btb("n++", n)
+
+    n--
+    tampilkan_btb("n--", n)
+
+    -- --------------------------------------------------------
+    -- I. Interaksi dengan tipe primitif
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Interaksi dengan Primitif ---\n"
+
+    variabel primitif: bilangan = 100
+    variabel campur1 = a + primitif
+    tampilkan_btb("a + 100", campur1)
+
+    variabel campur2 = primitif * btb("5")
+    tampilkan_btb("100 * 5", campur2)
+
+    variabel campur3 = btb("3") + 7
+    tampilkan_btb("3 + 7", campur3)
+
+    -- Sekali big integer, tetap big integer
+    variabel tetap = primitif + btb("1")
+    tampilkan "Tipe tetap: bilangan_tanpa_batas\n"
+
+    -- --------------------------------------------------------
+    -- J. Konversi teks (dua arah)
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Konversi Teks ---\n"
+
+    variabel s = ke_teks(a)
+    tampilkan "ke_teks(a) = ", s, "\n"
+
+    variabel a2 = ke_btb(s)
+    tampilkan "ke_btb(s) = ", ke_teks(a2), "\n"
+
+    variabel dari_teks = ke_btb("123456789012345678901234567890")
+    tampilkan "ke_btb(\"123...\") = ", ke_teks(dari_teks), "\n"
+
+    -- --------------------------------------------------------
+    -- K. Operasi khusus
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Operasi Khusus ---\n"
+
+    tampilkan "gcd(a, b) = ", ke_teks(btb_gcd(a, b)), "\n"
+    tampilkan "lcm(a, b) = ", ke_teks(btb_lcm(a, b)), "\n"
+    tampilkan "faktorial(30) = ", ke_teks(btb_faktorial(30)), "\n"
+    tampilkan "akar(c) = ", ke_teks(btb_akar(c)), "\n"
+    tampilkan "pangkat_mod(2, 100, 1000) = ",
+             ke_teks(btb_pangkat_mod(btb("2"), btb("100"), btb("1000"))), "\n"
+    tampilkan "bit_length(c) = ", btb_bit_length(c), "\n"
+
+    -- Uji prima
+    variabel kandidat: bilangan_tanpa_batas("97")
+    jika btb_prima(kandidat) maka {
+        tampilkan "97 adalah prima\n"
+    } jika bukan semua diatas {
+        tampilkan "97 bukan prima\n"
+    }
+
+    variabel kandidat2: bilangan_tanpa_batas("100")
+    jika btb_prima(kandidat2) maka {
+        tampilkan "100 adalah prima\n"
+    } jika bukan semua diatas {
+        tampilkan "100 bukan prima\n"
+    }
+
+    -- --------------------------------------------------------
+    -- L. Larik khusus big integer
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Larik Big Integer ---\n"
+
+    variabel l: larik_btb[5] = [
+        btb("10"),
+        btb("20"),
+        btb("30"),
+        btb("40"),
+        btb("50")
+    ]
+
+    tampilkan "larik_btb:\n"
+    untuk i dari 0 sampai 4 {
+        tampilkan "  l[", i, "] = ", ke_teks(l[i]), "\n"
+    }
+
+    -- Konversi btb ke larik_btb
+    variabel l2 = btb_ke_larik_btb(a)
+    tampilkan "btb_ke_larik_btb(a):\n"
+    untuk i dari 0 sampai btb_bit_length(a) - 1 {
+        tampilkan "  l2[", i, "] = ", ke_teks(l2[i]), "\n"
+    }
+
+    -- Konversi larik_btb ke btb
+    variabel a3 = larik_btb_ke_btb(l)
+    tampilkan_btb("larik_btb_ke_btb(l)", a3)
+
+    -- --------------------------------------------------------
+    -- M. Fungsi dengan big integer
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Fungsi dengan Big Integer ---\n"
+
+    variabel hasil_jumlah = jumlah_btb(a, b)
+    tampilkan_btb("jumlah_btb(a, b)", hasil_jumlah)
+
+    variabel hasil_faktorial = faktorial_btb(50)
+    tampilkan_btb("faktorial_btb(50)", hasil_faktorial)
+
+    variabel hasil_fib = fibonacci_btb(100)
+    tampilkan_btb("fibonacci_btb(100)", hasil_fib)
+
+    -- --------------------------------------------------------
+    -- N. Big integer di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- N. Big Integer di Dalam Struktur ---\n"
+
+    struktur Uang {
+        jumlah: bilangan_tanpa_batas,
+        mata: teks
+    }
+
+    variabel u: Uang
+    u.jumlah = btb("1000000000000000000000")
+    u.mata = "IDR"
+
+    tampilkan "Uang: ", ke_teks(u.jumlah), " ", u.mata, "\n"
+
+    u.jumlah += btb("500000000000000000000")
+    tampilkan "Setelah tambah: ", ke_teks(u.jumlah), " ", u.mata, "\n"
+
+    -- --------------------------------------------------------
+    -- O. Big integer di dalam Opsi dan Hasil
+    -- --------------------------------------------------------
+    tampilkan "\n--- O. Big Integer di Dalam Opsi ---\n"
+
+    variabel opt: Opsi(dengan T = bilangan_tanpa_batas) = ADA(nilai = btb("12345"))
+    pilih opt {
+        kasus ADA(nilai):
+            tampilkan "Opsi ADA: ", ke_teks(nilai), "\n"
+        kasus KOSONG():
+            tampilkan "Opsi KOSONG\n"
+    }
+
+    variabel hasil: Hasil(dengan T = bilangan_tanpa_batas, E = teks) =
+        SUKSES(nilai = btb("999"))
+    pilih hasil {
+        kasus SUKSES(nilai):
+            tampilkan "Hasil SUKSES: ", ke_teks(nilai), "\n"
+        kasus GAGAL(pesan):
+            tampilkan "Hasil GAGAL: ", pesan, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- P. Big integer di dalam Daftar
+    -- --------------------------------------------------------
+    tampilkan "\n--- P. Big Integer di Dalam Daftar ---\n"
+
+    variabel daftar: Daftar(dengan T = bilangan_tanpa_batas, jenis = tunggal) = daftar()
+    daftar_tambah(daftar, btb("100"))
+    daftar_tambah(daftar, btb("12345678901234567890"))
+    daftar_tambah(daftar, btb("2") ** btb("64"))
+
+    untuk setiap x dalam daftar {
+        tampilkan "  ", ke_teks(x), "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- Q. Big integer dengan pointer
+    -- --------------------------------------------------------
+    tampilkan "\n--- Q. Big Integer dengan Pointer ---\n"
+
+    variabel ptr: tunjuk ke bilangan_tanpa_batas = alokasi(bilangan_tanpa_batas)
+    isi(ptr) = btb("777")
+
+    tampilkan "isi(ptr) = ", ke_teks(isi(ptr)), "\n"
+
+    isi(ptr) += btb("223")
+    tampilkan "setelah += 223: ", ke_teks(isi(ptr)), "\n"
+
+    bebaskan(ptr)
+
+    -- --------------------------------------------------------
+    -- R. Algoritma dengan big integer
+    -- --------------------------------------------------------
+    tampilkan "\n--- R. Algoritma ---\n"
+
+    -- Hitung 2^256
+    variabel besar = btb("2") ** btb("256")
+    tampilkan "2^256 = ", ke_teks(besar), "\n"
+
+    -- Hitung faktorial 100
+    tampilkan "100! = ", ke_teks(btb_faktorial(100)), "\n"
+
+    -- Fibonacci ke-200
+    tampilkan "fib(200) = ", ke_teks(fibonacci_btb(200)), "\n"
+
+    -- GCD dari dua bilangan besar
+    variabel g1: bilangan_tanpa_batas("123456789012345678901234567890")
+    variabel g2: bilangan_tanpa_batas("987654321098765432109876543210")
+    tampilkan "gcd = ", ke_teks(btb_gcd(g1, g2)), "\n"
+
+    tampilkan "\n=== SELESAI ===\n"
+}

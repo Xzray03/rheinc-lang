@@ -1,0 +1,131 @@
+-- ============================================================
+-- Tes Async/Await
+-- ============================================================
+
+-- 1. Fungsi async dasar
+asinkron fungsi ambil_data(url: teks) -> teks {
+    variabel respons = await http_get(url) -> hasil
+    kembalikan respons
+}
+
+-- 2. Fungsi async dengan error handling lewat Opsi
+asinkron fungsi ambil_data_aman(url: teks) -> Opsi(dengan T = teks) {
+    variabel respons = await http_get(url) -> hasil
+    pilih respons {
+        kasus ADA(nilai):
+            kembalikan ADA(nilai = nilai)
+        kasus KOSONG():
+            kembalikan KOSONG()
+    }
+}
+
+-- 3. Fungsi async dengan jamin
+asinkron fungsi baca_file_async(path: teks) -> teks {
+    variabel f = await buka_file_async(path) -> hasil
+
+    jamin saat keluar {
+        tutup_file(f)
+        tampilkan "[jamin] File ditutup\n"
+    }
+
+    variabel isi = await baca_isi_async(f) -> hasil
+    kembalikan isi
+}
+
+-- 4. Fungsi async dengan loop
+asinkron fungsi ambil_banyak(urls: larik dari teks) -> Daftar(dengan T = teks, jenis = tunggal) {
+    variabel hasil_daftar: Daftar(dengan T = teks, jenis = tunggal) = daftar()
+
+    untuk setiap url dalam urls {
+        variabel data = await ambil_data(url) -> hasil
+        daftar_tambah(hasil_daftar, data)
+    }
+
+    kembalikan hasil_daftar
+}
+
+-- 5. Paralel dengan gabung
+asinkron fungsi ambil_semua() -> Daftar(dengan T = teks, jenis = tunggal) {
+    variabel a = ambil_data("url1")
+    variabel b = ambil_data("url2")
+    variabel c = ambil_data("url3")
+
+    variabel hasil = await gabung(a, b, c) -> hasil
+    kembalikan hasil
+}
+
+-- 6. Paralel dengan balapan
+asinkron fungsi ambil_tercepat() -> teks {
+    variabel a = ambil_data("server1")
+    variabel b = ambil_data("server2")
+
+    variabel hasil = await balapan(a, b) -> hasil
+    kembalikan hasil
+}
+
+-- 7. Loop async
+asinkron prosedur proses_semua(items: larik dari bilangan) {
+    untuk setiap x dalam items async {
+        variabel hasil = await proses(x) -> hasil
+        tampilkan "Hasil: ", hasil, "\n"
+    }
+}
+
+-- 8. Saluran async
+asinkron prosedur kirim_terima() {
+    variabel ch: Saluran(dengan T = bilangan) = saluran_async()
+
+    -- Kirim
+    await saluran_kirim(ch, 42)
+
+    -- Terima
+    variabel hasil = await saluran_terima(ch) -> hasil
+    pilih hasil {
+        kasus ADA(nilai):
+            tampilkan "Diterima: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+}
+
+-- 9. Pembatalan tugas
+asinkron prosedur dengan_pembatalan() {
+    variabel tugas = mulai_tugas(ambil_data("url"))
+    tidur(100)
+    batalkan(tugas)
+    tampilkan "Tugas dibatalkan\n"
+}
+
+-- 10. Program utama
+prosedur utama() {
+    tampilkan "=== TEST ASYNC/AWAIT ===\n"
+
+    -- Panggil fungsi async
+    variabel t1 = ambil_data("https://contoh.com")
+    variabel hasil1 = await t1 -> hasil
+    tampilkan "Data: ", hasil1, "\n"
+
+    -- Dengan error handling
+    variabel t2 = ambil_data_aman("https://contoh.com")
+    variabel hasil2 = await t2 -> hasil
+    pilih hasil2 {
+        kasus ADA(nilai):
+            tampilkan "Aman: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Gagal\n"
+    }
+
+    -- Paralel
+    variabel t3 = ambil_semua()
+    variabel hasil3 = await t3 -> hasil
+    untuk setiap x dalam hasil3 {
+        tampilkan "Paralel: ", x, "\n"
+    }
+
+    -- Balapan
+    variabel t4 = ambil_tercepat()
+    variabel hasil4 = await t4 -> hasil
+    tampilkan "Tercepat: ", hasil4, "\n"
+
+    tampilkan "\n=== SELESAI ===\n"
+}

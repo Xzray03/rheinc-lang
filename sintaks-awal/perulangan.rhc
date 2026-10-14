@@ -1,0 +1,38 @@
+-- ============================================================
+-- Program: Perulangan
+-- Deskripsi: Demonstrasi berbagai jenis perulangan
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== Perulangan Untuk (For Loop) ===\n"
+
+    -- Perulangan untuk dari 1 sampai 5
+    untuk i dari 1 sampai 5 {
+        tampilkan "Iterasi ke-", i, "\n"
+    }
+
+    tampilkan "=== Perulangan Selama (While Loop) ===\n"
+
+    variabel hitung: bilangan = 1
+    selama hitung <= 5 {
+        tampilkan "Hitung: ", hitung, "\n"
+        hitung = hitung + 1
+    }
+
+    tampilkan "=== Perulangan Ulangi (Do-While) ===\n"
+
+    variabel j: bilangan = 1
+    ulangi {
+        tampilkan "Nilai j: ", j, "\n"
+        j = j + 1
+    } selama j <= 5
+
+    tampilkan "=== Perulangan dengan Langkah ===\n"
+
+    -- Perulangan dengan langkah 2
+    untuk k dari 0 sampai 10 langkah 2 {
+        tampilkan "k = ", k, "\n"
+    }
+
+    kembalikan 0
+}

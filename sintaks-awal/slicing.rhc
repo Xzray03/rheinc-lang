@@ -1,0 +1,145 @@
+- Tes Slicing
+
+prosedur utama() {
+    tampilkan "=== TEST SLICING ===\n"
+
+    variabel a: larik[5] dari bilangan = [10, 20, 30, 40, 50]
+
+    -- Slice dasar (inklusif)
+    tampilkan "\n--- Slice Dasar ---\n"
+    pilih a[1 sampai 3] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 20, 30, 40
+
+    -- Slice sampai akhir
+    tampilkan "\n--- Slice Sampai Akhir ---\n"
+    pilih a[2 sampai] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 30, 40, 50
+
+    -- Slice dengan langkah
+    tampilkan "\n--- Slice dengan Langkah ---\n"
+    pilih a[0 sampai 4 langkah 2] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 10, 30, 50
+
+    -- Slice dengan indeks negatif
+    tampilkan "\n--- Slice Indeks Negatif ---\n"
+    pilih a[-3 sampai -1] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 30, 40, 50
+
+    -- Slice di luar batas
+    tampilkan "\n--- Slice di Luar Batas ---\n"
+    pilih a[1 sampai 10] {
+        kasus ADA(slice):
+            tampilkan "ADA\n"
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: Di luar batas
+
+    -- Slice mulai > sampai
+    tampilkan "\n--- Slice Mulai > Sampai ---\n"
+    pilih a[4 sampai 2] {
+        kasus ADA(slice):
+            tampilkan "ADA\n"
+        kasus KOSONG():
+            tampilkan "Mulai > sampai\n"
+    }
+    -- Output: Mulai > sampai
+
+    -- Slice assignment
+    tampilkan "\n--- Slice Assignment ---\n"
+    a[1 sampai 3] = [99, 88, 77]
+    untuk setiap x dalam a {
+        tampilkan x, "\n"
+    }
+    -- Output: 10, 99, 88, 77, 50
+
+    -- Slice disimpan ke variabel
+    tampilkan "\n--- Slice ke Variabel ---\n"
+    variabel s: Opsi(dengan T = Iterator(dengan T = bilangan)) = a[0 sampai 1]
+    pilih s {
+        kasus ADA(it):
+            untuk setiap x dalam it {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    -- Slice multi-dimensi
+    tampilkan "\n--- Slice Multi-Dimensi ---\n"
+    variabel m: larik[3][3] dari bilangan
+    m[0][0] = 1
+    m[0][1] = 2
+    m[0][2] = 3
+    m[1][0] = 4
+    m[1][1] = 5
+    m[1][2] = 6
+    m[2][0] = 7
+    m[2][1] = 8
+    m[2][2] = 9
+
+    pilih m[0 sampai 1, 0 sampai 1] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 1, 2, 4, 5
+
+    -- Slice untuk Daftar
+    tampilkan "\n--- Slice Daftar ---\n"
+    variabel d: Daftar(dengan T = bilangan, jenis = tunggal) = daftar()
+    daftar_tambah(d, 10)
+    daftar_tambah(d, 20)
+    daftar_tambah(d, 30)
+    daftar_tambah(d, 40)
+
+    pilih d[1 sampai 2] {
+        kasus ADA(slice):
+            untuk setiap x dalam slice {
+                tampilkan x, "\n"
+            }
+        kasus KOSONG():
+            tampilkan "Di luar batas\n"
+    }
+    -- Output: 20, 30
+
+    -- Teks tetap pakai potong
+    tampilkan "\n--- Teks Pakai Potong ---\n"
+    variabel t: teks = "Halo Dunia RheinC"
+    potong(t, "Dunia" sampai "RheinC")
+    tampilkan t, "\n"
+    -- Output: Dunia RheinC
+
+    tampilkan "\n=== SELESAI ===\n"
+}

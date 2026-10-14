@@ -1,0 +1,76 @@
+-- ============================================================
+-- Tes: Struktur dengan Bitfield
+-- ============================================================
+
+struktur Flags {
+    flag1: bilangan : 1,
+    flag2: bilangan : 1,
+    flag3: bilangan : 1,
+    reserved: bilangan : 5,
+    nilai: bilangan : 8
+}
+
+struktur Tanggal {
+    hari: bilangan : 5,
+    bulan: bilangan : 4,
+    tahun: bilangan : 12
+}
+
+struktur WarnaRGB {
+    merah: bilangan : 8,
+    hijau: bilangan : 8,
+    biru: bilangan : 8,
+    alpha: bilangan : 8
+}
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST STRUKTUR DENGAN BITFIELD ===\n"
+
+    -- Test 1: Flags
+    tampilkan "Test 1: Bitfield Flags\n"
+
+    variabel f: Flags
+    f.flag1 = 1
+    f.flag2 = 0
+    f.flag3 = 1
+    f.nilai = 42
+
+    tampilkan "flag1 = ", f.flag1, "\n"
+    tampilkan "flag2 = ", f.flag2, "\n"
+    tampilkan "flag3 = ", f.flag3, "\n"
+    tampilkan "nilai = ", f.nilai, "\n"
+
+    -- Test 2: Tanggal
+    tampilkan "\nTest 2: Struktur Tanggal\n"
+
+    variabel tgl: Tanggal
+    tgl.hari = 16
+    tgl.bulan = 4
+    tgl.tahun = 2026
+
+    tampilkan "Tanggal: ", tgl.hari, "/", tgl.bulan, "/", tgl.tahun, "\n"
+
+    -- Test 3: Warna RGB
+    tampilkan "\nTest 3: Warna RGB\n"
+
+    variabel warna: WarnaRGB
+    warna.merah = 255
+    warna.hijau = 128
+    warna.biru = 64
+    warna.alpha = 255
+
+    tampilkan "RGB(", warna.merah, ", ", warna.hijau, ", ", warna.biru, ")\n"
+    tampilkan "Alpha: ", warna.alpha, "\n"
+
+    -- Validasi range
+    tampilkan "\nTest 4: Validasi Range\n"
+
+    variabel tgl2: Tanggal
+    tgl2.hari = 31    -- maksimal 31
+    tgl2.bulan = 12   -- maksimal 15 (4 bit)
+    tgl2.tahun = 2026
+
+    tampilkan "Tanggal maksimal: ", tgl2.hari, "/", tgl2.bulan, "/", tgl2.tahun, "\n"
+
+    kembalikan 0
+}

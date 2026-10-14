@@ -1,0 +1,40 @@
+-- ============================================================
+-- Tes: Tipe Data Integer
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST TIPE DATA INTEGER ===\n"
+
+    variabel a: bilangan8 = 127
+    variabel b: bilangan16 = 32767
+    variabel c: bilangan32 = 2147483647
+    variabel d: bilangan64 = 9223372036854775807
+    variabel e: bilangan = 100
+    variabel aa: bilangan8 = -128
+    variabel ba: bilangan16 = -32767
+    variabel ca: bilangan32 = -2147483648
+    variabel da: bilangan64 = -9223372036854775808
+    variabel ea: bilangan = -100
+
+    variabel ua: bilangan_tanpa_tanda8 = 255
+    variabel ub: bilangan_tanpa_tanda16 = 65535
+    variabel uc: bilangan_tanpa_tanda32 = 4294967295
+    variabel ud: bilangan_tanpa_tanda64 = 18446744073709551615
+
+    tampilkan "bilangan8: ", a, "\n"
+    tampilkan "bilangan16: ", b, "\n"
+    tampilkan "bilangan32: ", c, "\n"
+    tampilkan "bilangan64: ", d, "\n"
+    tampilkan "bilangan: ", e, "\n"
+    tampilkan "bilangan8: ", aa, "\n"
+    tampilkan "bilangan16: ", ba, "\n"
+    tampilkan "bilangan32: ", ca, "\n"
+    tampilkan "bilangan64: ", da, "\n"
+    tampilkan "bilangan: ", ea, "\n\n"
+    tampilkan "bilangan_tanpa_tanda8: ", ua, "\n"
+    tampilkan "bilangan_tanpa_tanda16: ", ub, "\n"
+    tampilkan "bilangan_tanpa_tanda32: ", uc, "\n"
+    tampilkan "bilangan_tanpa_tanda64: ", ud, "\n"
+
+    kembalikan 0
+}

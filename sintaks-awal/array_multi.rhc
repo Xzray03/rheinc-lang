@@ -1,0 +1,66 @@
+-- ============================================================
+-- Tes: Array Multi-Dimensi
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST ARRAY MULTI-DIMENSI ===\n"
+
+    -- Array 2D
+    variabel matriks: larik[3][3] dari bilangan
+
+    -- Inisialisasi
+    matriks[0][0] = 1
+    matriks[0][1] = 2
+    matriks[0][2] = 3
+    matriks[1][0] = 4
+    matriks[1][1] = 5
+    matriks[1][2] = 6
+    matriks[2][0] = 7
+    matriks[2][1] = 8
+    matriks[2][2] = 9
+
+    tampilkan "Matriks 3x3:\n"
+    untuk i dari 0 sampai 2 {
+        untuk j dari 0 sampai 2 {
+            tampilkan matriks[i][j]
+            jika j < 2 maka {
+                tampilkan " "
+            }
+        }
+        tampilkan "\n"
+    }
+
+    -- Array 3D
+    variabel kubus: larik[2][2][2] dari bilangan
+
+    kubus[0][0][0] = 1
+    kubus[0][0][1] = 2
+    kubus[0][1][0] = 3
+    kubus[0][1][1] = 4
+    kubus[1][0][0] = 5
+    kubus[1][0][1] = 6
+    kubus[1][1][0] = 7
+    kubus[1][1][1] = 8
+
+    tampilkan "\nArray 3D (2x2x2):\n"
+    untuk i dari 0 sampai 1 {
+        tampilkan "Layer ", i, ":", "\n"
+        untuk j dari 0 sampai 1 {
+            untuk k dari 0 sampai 1 {
+                tampilkan "  [", i, "][", j, "][", k, "] = ", kubus[i][j][k], "\n"
+            }
+        }
+    }
+
+    -- Array literal
+    tampilkan "\n=== ARRAY LITERAL ===\n"
+
+    variabel arr_lit: larik[5] dari bilangan = [10, 20, 30, 40, 50]
+
+    tampilkan "Array literal:\n"
+    untuk i dari 0 sampai 4 {
+        tampilkan "  arr_lit[", i, "] = ", arr_lit[i], "\n"
+    }
+
+    kembalikan 0
+}

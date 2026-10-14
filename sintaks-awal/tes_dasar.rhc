@@ -1,0 +1,35 @@
+-- ============================================================
+-- Program: Tes Dasar Tipe Data
+-- Deskripsi: Menguji tipe data dasar RheinC
+-- ============================================================
+
+prosedur utama() {
+    variabel a: bilangan = -9223372036854775808
+    variabel b: bilangan8 = -128
+    variabel c: bilangan16 = -32768
+    variabel d: bilangan32 = -2147483648
+    variabel e: bilangan64 = -9223372036854775808
+    variabel f: bilangan_tanpa_tanda8 = 255
+    variabel g: bilangan_tanpa_tanda16 = 65535
+    variabel h: bilangan_tanpa_tanda32 = 4294967295
+    variabel i: bilangan_tanpa_tanda64 = 18446744073709551615
+    variabel j: desimal = 3.14
+    variabel m: logika = benar
+    variabel n: karakter = 'A'
+    variabel o: teks = "tes teks"
+
+    -- Menampilkan semua nilai
+    tampilkan "(bilangan): ", a, "\n"
+    tampilkan "(bilangan8): ", b, "\n"
+    tampilkan "(bilangan16): ", c, "\n"
+    tampilkan "(bilangan32): ", d, "\n"
+    tampilkan "(bilangan64): ", e, "\n"
+    tampilkan "(bilangan_tanpa_tanda8): ", f, "\n"
+    tampilkan "(bilangan_tanpa_tanda16): ", g, "\n"
+    tampilkan "(bilangan_tanpa_tanda32): ", h, "\n"
+    tampilkan "(bilangan_tanpa_tanda64): ", i, "\n"
+    tampilkan "(desimal(Flaot)): ", j, "\n"
+    tampilkan "(logika): ", m, "\n"
+    tampilkan "(karakter): ", n, "\n"
+    tampilkan "(teks): ", o, "\n"
+}

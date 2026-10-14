@@ -1,0 +1,268 @@
+-- ============================================================
+-- Tes Coroutine
+-- ============================================================
+
+-- 1. Korutin dasar dengan jeda
+coroutine fungsi pencetak(batas: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    variabel i: bilangan = 0
+    selama i < batas {
+        hasil(i)
+        jeda
+        i = i + 1
+    }
+}
+
+-- 2. Korutin tanpa jeda, mirip pembangkit
+coroutine fungsi deret_ganjil(batas: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    variabel i: bilangan = 1
+    selama i <= batas {
+        hasil(i)
+        i = i + 2
+    }
+}
+
+-- 3. Korutin dengan `jeda sampai kondisi`
+coroutine fungsi tunggu_sampai(ambang: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    variabel x: bilangan = 0
+    selama benar {
+        x = x + 1
+        jeda sampai x >= ambang
+        hasil(x)
+        jika x >= ambang * 2 maka {
+            berhenti
+        }
+    }
+}
+
+-- 4. Korutin dengan pilih
+coroutine fungsi kategori(n: bilangan) -> Pembangkit(dengan T = teks, R = hampa) {
+    pilih n {
+        kasus 1: {
+            hasil("satu")
+            jeda
+            hasil("satu lagi")
+        }
+        kasus 2: {
+            hasil("dua")
+        }
+        kasus 3: {
+            hasil("tiga")
+            jeda
+            hasil("tiga lagi")
+        }
+    }
+}
+
+-- 5. Korutin dengan loop `untuk setiap`
+coroutine fungsi salin_dari(sumber: Pembangkit(dengan T = bilangan, R = hampa))
+    -> Pembangkit(dengan T = bilangan, R = hampa)
+{
+    untuk setiap x dalam sumber {
+        hasil(x * 10)
+        jeda
+    }
+}
+
+-- 6. Korutin rekursif
+coroutine fungsi turun(n: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
+    jika n <= 0 maka {
+        hasil(0)
+    } jika bukan semua diatas {
+        hasil(n)
+        jeda
+        hasil dari turun(n - 1)
+    }
+}
+
+-- 7. Korutin dengan ulangi
+coroutine fungsi ulang_tiga() -> Pembangkit(dengan T = bilangan, R = hampa) {
+    variabel i: bilangan = 0
+    ulangi {
+        hasil(i)
+        jeda
+        i = i + 1
+    } selama i < 3
+}
+
+-- 8. Program utama
+prosedur utama() {
+    tampilkan "=== TEST KORUTIN ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Korutin dasar
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Korutin Dasar ---\n"
+
+    variabel k1: Pembangkit(dengan T = bilangan, R = hampa) = pencetak(5)
+    untuk setiap x dalam k1 {
+        tampilkan "pencetak: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- B. Korutin mirip pembangkit
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Deret Ganjil ---\n"
+
+    variabel k2: Pembangkit(dengan T = bilangan, R = hampa) = deret_ganjil(9)
+    untuk setiap x dalam k2 {
+        tampilkan "ganjil: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- C. `jeda sampai kondisi`
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Jeda Sampai Kondisi ---\n"
+
+    variabel k3: Pembangkit(dengan T = bilangan, R = hampa) = tunggu_sampai(3)
+    untuk setiap x dalam k3 {
+        tampilkan "tunggu_sampai: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- D. Korutin dengan `pilih`
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Korutin dengan Pilih ---\n"
+
+    variabel k4: Pembangkit(dengan T = teks, R = hampa) = kategori(1)
+    untuk setiap x dalam k4 {
+        tampilkan "kategori(1): ", x, "\n"
+    }
+
+    variabel k5: Pembangkit(dengan T = teks, R = hampa) = kategori(2)
+    untuk setiap x dalam k5 {
+        tampilkan "kategori(2): ", x, "\n"
+    }
+
+    variabel k6: Pembangkit(dengan T = teks, R = hampa) = kategori(3)
+    untuk setiap x dalam k6 {
+        tampilkan "kategori(3): ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- E. Korutin memproses korutin lain
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Salin dan Kalikan ---\n"
+
+    variabel k7: Pembangkit(dengan T = bilangan, R = hampa) = salin_dari(pencetak(3))
+    untuk setiap x dalam k7 {
+        tampilkan "salin_dari: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- F. Korutin rekursif
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Korutin Rekursif ---\n"
+
+    variabel k8: Pembangkit(dengan T = bilangan, R = hampa) = turun(5)
+    untuk setiap x dalam k8 {
+        tampilkan "turun: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- G. Korutin dengan `ulangi`
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Korutin dengan Ulangi ---\n"
+
+    variabel k9: Pembangkit(dengan T = bilangan, R = hampa) = ulang_tiga()
+    untuk setiap x dalam k9 {
+        tampilkan "ulang_tiga: ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- H. Pemakaian manual
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Pemakaian Manual ---\n"
+
+    variabel k10: Pembangkit(dengan T = bilangan, R = hampa) = pencetak(3)
+    selama bukan pembangkit_selesai(k10) {
+        pilih pembangkit_berikutnya(k10) {
+            kasus ADA(nilai):
+                tampilkan "manual: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "selesai\n"
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- I. Kirim nilai ke korutin
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Kirim Nilai ---\n"
+
+    variabel k11: Pembangkit(dengan T = bilangan, R = hampa) = pencetak(10)
+    pembangkit_kirim(k11, 42)
+    tampilkan "nilai dikirim ke k11\n"
+
+    -- --------------------------------------------------------
+    -- J. Reset korutin
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Reset Korutin ---\n"
+
+    variabel k12: Pembangkit(dengan T = bilangan, R = hampa) = pencetak(3)
+    pilih pembangkit_berikutnya(k12) {
+        kasus ADA(nilai):
+            tampilkan "sebelum reset: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "kosong\n"
+    }
+
+    pembangkit_reset(k12)
+
+    pilih pembangkit_berikutnya(k12) {
+        kasus ADA(nilai):
+            tampilkan "setelah reset: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "kosong\n"
+    }
+
+    -- --------------------------------------------------------
+    -- K. Korutin di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Korutin di Dalam Struktur ---\n"
+
+    struktur Wadah {
+        k: Pembangkit(dengan T = bilangan, R = hampa),
+        nama: teks
+    }
+
+    variabel w: Wadah
+    w.nama = "wadah1"
+    w.k = pencetak(4)
+
+    untuk setiap x dalam w.k {
+        tampilkan w.nama, ": ", x, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- L. Korutin di dalam daftar
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Korutin di Dalam Daftar ---\n"
+
+    variabel d: Daftar(dengan T = Pembangkit(dengan T = bilangan, R = hampa), jenis = tunggal) = daftar()
+
+    daftar_tambah(d, pencetak(2))
+    daftar_tambah(d, pencetak(3))
+
+    untuk setiap k dalam d {
+        untuk setiap x dalam k {
+            tampilkan "daftar korutin: ", x, "\n"
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- M. Korutin dengan pointer
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Korutin dengan Pointer ---\n"
+
+    variabel ptr: tunjuk ke Pembangkit(dengan T = bilangan, R = hampa) =
+        alokasi(Pembangkit(dengan T = bilangan, R = hampa))
+
+    isi(ptr) = pencetak(2)
+
+    untuk setiap x dalam isi(ptr) {
+        tampilkan "pointer korutin: ", x, "\n"
+    }
+
+    bebaskan(ptr)
+
+    tampilkan "\n=== SELESAI ===\n"
+}

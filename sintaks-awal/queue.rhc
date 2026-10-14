@@ -1,0 +1,50 @@
+- Tes Queue (Antrian)
+
+prosedur utama() {
+    -- Membuat antrian
+    variabel q: Antrian<bilangan> = antrian()
+
+    -- Menambah elemen
+    antrian_tambah(q, 10)
+    antrian_tambah(q, 20)
+    antrian_tambah(q, 30)
+
+    -- Ukuran
+    tampilkan "Ukuran: ", antrian_ukuran(q), "\n"
+
+    -- Iterasi
+    untuk i dari 0 sampai antrian_ukuran(q) {
+        tampilkan "  [", i, "] = ", antrian_ke(q, i), "\n"
+    }
+
+    -- Ambil elemen
+    pilih antrian_ambil(q) {
+        kasus ADA(nilai):
+            tampilkan "Diambil: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Antrian kosong\n"
+    }
+
+    -- Cari
+    pilih antrian_cari(q, 20) {
+        kasus ADA(indeks):
+            tampilkan "20 ditemukan di indeks ", indeks, "\n"
+        kasus KOSONG():
+            tampilkan "20 tidak ditemukan\n"
+    }
+
+    -- Konversi ke larik
+    variabel l: larik dari bilangan = antrian_ke_larik(q)
+    untuk i dari 0 sampai 2 {
+        tampilkan "larik[", i, "] = ", l[i], "\n"
+    }
+
+    -- Bersihkan
+    antrian_bersihkan(q)
+    tampilkan "Kosong? ", antrian_kosong(q), "\n"
+
+    -- Pointer
+    variabel ptr: tunjuk ke Antrian<bilangan> = alokasi(Antrian<bilangan>)
+    antrian_tambah(isi(ptr), 99)
+    bebaskan(ptr)
+}

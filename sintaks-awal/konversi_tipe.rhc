@@ -1,0 +1,84 @@
+-- ============================================================
+-- Tes: Konversi Tipe (Type Casting)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST KONVERSI TIPE ===\n"
+
+    -- Konversi ke teks
+    tampilkan "=== KE_TEKS ===\n"
+
+    variabel num: bilangan = 12345
+    variabel num_neg: bilangan = -6789
+    variabel flag: logika = benar
+
+    variabel str1: teks = ke_teks(num)
+    variabel str2: teks = ke_teks(num_neg)
+    variabel str3: teks = ke_teks(flag)
+
+    tampilkan "ke_teks(12345) = '", str1, "'", "\n"
+    tampilkan "ke_teks(-6789) = '", str2, "'", "\n"
+    tampilkan "ke_teks(benar) = '", str3, "'", "\n"
+
+    -- Konversi ke bilangan
+    tampilkan "=== KE_BILANGAN ===\n"
+
+    variabel str_num: teks = "98765"
+    variabel str_neg: teks = "-4321"
+    variabel str_invalid: teks = "abc123"
+
+    variabel val1: bilangan = ke_bilangan(str_num)
+    variabel val2: bilangan = ke_bilangan(str_neg)
+    variabel val3: bilangan = ke_bilangan(str_invalid)
+
+    tampilkan "ke_bilangan('98765') = ", val1, "\n"
+    tampilkan "ke_bilangan('-4321') = ", val2, "\n"
+    tampilkan "ke_bilangan('abc123') = ", val3, " (default 0)\n"
+
+    -- Konversi ke logika
+    tampilkan "=== KE_LOGIKA ===\n"
+
+    tampilkan "ke_logika(0) = ", ke_logika(0), "\n"
+    tampilkan "ke_logika(1) = ", ke_logika(1), "\n"
+    tampilkan "ke_logika(100) = ", ke_logika(100), "\n"
+    tampilkan "ke_logika(-5) = ", ke_logika(-5), "\n"
+    tampilkan "ke_logika('benar') = ", ke_logika("benar"), "\n"
+    tampilkan "ke_logika('salah') = ", ke_logika("salah"), "\n"
+
+    -- Konversi ke karakter
+    tampilkan "=== KE_KARAKTER ===\n"
+
+    variabel ch1: karakter = ke_karakter(65)   -- ASCII 'A'
+    variabel ch2: karakter = ke_karakter(48)   -- ASCII '0'
+    variabel ch3: karakter = ke_karakter(126)  -- ASCII '~'
+
+    tampilkan "ke_karakter(65) = '", ch1, "'", "\n"
+    tampilkan "ke_karakter(48) = '", ch2, "'", "\n"
+    tampilkan "ke_karakter(126) = '", ch3, "'", "\n"
+
+    -- Casting antar tipe integer
+    tampilkan "=== CASTING INTEGER ===\n"
+
+    variabel big: bilangan64 = 1000000
+    variabel small: bilangan8 = big
+    variabel unsigned: bilangan_tanpa_tanda32 = -1
+
+    tampilkan "bilangan64(1000000) -> bilangan8: ", small, "\n"
+    tampilkan "bilangan_tanpa_tanda32(-1): ", unsigned, "\n"
+
+    -- Pointer casting
+    tampilkan "=== POINTER CASTING ===\n"
+
+    variabel int_val: bilangan = 42
+    variabel ptr_int: tunjuk ke bilangan = alamat(int_val)
+    variabel ptr_void: tunjuk ke hampa = ptr_int
+    variabel ptr_char: tunjuk ke karakter = ptr_void
+
+    tampilkan "Pointer int: ", isi(ptr_int), "\n"
+    tampilkan "Pointer void: ", isi(ptr_void), "\n"
+    tampilkan "Pointer char: ", isi(ptr_char), "\n"
+
+    bebaskan(ptr_int)
+
+    kembalikan 0
+}

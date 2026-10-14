@@ -1,0 +1,10 @@
+-- ============================================================
+-- Tes: Penambahan Header
+-- ============================================================
+#tambahkan "deklarasi.rhh"
+
+prosedur utama() {
+    tampilkan a, "\n"
+    tampilkan b, "\n"
+    tampilkan c, "\n"
+}

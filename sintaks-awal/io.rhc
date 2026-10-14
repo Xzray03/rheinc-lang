@@ -1,0 +1,88 @@
+-- ============================================================
+-- Contoh Program: Operasi File I/O di RheinC
+-- Demonstrasi: tulis_file, baca_file, hapus_file
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "╔══════════════════════════════════════════════════════════╗\n"
+    tampilkan "║         DEMONSTRASI OPERASI FILE I/O RHEINC              ║\n"
+    tampilkan "╚══════════════════════════════════════════════════════════╝\n"
+
+    variabel contoh: teks = "contoh.txt"
+
+    -- LANGKAH 1: Menulis File
+    tampilkan "\n[1] Menulis file \'", contoh, "\'...\n"
+
+    variabel konten: teks
+    konten = "Halo dari RheinC!\n"
+    konten +> "Ini adalah tes file io"
+
+    variabel sukses_tulis: logika
+
+    tulis_file(contoh, konten) -> sukses_tulis
+
+    jika sukses_tulis maka {
+        tampilkan " ✓ File berhasil ditulis!\n"
+        tampilkan "   Konten yang ditulis:\n"
+        tampilkan "─────────────────────────────────\n"
+        tampilkan konten, "\n"
+        tampilkan "─────────────────────────────────\n"
+    } jika bukan semua diatas {
+        tampilkan " ✗ Gagal menulis file!\n"
+        kembalikan 1
+    }
+
+    -- LANGKAH 2: Membaca File
+    tampilkan "\n[2] Membaca file \'", contoh, "\'...\n"
+
+    variabel isi_file: teks
+
+    variabel sukses_baca: logika
+
+    baca_file(contoh, isi_file) -> sukses_baca
+
+    jika sukses_baca maka {
+        tampilkan "  ✓ File berhasil dibaca!\n"
+        tampilkan "    Isi file yang dibaca:\n"
+        tampilkan "─────────────────────────────────\n"
+        tampilkan isi_file, "\n"
+        tampilkan "─────────────────────────────────\n"
+    } jika bukan semua diatas {
+        tampilkan "  ✗ File kosong atau gagal dibaca!\n"
+        kembalikan 1
+    }
+
+    -- LANGKAH 3: Menghapus File
+    tampilkan "\n[3] Menghapus file \'", contoh, "\'...\n"
+
+    variabel sukses_hapus: logika
+
+    hapus_file(contoh) -> sukses_hapus
+
+    jika sukses_hapus maka {
+        tampilkan "  ✓ File berhasil dihapus!\n"
+    } jika bukan semua diatas {
+        tampilkan "  ✗ Gagal menghapus file!\n"
+        kembalikan 1
+    }
+
+    -- LANGKAH 4: Verifikasi File Telah Dihapus (Opsional)
+    tampilkan "\n[4] Verifikasi file telah dihapus (Opsional)...\n"
+
+    variabel isi_setelah_hapus: teks
+    variabel sukses_setelah_hapus: logika
+
+    baca_file(contoh, isi_setelah_hapus) -> sukses_setelah_hapus
+
+    jika sukses_setelah_hapus == 0 maka {
+        tampilkan "  ✓ File tidak dapat dibaca (berhasil dihapus)\n"
+    } jika bukan semua diatas {
+        tampilkan "  ⚠ File masih ada (penghapusan mungkin gagal)\n"
+    }
+
+    tampilkan "\n╔══════════════════════════════════════════════════════════╗\n"
+    tampilkan "║              DEMONSTRASI SELESAI!                        ║\n"
+    tampilkan "╚══════════════════════════════════════════════════════════╝\n"
+
+    kembalikan 0
+}

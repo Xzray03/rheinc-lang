@@ -1,0 +1,163 @@
+-- ============================================================
+-- Tes Matriks
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "=== TEST MATRIKS ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Deklarasi
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Deklarasi ---\n"
+
+    variabel a: matriks(dengan T = bilangan, baris = 3, kolom = 3)
+    variabel b: matriks(dengan T = bilangan, baris = 3, kolom = 3)
+
+    -- --------------------------------------------------------
+    -- B. Literal
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Literal ---\n"
+
+    a = matriks(baris = 3, kolom = 3, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+    b = matriks(baris = 3, kolom = 3, [9, 8, 7, 6, 5, 4, 3, 2, 1])
+
+    tampilkan "a dan b sudah diisi\n"
+
+    -- --------------------------------------------------------
+    -- C. Aritmetika
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Aritmetika ---\n"
+
+    variabel tambah = a + b
+    variabel kurang = a - b
+
+    variabel kali_skalar = a * 2
+    variabel bagi_skalar = a / 2
+    variabel pangkat = a ** 2
+
+    variabel kali_matriks = a @ b
+
+    -- --------------------------------------------------------
+    -- D. Transpose
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Transpose ---\n"
+
+    variabel t = a.transpose()
+
+    -- --------------------------------------------------------
+    -- E. Determinan dan Invers (Opsi)
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Determinan dan Invers ---\n"
+
+    pilih a.det() {
+        kasus ADA(d):
+            tampilkan "det(a) = ", d, "\n"
+        kasus KOSONG():
+            tampilkan "Gagal menghitung determinan\n"
+    }
+
+    pilih a.invers() {
+        kasus ADA(inv):
+            tampilkan "Invers berhasil\n"
+        kasus KOSONG():
+            tampilkan "Matriks singular\n"
+    }
+
+    -- --------------------------------------------------------
+    -- F. Trace dan Rank
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Trace dan Rank ---\n"
+
+    tampilkan "trace(a) = ", a.trace(), "\n"
+    tampilkan "rank(a) = ", a.rank(), "\n"
+
+    -- --------------------------------------------------------
+    -- G. Dekomposisi
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Dekomposisi ---\n"
+
+    pilih a.lu() {
+        kasus ADA(hasil):
+            tampilkan "LU berhasil\n"
+        kasus KOSONG():
+            tampilkan "LU gagal\n"
+    }
+
+    pilih a.qr() {
+        kasus ADA(hasil):
+            tampilkan "QR berhasil\n"
+        kasus KOSONG():
+            tampilkan "QR gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- H. Iterasi
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Iterasi ---\n"
+
+    variabel it = a.iterasi()
+    selama bukan it.selesai() {
+        variabel pos = it.berikutnya()
+        tampilkan "a[", pos.baris, "][", pos.kolom, "] = ", pos.nilai, "\n"
+    }
+
+    -- --------------------------------------------------------
+    -- I. Matriks dengan tipe khusus
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Tipe Khusus ---\n"
+
+    variabel m_btb: matriks(dengan T = bilangan_tanpa_batas, baris = 2, kolom = 2)
+    m_btb = matriks(baris = 2, kolom = 2, [btb("100"), btb("200"), btb("300"), btb("400")])
+
+    variabel m_dt: matriks(dengan T = desimal_tetap, baris = 2, kolom = 2)
+    m_dt = matriks(baris = 2, kolom = 2, [dt("1.50", skala = 2), dt("2.50", skala = 2), dt("3.50", skala = 2), dt("4.50", skala = 2)])
+
+    -- --------------------------------------------------------
+    -- J. Larik matriks
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Larik Matriks ---\n"
+
+    variabel lm: larik_matriks[2] = [a, b]
+
+    variabel m_kembali = larik_matriks_ke_matriks(lm)
+
+    -- --------------------------------------------------------
+    -- K. Matriks multi-dimensi
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Multi-Dimensi ---\n"
+
+    variabel m3d: matriks(dengan T = bilangan, dimensi = (2, 3, 4))
+
+    -- --------------------------------------------------------
+    -- L. Di dalam struktur
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Di Dalam Struktur ---\n"
+
+    struktur Transformasi {
+        m: matriks(dengan T = desimal, baris = 3, kolom = 3),
+        nama: teks
+    }
+
+    variabel tr: Transformasi
+    tr.m = matriks(baris = 3, kolom = 3, [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+    tr.nama = "identitas"
+
+    tampilkan "Transformasi: ", tr.nama, "\n"
+
+    -- --------------------------------------------------------
+    -- M. Di dalam Opsi dan Hasil
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Opsi dan Hasil ---\n"
+
+    variabel opt: Opsi(dengan T = matriks(dengan T = bilangan, baris = 3, kolom = 3)) =
+        ADA(nilai = a)
+
+    pilih opt {
+        kasus ADA(m):
+            tampilkan "Opsi berisi matriks 3x3\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+
+    tampilkan "\n=== SELESAI ===\n"
+}

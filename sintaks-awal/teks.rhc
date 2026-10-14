@@ -1,0 +1,32 @@
+-- ============================================================
+-- Tes: Tipe Data Teks (String)
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "=== TEST TIPE DATA TEKS ===\n"
+
+    variabel s1: teks = "Halo Dunia"
+    variabel s2: teks = "RheinC"
+    variabel s3: teks = ""
+    variabel s4: teks = "String dengan \"quote\""
+    variabel s5: teks = "Baris 1\nBaris 2\nBaris 3"
+
+    tampilkan "s1: ", s1, "\n"
+    tampilkan "s2: ", s2, "\n"
+    tampilkan "s3 (kosong): '", s3, "'", "\n"
+    tampilkan "s4: ", s4, "\n"
+    tampilkan "s5: ", s5, "\n\n"
+
+    -- Escape sequences
+    tampilkan "=== ESCAPE SEQUENCES ===\n"
+    variabel esc: teks = "Newline:\n(Setelah Newline)\nTab:\t(Setelah Tab)\nBackslash: '\\'\nQuote: '\"'"
+    tampilkan esc, "\n"
+
+    -- String kosong
+    variabel teks_kosong: teks = ""
+    tampilkan "String kosong: '", teks_kosong, "'", "\n"
+
+    -- Unicode dalam string
+    variabel unicode: teks = "こんにちは世界 🌍"
+    tampilkan "Unicode: ", unicode, "\n"
+}

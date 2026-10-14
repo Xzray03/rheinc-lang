@@ -1,0 +1,59 @@
+-- ============================================================
+-- Tes: Scope dan Shadowing Variabel
+-- ============================================================
+
+variabel global_var: bilangan = 100
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST SCOPE DAN SHADOWING ===\n"
+
+    tampilkan "Global var: ", global_var, "\n"
+
+    -- Variabel lokal
+    variabel lokal: bilangan = 50
+    tampilkan "Variabel lokal di main: ", lokal, "\n"
+
+    -- Blok scope
+    {
+        variabel dalam_blok: bilangan = 25
+        tampilkan "  Dalam blok - dalam_blok: ", dalam_blok, "\n"
+        tampilkan "  Dalam blok - lokal (dari main): ", lokal, "\n"
+        tampilkan "  Dalam blok - global_var: ", global_var, "\n"
+
+        -- Shadowing
+        variabel lokal: bilangan = 999
+        tampilkan "  Dalam blok - lokal (shadow): ", lokal, "\n"
+    }
+
+    -- lokal kembali ke nilai semula
+    tampilkan "Kembali ke main - lokal: ", lokal, "\n"
+
+    -- Loop scope
+    tampilkan "Loop scope:\n"
+
+    untuk i dari 1 sampai 3 {
+        variabel loop_var: bilangan = i * 10
+        tampilkan "  i = ", i, ", loop_var = ", loop_var, "\n"
+    }
+
+    -- Nested blocks
+    tampilkan "Nested blocks:\n"
+
+    {
+        variabel a: bilangan = 1
+        tampilkan "  Block 1: a = ", a, "\n"
+
+        {
+            variabel b: bilangan = 2
+            variabel a: bilangan = 10  -- shadow
+            tampilkan "    Block 2: a = ", a, ", b = ", b, "\n"
+        }
+
+        tampilkan "  Block 1: a = ", a, "\n"
+    }
+
+    -- Fungsi scope (simbol global vs lokal)
+    tampilkan "Global var tetap: ", global_var, "\n"
+
+    kembalikan 0
+}

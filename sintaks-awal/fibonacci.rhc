@@ -1,0 +1,20 @@
+-- ============================================================
+-- Program: Deret Fibonacci
+-- Deskripsi: Menghasilkan deret Fibonacci
+-- ============================================================
+
+fungsi fibonacci(n: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan n
+    }
+    kembalikan fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+prosedur utama() {
+    tampilkan "=== Barisan Fibonacci ===\n"
+
+    untuk i dari 0 sampai 30 {
+        variabel hasil: bilangan = fibonacci(i)
+        tampilkan "fibonacci(", i, ") = ", hasil, "\n"
+    }
+}

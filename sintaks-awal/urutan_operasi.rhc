@@ -1,0 +1,78 @@
+-- ============================================================
+-- Tes: Operator Precedence
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST OPERATOR PRECEDENCE ===\n"
+
+    tampilkan "=== ARITMATIKA ===\n"
+
+    -- Perkalian sebelum penjumlahan
+    variabel a: bilangan = 2 + 3 * 4
+    tampilkan "2 + 3 * 4 = ", a, " (seharusnya 14)\n"
+
+    variabel b: bilangan = (2 + 3) * 4
+    tampilkan "(2 + 3) * 4 = ", b, " (seharusnya 20)\n"
+
+    -- Pembagian dan modulo
+    variabel c: bilangan = 10 + 20 / 5
+    tampilkan "10 + 20 / 5 = ", c, " (seharusnya 14)\n"
+
+    variabel d: bilangan = 10 + 20 % 7
+    tampilkan "10 + 20 % 7 = ", d, " (seharusnya 16)\n"
+
+    -- Pangkat
+    variabel e: bilangan = 2 + 3 ** 2
+    tampilkan "2 + 3 ** 2 = ", e, " (seharusnya 11)\n"
+
+    tampilkan "=== LOGIKA DAN PERBANDINGAN ===\n"
+
+    -- Perbandingan sebelum logika
+    variabel x: bilangan = 5
+    variabel y: bilangan = 10
+    variabel z: bilangan = 15
+
+    variabel hasil1: logika = x < y dan y < z
+    tampilkan "x < y dan y < z = ", hasil1, "\n"
+
+    variabel hasil2: logika = x + y > z atau x > y
+    tampilkan "x + y > z atau x > y = ", hasil2, "\n"
+
+    -- Negasi
+    variabel hasil3: logika = bukan x > y
+    tampilkan "bukan x > y = ", hasil3, "\n"
+
+    tampilkan "=== CAMPURAN ===\n"
+
+    -- Ekspresi kompleks
+    variabel hasil4: bilangan = 10 + 5 * 2 - 8 / 4 + 3 ** 2
+    tampilkan "10 + 5 * 2 - 8 / 4 + 3 ** 2 = ", hasil4, "\n"
+    -- = 10 + 10 - 2 + 9 = 27
+
+    variabel hasil5: logika = (5 + 3) * 2 == 16 dan bukan (4 < 2)
+    tampilkan "(5 + 3) * 2 == 16 dan bukan (4 < 2) = ", hasil5, "\n"
+
+    -- Operator bitwise
+    tampilkan "=== BITWISE ===\n"
+
+    variabel bw1: bilangan = 1 + 2 << 2
+    tampilkan "1 + 2 << 2 = ", bw1, " (seharusnya 3 << 2 = 12)\n"
+
+    variabel bw2: bilangan = (1 + 2) << 2
+    tampilkan "(1 + 2) << 2 = ", bw2, "\n"
+
+    variabel bw3: bilangan = 5 & 3 == 1
+    tampilkan "5 & 3 == 1 = ", bw3, "\n"
+
+    -- Assignment
+    tampilkan "=== ASSIGNMENT ===\n"
+
+    variabel n: bilangan = 10
+    n += 5 * 2
+    tampilkan "n += 5 * 2 -> n = ", n, " (seharusnya 20)\n"
+
+    n *= 2 + 3
+    tampilkan "n *= 2 + 3 -> n = ", n, " (seharusnya 20 * 5 = 100)\n"
+
+    kembalikan 0
+}

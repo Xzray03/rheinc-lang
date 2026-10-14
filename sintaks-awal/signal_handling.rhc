@@ -1,0 +1,106 @@
+-- ============================================================
+-- Tes Signal Handling
+-- ============================================================
+
+-- Handler untuk SIGINT
+fungsi tangani_sigint(sinyal: Sinyal) -> hampa {
+    tampilkan "\n[SIGINT] Program dihentikan oleh pengguna\n"
+    keluar(0)
+}
+
+-- Handler untuk SIGTERM
+fungsi tangani_sigterm(sinyal: Sinyal) -> hampa {
+    tampilkan "\n[SIGTERM] Permintaan berhenti diterima\n"
+    keluar(0)
+}
+
+-- Handler untuk SIGHUP
+fungsi tangani_sighup(sinyal: Sinyal) -> hampa {
+    tampilkan "\n[SIGHUP] Terminal ditutup, reload konfigurasi\n"
+}
+
+-- Program utama
+prosedur utama() {
+    tampilkan "=== TEST SIGNAL HANDLING ===\n"
+    tampilkan "Tekan Ctrl+C untuk mengirim SIGINT\n\n"
+
+    -- Jamin jalan meski sinyal
+    jamin saat keluar {
+        tampilkan "[jamin] Membersihkan resource...\n"
+    }
+
+    -- Tangkap SIGINT dengan blok
+    tangkap_sinyal(SIGINT) {
+        tangani_sigint(SIGINT)
+    }
+
+    -- Tangkap SIGTERM
+    tangkap_sinyal(SIGTERM) {
+        tangani_sigterm(SIGTERM)
+    }
+
+    -- Tangkap SIGHUP
+    tangkap_sinyal(SIGHUP) {
+        tangani_sighup(SIGHUP)
+    }
+
+    -- Abaikan sinyal tertentu
+    abaikan_sinyal(SIGPIPE)
+
+    -- Kembalikan ke default
+    kembalikan_sinyal(SIGUSR1)
+
+    -- Blokir sinyal sementara
+    blokir_sinyal(SIGUSR1)
+    -- kode kritis
+    buka_blokir_sinyal(SIGUSR1)
+
+    -- Kirim sinyal ke diri sendiri
+    kirim_sinyal(pid_sendiri(), SIGUSR2)
+
+    -- Kirim sinyal ke proses anak
+    variabel pid_anak: bilangan = 12345
+    kirim_sinyal(pid_anak, SIGTERM)
+
+    -- Tunggu sinyal
+    tampilkan "Menunggu sinyal...\n"
+    tunggu_sinyal(SIGINT)
+
+    -- Reset penanganan sinyal
+    reset_sinyal(SIGINT)
+
+    -- Loop utama
+    variabel i: bilangan = 0
+    selama i < 5 {
+        tampilkan "Bekerja... ", i, "\n"
+        i = i + 1
+        tidur(1)
+    }
+
+    tampilkan "\n=== SELESAI ===\n"
+}
+
+-- Signal handling di dalam pekerja
+prosedur pekerja_dengan_sinyal() {
+    tangkap_sinyal(SIGINT) {
+        tampilkan "[Pekerja] SIGINT diterima\n"
+    }
+
+    selama benar {
+        -- kerja
+    }
+}
+
+-- Signal handling di dalam korutin
+coroutine fungsi korutin_dengan_sinyal() -> Pembangkit(dengan T = bilangan, R = hampa) {
+    tangkap_sinyal(SIGINT) {
+        tampilkan "[Korutin] SIGINT dibawa ke korutin aktif\n"
+    }
+
+    variabel i: bilangan = 0
+    selama i < 10 {
+        hasil(i)
+        jeda
+        i = i + 1
+    }
+}

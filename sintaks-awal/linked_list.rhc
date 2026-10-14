@@ -1,0 +1,80 @@
+-- Tes Linked List (Daftar)
+
+prosedur utama() {
+    -- Membuat daftar
+    variabel d: Daftar(dengan T = bilangan, jenis = tunggal) = daftar()
+
+    -- Menambah elemen
+    daftar_tambah(d, 10)
+    daftar_tambah(d, 20)
+    daftar_tambah(d, 30)
+    daftar_tambah_belakang(d, 40)
+    daftar_tambah_depan(d, 5)
+
+    -- Ukuran
+    tampilkan "Ukuran: ", daftar_ukuran(d), "\n"
+
+    -- Akses indeks
+    untuk i dari 0 sampai daftar_ukuran(d) {
+        tampilkan "  [", i, "] = ", daftar_ke(d, i), "\n"
+    }
+
+    -- Cari
+    pilih daftar_cari(d, 20) {
+        kasus ADA(indeks):
+            tampilkan "20 ditemukan di indeks ", indeks, "\n"
+        kasus KOSONG():
+            tampilkan "20 tidak ditemukan\n"
+    }
+
+    -- Hapus
+    pilih daftar_hapus_depan(d) {
+        kasus ADA(nilai):
+            tampilkan "Hapus depan: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Daftar kosong\n"
+    }
+
+    pilih daftar_hapus_belakang(d) {
+        kasus ADA(nilai):
+            tampilkan "Hapus belakang: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Daftar kosong\n"
+    }
+
+    -- Konversi ke larik
+    variabel l: larik dari bilangan = daftar_ke_larik(d)
+    untuk i dari 0 sampai daftar_ukuran(d) {
+        tampilkan "larik[", i, "] = ", l[i], "\n"
+    }
+
+    -- Konversi dari larik
+    variabel l2: larik[3] dari bilangan = [7, 8, 9]
+    variabel d2: Daftar(dengan T = bilangan, jenis = ganda) =
+        daftar_dari_larik(l2)
+
+    tampilkan "d2 ukuran: ", daftar_ukuran(d2), "\n"
+
+    -- Bersihkan
+    daftar_bersihkan(d)
+    tampilkan "Kosong? ", daftar_kosong(d), "\n"
+
+    -- Pointer
+    variabel ptr: tunjuk ke Daftar(dengan T = bilangan, jenis = tunggal) =
+        alokasi(Daftar(dengan T = bilangan, jenis = tunggal))
+    daftar_tambah(isi(ptr), 99)
+    tampilkan "ptr[0]: ", daftar_ke(isi(ptr), 0), "\n"
+    bebaskan(ptr)
+
+    -- Daftar di dalam struktur
+    struktur Wadah {
+        d: Daftar(dengan T = bilangan, jenis = tunggal),
+        nama: teks
+    }
+
+    variabel w: Wadah
+    w.nama = "contoh"
+    w.d = daftar()
+    daftar_tambah(w.d, 5)
+    tampilkan "w.d[0]: ", daftar_ke(w.d, 0), "\n"
+}

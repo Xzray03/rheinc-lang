@@ -1,0 +1,50 @@
+-- ============================================================
+-- Program: Bilangan Prima
+-- Deskripsi: Mengecek dan menampilkan bilangan prima
+-- ============================================================
+
+fungsi adalah_prima(n: bilangan) -> logika {
+    jika n <= 1 maka {
+        kembalikan salah
+    }
+
+    jika n <= 3 maka {
+        kembalikan benar
+    }
+
+    jika n % 2 == 0 atau n % 3 == 0 maka {
+        kembalikan salah
+    }
+
+    variabel i: bilangan = 5
+    selama i * i <= n {
+        jika n % i == 0 atau n % (i + 2) == 0 maka {
+            kembalikan salah
+        }
+        i = i + 6
+    }
+
+    kembalikan benar
+}
+
+fungsi utama() -> bilangan {
+    tampilkan "=== BILANGAN PRIMA ===\n"
+
+    -- Menampilkan bilangan prima 1-100
+    tampilkan "Bilangan prima antara 1-100:\n"
+
+    variabel hitung: bilangan = 0
+    untuk i dari 1 sampai 100 {
+        jika adalah_prima(i) maka {
+            jika hitung > 0 maka {
+                tampilkan ", "
+            }
+            tampilkan i
+            hitung = hitung + 1
+        }
+    }
+
+    tampilkan "\nTotal: ", hitung, " bilangan prima\n"
+
+    kembalikan 0
+}

@@ -1,0 +1,6 @@
+-- Pengujian #error
+
+prosedur utama() {
+    #error "Ini adalah pesan error yang disengaja untuk menguji #error"
+    tampilkan "Baris ini tidak akan pernah dieksekusi", "\n"
+}

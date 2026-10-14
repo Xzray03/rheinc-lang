@@ -1,0 +1,43 @@
+-- ============================================================
+-- Tes: Tipe Data Karakter
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST TIPE DATA KARAKTER ===\n"
+
+    variabel huruf: karakter = 'A'
+    variabel angka: karakter = '7'
+    variabel simbol: karakter = '@'
+    variabel newline: karakter = '\n'
+    variabel tab: karakter = '\t'
+
+    tampilkan "Huruf: ", huruf, "\n"
+    tampilkan "Angka: ", angka, "\n"
+    tampilkan "Simbol: ", simbol, "\n"
+    tampilkan "Newline escape: ", newline, "(setelah newline)\n"
+    tampilkan "Tab escape: ", tab, "(setelah tab)\n"
+
+    -- Konversi karakter ke bilangan (ASCII)
+    variabel ascii_A: bilangan = huruf
+    variabel ascii_7: bilangan = angka
+    variabel ascii_at: bilangan = simbol
+
+    tampilkan "ASCII 'A': ", ascii_A, "\n"
+    tampilkan "ASCII '7': ", ascii_7, "\n"
+    tampilkan "ASCII '@': ", ascii_at, "\n"
+
+    -- Operasi pada karakter
+    variabel huruf_berikut: karakter = huruf + 1
+    tampilkan "Huruf setelah 'A' : ", huruf_berikut, "\n"
+
+    -- Cek tipe karakter
+    jika huruf >= 'A' dan huruf <= 'Z' maka {
+        tampilkan huruf, " adalah huruf kapital", "\n"
+    }
+
+    jika angka >= '0' dan angka <= '9' maka {
+        tampilkan angka, " adalah digit", "\n"
+    }
+
+    kembalikan 0
+}

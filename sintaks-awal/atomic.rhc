@@ -1,0 +1,95 @@
+-- ============================================================
+-- Tes Atomic
+-- ============================================================
+
+-- Counter atomic
+tugas_global variabel counter: Atomik(dengan T = bilangan) = atomik(0)
+
+-- Flag atomic
+tugas_global variabel selesai: Atomik(dengan T = logika) = atomik(salah)
+
+-- Akumulator atomic
+tugas_global variabel total: Atomik(dengan T = bilangan) = atomik(0)
+
+-- Fungsi: increment counter sebanyak n kali
+fungsi increment(n: bilangan) -> hampa {
+    untuk i dari 1 sampai n {
+        atomik_tambah(counter, 1)
+    }
+    kembalikan
+}
+
+-- Fungsi: tambah ke total
+fungsi tambah_total(n: bilangan) -> hampa {
+    atomik_tambah(total, n)
+    kembalikan
+}
+
+-- Fungsi: set flag selesai
+fungsi set_selesai() -> hampa {
+    atomik_set(selesai, benar)
+    kembalikan
+}
+
+-- Program utama
+prosedur utama() {
+    tampilkan "=== TEST ATOMIC ===\n"
+
+    -- Counter awal
+    tampilkan "Counter awal: ", atomik_baca(counter), "\n"
+
+    -- Increment dari beberapa pekerja
+    variabel p1: Pekerja(dengan T = hampa) = buat_pekerja(increment, 100)
+    variabel p2: Pekerja(dengan T = hampa) = buat_pekerja(increment, 200)
+    variabel p3: Pekerja(dengan T = hampa) = buat_pekerja(increment, 300)
+
+    pekerja_tunggu(p1)
+    pekerja_tunggu(p2)
+    pekerja_tunggu(p3)
+
+    tampilkan "Counter setelah 3 pekerja: ", atomik_baca(counter), "\n"
+
+    -- Operasi atomic lain
+    atomik_tambah(counter, 50)
+    tampilkan "Setelah atomik_tambah(50): ", atomik_baca(counter), "\n"
+
+    atomik_kurang(counter, 20)
+    tampilkan "Setelah atomik_kurang(20): ", atomik_baca(counter), "\n"
+
+    atomik_set(counter, 999)
+    tampilkan "Setelah atomik_set(999): ", atomik_baca(counter), "\n"
+
+    -- Bandingkan dan tukar
+    variabel lama: bilangan = atomik_tukar(counter, 0)
+    tampilkan "Nilai lama: ", lama, ", nilai baru: ", atomik_baca(counter), "\n"
+
+    -- Akumulator
+    tampilkan "\nTotal awal: ", atomik_baca(total), "\n"
+
+    variabel p4: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 100)
+    variabel p5: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 200)
+    variabel p6: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 300)
+
+    pekerja_tunggu(p4)
+    pekerja_tunggu(p5)
+    pekerja_tunggu(p6)
+
+    tampilkan "Total akhir: ", atomik_baca(total), "\n"
+
+    -- Flag
+    tampilkan "\nSelesai awal: ", atomik_baca(selesai), "\n"
+
+    variabel p7: Pekerja(dengan T = hampa) = buat_pekerja(set_selesai)
+    pekerja_tunggu(p7)
+
+    tampilkan "Selesai akhir: ", atomik_baca(selesai), "\n"
+
+    -- Cek dengan kondisi
+    jika atomik_baca(selesai) maka {
+        tampilkan "Pekerjaan sudah selesai\n"
+    } jika bukan semua diatas {
+        tampilkan "Pekerjaan belum selesai\n"
+    }
+
+    tampilkan "\n=== SELESAI ===\n"
+}

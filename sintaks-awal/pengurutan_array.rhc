@@ -1,0 +1,343 @@
+-- ============================================================
+-- Tes: Pengurutan Array
+-- ============================================================
+
+prosedur utama() {
+    -- ============================================================
+    -- UJI 1-10: TIPE NUMERIK & KARAKTER
+    -- ============================================================
+
+    -- UJI 1: Array bilangan (8 byte) - kecil ke besar
+    tampilkan "═══ UJI 1: larik bilangan (8 byte) - kecil ke besar ═══\n"
+
+    variabel a: larik[5] dari bilangan
+    a = [50, 20, 40, 10, 30]
+
+    tampilkan "Sebelum urut: "
+    tampilkan a[0], " ", a[1], " ", a[2], " ", a[3], " ", a[4], "\n"
+
+    urutkan(a, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan a[0], " ", a[1], " ", a[2], " ", a[3], " ", a[4], "\n"
+
+    jika (a[0] == 10 dan a[1] == 20 dan a[2] == 30 dan a[3] == 40 dan a[4] == 50) maka {
+        tampilkan "✓ BERHASIL: Urut naik 8-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik 8-byte\n"
+    }
+
+    -- UJI 2: Array bilangan (8 byte) - besar ke kecil
+    tampilkan "\n═══ UJI 2: larik bilangan (8 byte) - besar ke kecil ═══\n"
+
+    variabel b: larik[6] dari bilangan
+    b = [15, 85, 35, 95, 25, 75]
+
+    tampilkan "Sebelum urut: "
+    tampilkan b[0], " ", b[1], " ", b[2], " ", b[3], " ", b[4], " ", b[5], "\n"
+
+    urutkan(b, besar ke kecil)
+
+    tampilkan "Setelah urut (besar ke kecil): "
+    tampilkan b[0], " ", b[1], " ", b[2], " ", b[3], " ", b[4], " ", b[5], "\n"
+
+    jika (b[0] == 95 dan b[1] == 85 dan b[2] == 75 dan b[3] == 35 dan b[4] == 25 dan b[5] == 15) maka {
+        tampilkan "✓ BERHASIL: Urut turun 8-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut turun 8-byte\n"
+    }
+
+    -- UJI 3: Array int32 (4 byte) - kecil ke besar
+    tampilkan "\n═══ UJI 3: larik bilangan32 (4 byte) - kecil ke besar ═══\n"
+
+    variabel c: larik[4] dari bilangan32
+    c = [300000, 100000, 400000, 200000]
+
+    tampilkan "Sebelum urut: "
+    tampilkan c[0], " ", c[1], " ", c[2], " ", c[3], "\n"
+
+    urutkan(c, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan c[0], " ", c[1], " ", c[2], " ", c[3], "\n"
+
+    jika (c[0] == 100000 dan c[1] == 200000 dan c[2] == 300000 dan c[3] == 400000) maka {
+        tampilkan "✓ BERHASIL: Urut naik 4-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik 4-byte\n"
+    }
+
+    -- UJI 4: Array int32 (4 byte) - besar ke kecil
+    tampilkan "\n═══ UJI 4: larik bilangan32 (4 byte) - besar ke kecil ═══\n"
+
+    variabel d: larik[5] dari bilangan32
+    d = [5000, 9000, 1000, 7000, 3000]
+
+    tampilkan "Sebelum urut: "
+    tampilkan d[0], " ", d[1], " ", d[2], " ", d[3], " ", d[4], "\n"
+
+    urutkan(d, besar ke kecil)
+
+    tampilkan "Setelah urut (besar ke kecil): "
+    tampilkan d[0], " ", d[1], " ", d[2], " ", d[3], " ", d[4], "\n"
+
+    jika (d[0] == 9000 dan d[1] == 7000 dan d[2] == 5000 dan d[3] == 3000 dan d[4] == 1000) maka {
+        tampilkan "✓ BERHASIL: Urut turun 4-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut turun 4-byte\n"
+    }
+
+    -- UJI 5: Array int16 (2 byte) - kecil ke besar
+    tampilkan "\n═══ UJI 5: larik bilangan16 (2 byte) - kecil ke besar ═══\n"
+
+    variabel e: larik[6] dari bilangan16
+    e = [32000, 10000, 25000, 5000, 28000, 15000]
+
+    tampilkan "Sebelum urut: "
+    tampilkan e[0], " ", e[1], " ", e[2], " ", e[3], " ", e[4], " ", e[5], "\n"
+
+    urutkan(e, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan e[0], " ", e[1], " ", e[2], " ", e[3], " ", e[4], " ", e[5], "\n"
+
+    jika (e[0] == 5000 dan e[1] == 10000 dan e[2] == 15000 dan e[3] == 25000 dan e[4] == 28000 dan e[5] == 32000) maka {
+        tampilkan "✓ BERHASIL: Urut naik 2-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik 2-byte\n"
+    }
+
+    -- UJI 6: Array int16 (2 byte) - besar ke kecil
+    tampilkan "\n═══ UJI 6: larik bilangan16 (2 byte) - besar ke kecil ═══\n"
+
+    variabel f: larik[4] dari bilangan16
+    f = [200, 800, 400, 600]
+
+    tampilkan "Sebelum urut: "
+    tampilkan f[0], " ", f[1], " ", f[2], " ", f[3], "\n"
+
+    urutkan(f, besar ke kecil)
+
+    tampilkan "Setelah urut (besar ke kecil): "
+    tampilkan f[0], " ", f[1], " ", f[2], " ", f[3], "\n"
+
+    jika (f[0] == 800 dan f[1] == 600 dan f[2] == 400 dan f[3] == 200) maka {
+        tampilkan "✓ BERHASIL: Urut turun 2-byte\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut turun 2-byte\n"
+    }
+
+    -- UJI 7: Array karakter (1 byte) - kecil ke besar
+    tampilkan "\n═══ UJI 7: larik karakter (1 byte) - kecil ke besar ═══\n"
+
+    variabel g: larik[5] dari karakter
+    g = ['d', 'a', 'e', 'b', 'c']
+
+    tampilkan "Sebelum urut: "
+    tampilkan g[0], " ", g[1], " ", g[2], " ", g[3], " ", g[4], "\n"
+
+    urutkan(g, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan g[0], " ", g[1], " ", g[2], " ", g[3], " ", g[4], "\n"
+
+    jika (g[0] == 97 dan g[1] == 98 dan g[2] == 99 dan g[3] == 100 dan g[4] == 101) maka {
+        tampilkan "✓ BERHASIL: Urut naik 1-byte (a, b, c, d, e)\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik 1-byte\n"
+    }
+
+    -- UJI 8: Array karakter (1 byte) - besar ke kecil
+    tampilkan "\n═══ UJI 8: larik karakter (1 byte) - besar ke kecil ═══\n"
+
+    variabel h: larik[5] dari karakter
+    h = ['m', 'x', 'p', 't', 'q']
+
+    tampilkan "Sebelum urut: "
+    tampilkan h[0], " ", h[1], " ", h[2], " ", h[3], " ", h[4], "\n"
+
+    urutkan(h, besar ke kecil)
+
+    tampilkan "Setelah urut (besar ke kecil): "
+    tampilkan h[0], " ", h[1], " ", h[2], " ", h[3], " ", h[4], "\n"
+
+    jika (h[0] == 120 dan h[1] == 116 dan h[2] == 113 dan h[3] == 112 dan h[4] == 109) maka {
+        tampilkan "✓ BERHASIL: Urut turun 1-byte (x, t, q, p, m)\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut turun 1-byte\n"
+    }
+
+    -- UJI 9: Array dengan 2 elemen (edge case)
+    tampilkan "\n═══ UJI 9: larik 2 elemen (edge case) ═══\n"
+
+    variabel i: larik[2] dari bilangan
+    i = [999, 111]
+
+    tampilkan "Sebelum urut: "
+    tampilkan i[0], " ", i[1], "\n"
+
+    urutkan(i, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan i[0], " ", i[1], "\n"
+
+    jika (i[0] == 111 dan i[1] == 999) maka {
+        tampilkan "✓ BERHASIL: Urut 2 elemen\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut 2 elemen\n"
+    }
+
+    -- UJI 10: Array dengan 1 elemen (edge case)
+    tampilkan "\n═══ UJI 10: larik 1 elemen (edge case) ═══\n"
+
+    variabel j: larik[1] dari bilangan
+    j = [42]
+
+    tampilkan "Sebelum urut: "
+    tampilkan j[0], "\n"
+
+    urutkan(j, kecil ke besar)
+
+    tampilkan "Setelah urut: "
+    tampilkan j[0], "\n"
+
+    jika (j[0] == 42) maka {
+        tampilkan "✓ BERHASIL: Urut 1 elemen (tidak berubah)\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut 1 elemen\n"
+    }
+
+    -- ============================================================
+    -- UJI 11-16: TIPE TEKS (STRING)
+    -- ============================================================
+
+    -- UJI 11: Array TEKS (string) - kecil ke besar
+    tampilkan "\n═══ UJI 11: larik teks (string) - kecil ke besar ═══\n"
+
+    variabel n: larik[5] dari teks
+    n = ["zebra", "apel", "mangga", "durian", "ceri"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan n[0], " ", n[1], " ", n[2], " ", n[3], " ", n[4], "\n"
+
+    urutkan(n, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan n[0], " ", n[1], " ", n[2], " ", n[3], " ", n[4], "\n"
+
+    jika (n[0] == "apel" dan n[1] == "ceri" dan n[2] == "durian" dan n[3] == "mangga" dan n[4] == "zebra") maka {
+        tampilkan "✓ BERHASIL: Urut naik string\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik string\n"
+        tampilkan "  Hasil: ", n[0], ", ", n[1], ", ", n[2], ", ", n[3], ", ", n[4], "\n"
+    }
+
+    -- UJI 12: Array TEKS (string) - besar ke kecil
+    tampilkan "\n═══ UJI 12: larik teks (string) - besar ke kecil ═══\n"
+
+    variabel o: larik[4] dari teks
+    o = ["ayam", "ular", "bebek", "kucing"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan o[0], " ", o[1], " ", o[2], " ", o[3], "\n"
+
+    urutkan(o, besar ke kecil)
+
+    tampilkan "Setelah urut (besar ke kecil): "
+    tampilkan o[0], " ", o[1], " ", o[2], " ", o[3], "\n"
+
+    jika (o[0] == "ular" dan o[1] == "kucing" dan o[2] == "bebek" dan o[3] == "ayam") maka {
+        tampilkan "✓ BERHASIL: Urut turun string\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut turun string\n"
+        tampilkan "  Hasil: ", o[0], ", ", o[1], ", ", o[2], ", ", o[3], "\n"
+    }
+
+    -- UJI 13: Array TEKS dengan duplikat
+    tampilkan "\n═══ UJI 13: larik teks (duplikat) - kecil ke besar ═══\n"
+
+    variabel p: larik[6] dari teks
+    p = ["jeruk", "apel", "jeruk", "mangga", "apel", "apel"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan p[0], " ", p[1], " ", p[2], " ", p[3], " ", p[4], " ", p[5], "\n"
+
+    urutkan(p, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan p[0], " ", p[1], " ", p[2], " ", p[3], " ", p[4], " ", p[5], "\n"
+
+    jika (p[0] == "apel" dan p[1] == "apel" dan p[2] == "apel" dan
+         p[3] == "jeruk" dan p[4] == "jeruk" dan p[5] == "mangga") maka {
+        tampilkan "✓ BERHASIL: Urut naik string dengan duplikat\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik string dengan duplikat\n"
+        tampilkan "  Hasil: ", p[0], ", ", p[1], ", ", p[2], ", ", p[3], ", ", p[4], ", ", p[5], "\n"
+    }
+
+    -- UJI 14: Array TEKS dengan string kosong
+    tampilkan "\n═══ UJI 14: larik teks (string kosong) - kecil ke besar ═══\n"
+
+    variabel q: larik[4] dari teks
+    q = ["", "zebra", "", "apel"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan "'", q[0], "' ", q[1], " '", q[2], "' ", q[3], "\n"
+
+    urutkan(q, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan "'", q[0], "' ", q[1], " '", q[2], "' ", q[3], "\n"
+
+    jika (q[0] == "" dan q[1] == "" dan q[2] == "apel" dan q[3] == "zebra") maka {
+        tampilkan "✓ BERHASIL: Urut naik string dengan string kosong\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik string dengan string kosong\n"
+    }
+
+    -- UJI 15: Array TEKS case-sensitive
+    tampilkan "\n═══ UJI 15: larik teks (case-sensitive) - kecil ke besar ═══\n"
+
+    variabel r: larik[4] dari teks
+    r = ["Zebra", "apel", "Mangga", "ceri"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan r[0], " ", r[1], " ", r[2], " ", r[3], "\n"
+
+    urutkan(r, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan r[0], " ", r[1], " ", r[2], " ", r[3], "\n"
+
+    -- Berdasarkan ASCII: Mangga (M=77), Zebra (Z=90), apel (a=97), ceri (c=99)
+    jika (r[0] == "Mangga" dan r[1] == "Zebra" dan r[2] == "apel" dan r[3] == "ceri") maka {
+        tampilkan "✓ BERHASIL: Urut case-sensitive\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut case-sensitive\n"
+        tampilkan "  Yang benar: Mangga, Zebra, apel, ceri\n"
+        tampilkan "  Hasil: ", r[0], ", ", r[1], ", ", r[2], ", ", r[3], "\n"
+    }
+
+    -- UJI 16: Array TEKS - pointer ke string
+    tampilkan "\n═══ UJI 16: larik teks (pointer ke string) - kecil ke besar ═══\n"
+
+    variabel s: larik[3] dari teks
+    s = ["xyz", "abc", "mno"]
+
+    tampilkan "Sebelum urut: "
+    tampilkan s[0], " ", s[1], " ", s[2], "\n"
+
+    urutkan(s, kecil ke besar)
+
+    tampilkan "Setelah urut (kecil ke besar): "
+    tampilkan s[0], " ", s[1], " ", s[2], "\n"
+
+    jika (s[0] == "abc" dan s[1] == "mno" dan s[2] == "xyz") maka {
+        tampilkan "✓ BERHASIL: Urut naik string\n"
+    } jika bukan semua diatas {
+        tampilkan "✗ GAGAL: Urut naik string\n"
+        tampilkan "  Hasil: ", s[0], ", ", s[1], ", ", s[2], "\n"
+    }
+
+    tampilkan "\n═══ SEMUA PENGUJIAN SELESAI ═══\n"
+}

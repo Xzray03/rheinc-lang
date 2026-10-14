@@ -1,0 +1,9 @@
+-- ============================================================
+-- Program: Hello World (Halo Dunia)
+-- Deskripsi: Program sederhana menampilkan teks
+-- ============================================================
+
+prosedur utama() {
+    tampilkan "Halo, Dunia!\n"
+    tampilkan "Selamat datang di RheinC!\n"
+}

@@ -1,0 +1,129 @@
+-- Pengujian direktif preprocessor RheinC
+
+-- 1. #definisikan tanpa nilai (flag)
+#definisikan FLAG_DEBUG
+
+-- 2. #definisikan dengan nilai konstan
+#definisikan VERSION 1
+
+-- 3. #definisikan dengan ekspresi
+#definisikan MAX(a,b) ((a) > (b) ? (a) : (b))
+
+-- 4. #definisikan multi-baris (menggunakan \)
+#definisikan LONG_MACRO \
+    tampilkan "Ini adalah macro panjang\n" \
+    tampilkan "yang terdiri dari banyak baris\n"
+
+-- 5. Operator # (stringize)
+#definisikan STR(x) #x
+
+-- 6. Operator ## (token pasting)
+#definisikan CONCAT(a,b) a##b
+
+-- 7. Makro bersarang
+#definisikan FOO 10
+#definisikan BAR FOO
+#definisikan BAZ BAR
+
+prosedur utama() {
+    -- Test #jika X terdefinisi
+    tampilkan "1. TEST #jika X terdefinisi:\n"
+    #jika FLAG_DEBUG terdefinisi
+        tampilkan "FLAG_DEBUG didefinisikan", "\n"
+    #akhir
+
+    -- Test #jika X tidak terdefinisi
+    tampilkan "\n2. TEST #jika X tidak terdefinisi:\n"
+    #jika FLAG_RELEASE tidak terdefinisi
+        tampilkan "FLAG_RELEASE tidak didefinisikan", "\n"
+    #akhir
+
+    -- Test #definisikan dan #hapus definisi
+    tampilkan "\n3. TEST #definisikan DAN #hapus definisi:\n"
+    #definisikan TEST 100
+    #jika TEST terdefinisi
+        tampilkan "TEST = ", TEST, "\n"
+    #akhir
+
+    #hapus definisi TEST
+    #jika TEST tidak terdefinisi
+        tampilkan "TEST sudah dihapus", "\n"
+    #akhir
+
+    -- Test #jika dengan ekspresi
+    tampilkan "\n4. TEST #jika DENGAN EKSPRESI:\n"
+    #jika VERSION > 0
+        tampilkan "VERSION > 0", "\n"
+    #jika bukan semua diatas
+        tampilkan "VERSION <= 0", "\n"
+    #akhir
+
+    -- Test #jika (setelah #jika) dan #jika bukan semua diatas
+    tampilkan "\n5. TEST #jika (setelah #jika) DAN #jika bukan semua diatas:\n"
+    #definisikan MODE 2
+    #jika MODE == 1
+        tampilkan "Mode 1", "\n"
+    #jika MODE == 2
+        tampilkan "Mode 2", "\n"
+    #jika bukan semua diatas
+        tampilkan "Mode lainnya", "\n"
+    #akhir
+
+    -- Test #jika X terdefinisi dan #jika X tidak terdefinisi
+    tampilkan "\n6. TEST #jika X terdefinisi DAN #jika X tidak terdefinisi:\n"
+    #definisikan FEATURE_A
+    #jika FEATURE_A terdefinisi
+        tampilkan "FEATURE_A aktif", "\n"
+    #jika FEATURE_A tidak terdefinisi
+        tampilkan "FEATURE_A tidak aktif", "\n"
+    #jika FEATURE_B terdefinisi
+        tampilkan "FEATURE_B aktif", "\n"
+    #jika FEATURE_B tidak terdefinisi
+        tampilkan "FEATURE_B tidak aktif", "\n"
+    #jika bukan semua diatas
+        tampilkan "Tidak ada fitur", "\n"
+    #akhir
+
+    tampilkan "\n6-1. TEST LANJUTAN #jika X terdefinisi DAN #jika X tidak terdefinisi:\n"
+    #hapus definisi FEATURE_A
+    #definisikan FEATURE_B
+    #jika FEATURE_A terdefinisi
+        tampilkan "FEATURE_A aktif", "\n"
+    #jika FEATURE_A tidak terdefinisi
+        tampilkan "FEATURE_A tidak aktif", "\n"
+    #jika FEATURE_B terdefinisi
+        tampilkan "FEATURE_B aktif", "\n"
+    #jika FEATURE_B tidak terdefinisi
+        tampilkan "FEATURE_B tidak aktif", "\n"
+    #jika bukan semua diatas
+        tampilkan "Tidak ada fitur", "\n"
+    #akhir
+
+    -- Test makro fungsi
+    tampilkan "\n7. TEST MAKRO FUNGSI:\n"
+    variabel a: bilangan = 10
+    variabel b: bilangan = 20
+    variabel max_val: bilangan = MAX(a, b)
+    tampilkan "MAX(10,20) = ", max_val, "\n"
+
+    -- Test operator # (stringize)
+    tampilkan "\n8. TEST OPERATOR '#' (STRINGIZE):\n"
+    variabel str: teks = STR(hello)
+    tampilkan "STR(hello) = ", str, "\n"
+
+    -- Test operator ## (token pasting)
+    tampilkan "\n9. TEST OPERATOR '##' (TOKEN PASTING):\n"
+    variabel x1: bilangan = 42
+    variabel hasil: bilangan = CONCAT(x, 1)
+    tampilkan "CONCAT(x,1) = ", hasil, "\n"
+
+    -- Test makro bersarang
+    tampilkan "\n10. TEST MAKRO BERSARANG:\n"
+    tampilkan "FOO = ", FOO, "\n"
+    tampilkan "BAR = ", BAR, "\n"
+    tampilkan "BAZ = ", BAZ, "\n"
+
+    -- Test makro multi-baris
+    tampilkan "\n11. TEST MAKRO MULTI-BARIS:\n"
+    LONG_MACRO
+}

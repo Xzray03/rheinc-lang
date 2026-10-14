@@ -1,0 +1,48 @@
+-- ============================================================
+-- Tes: Prototipe Fungsi
+-- ============================================================
+
+-- Prototipe (deklarasi)
+deklarasi fungsi tambah(a: bilangan, b: bilangan) -> bilangan;
+deklarasi fungsi kali(a: bilangan, b: bilangan) -> bilangan;
+prototipe prosedur tampilkan_pesan(pesan: teks);
+
+-- Implementasi fungsi tambah
+fungsi tambah(a: bilangan, b: bilangan) -> bilangan {
+    kembalikan a + b
+}
+
+-- Implementasi fungsi kali
+fungsi kali(a: bilangan, b: bilangan) -> bilangan {
+    kembalikan a * b
+}
+
+-- Implementasi prosedur
+prosedur tampilkan_pesan(pesan: teks) {
+    tampilkan "Pesan: ", pesan, "\n"
+}
+
+-- Fungsi yang menggunakan fungsi lain (didefinisikan setelah)
+fungsi hitung(a: bilangan, b: bilangan) -> bilangan {
+    variabel hasil: bilangan
+
+    hasil = tambah(a, b)
+    hasil = kali(hasil, 2)
+
+    kembalikan hasil
+}
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST PROTOTIPE FUNGSI ===\n"
+
+    tampilkan_pesan("Testing prototipe")
+
+    variabel x: bilangan = 10
+    variabel y: bilangan = 5
+
+    tampilkan "tambah(", x, ", ", y, ") = ", tambah(x, y), "\n"
+    tampilkan "kali(", x, ", ", y, ") = ", kali(x, y), "\n"
+    tampilkan "hitung(", x, ", ", y, ") = ", hitung(x, y), "\n"
+
+    kembalikan 0
+}

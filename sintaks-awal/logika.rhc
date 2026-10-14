@@ -1,0 +1,64 @@
+-- ============================================================
+-- Tes: Tipe Data Logika (Boolean)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST TIPE DATA LOGIKA ===\n"
+
+    variabel benar_flag: logika = benar
+    variabel salah_flag: logika = salah
+    variabel hasil: logika
+
+    tampilkan "benar = ", benar_flag, "\n"
+    tampilkan "salah = ", salah_flag, "\n"
+
+    -- Operasi logika
+    tampilkan "\n=== OPERASI LOGIKA ===\n"
+
+    hasil = benar dan benar
+    tampilkan "benar dan benar = ", hasil, "\n"
+
+    hasil = benar dan salah
+    tampilkan "benar dan salah = ", hasil, "\n"
+
+    hasil = salah atau benar
+    tampilkan "salah atau benar = ", hasil, "\n"
+
+    hasil = salah atau salah
+    tampilkan "salah atau salah = ", hasil, "\n"
+
+    hasil = bukan benar
+    tampilkan "bukan benar = ", hasil, "\n"
+
+    hasil = bukan salah
+    tampilkan "bukan salah = ", hasil, "\n"
+
+    -- Perbandingan menghasilkan logika
+    tampilkan "\n=== PERBANDINGAN ===\n"
+
+    variabel a: bilangan = 10
+    variabel b: bilangan = 20
+
+    tampilkan "a = ", a, ", b = ", b, "\n"
+    tampilkan "a == b: ", a == b, "\n"
+    tampilkan "a != b: ", a != b, "\n"
+    tampilkan "a < b: ", a < b, "\n"
+    tampilkan "a <= b: ", a <= b, "\n"
+    tampilkan "a > b: ", a > b, "\n"
+    tampilkan "a >= b: ", a >= b, "\n"
+
+    -- Kombinasi
+    variabel x: bilangan = 5
+    variabel y: bilangan = 15
+    variabel z: bilangan = 25
+
+    tampilkan "\nx= ", x, ", y= ", y, ", z= ", z, "\n"
+
+    hasil = (x < y) dan (y < z)
+    tampilkan "(x < y) dan (y < z) = ", hasil, "\n"
+
+    hasil = (x > y) atau (y < z)
+    tampilkan "(x > y) atau (y < z) = ", hasil, "\n"
+
+    kembalikan 0
+}

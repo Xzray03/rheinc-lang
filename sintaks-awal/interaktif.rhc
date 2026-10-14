@@ -1,0 +1,68 @@
+-- ============================================================
+-- Tes: Operasi I/O (Masukan)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST OPERASI I/O ===\n"
+
+    -- Input bilangan
+    tampilkan "=== INPUT BILANGAN ===\n"
+
+    variabel umur: bilangan = 0
+    tampilkan "Masukkan umur anda: "
+    baca(umur)
+    tampilkan "Umur anda: ", umur, "\n"
+
+    -- Input teks dengan prompt
+    tampilkan "=== INPUT TEKS ===\n"
+
+    variabel nama: teks = ""
+    baca("Masukkan nama anda: ", nama)
+    tampilkan "Halo, ", nama, "!\n"
+
+    -- Input karakter
+    tampilkan "=== INPUT KARAKTER ===\n"
+
+    variabel pilihan: karakter = ' '
+    tampilkan "Pilih (Y/N): "
+    baca(pilihan)
+    tampilkan "Anda memilih: ", pilihan, "\n"
+
+    jika pilihan == 'Y' atau pilihan == 'y' maka {
+        tampilkan "Anda memilih Ya\n"
+    } selain itu jika pilihan == 'N' atau pilihan == 'n' maka {
+        tampilkan "Anda memilih Tidak\n"
+    } jika bukan semua diatas {
+        tampilkan "Anda tidak memilih antara Ya atau Tidak\n"
+        kembalikan 0
+    }
+
+    -- Input logika
+    tampilkan "=== INPUT LOGIKA ===\n"
+
+    variabel lanjutkan: logika = salah
+    tampilkan "Lanjutkan? (1/0): "
+    baca(lanjutkan)
+
+    jika lanjutkan maka {
+        tampilkan "Program dilanjutkan\n"
+    } jika bukan semua diatas {
+        tampilkan "Program dihentikan\n"
+        kembalikan 0
+    }
+
+    -- Multiple input
+    tampilkan "=== MULTIPLE INPUT ===\n"
+
+    variabel a: bilangan = 0
+    variabel b: bilangan = 0
+
+    tampilkan "Masukkan dua bilangan: "
+    baca(a)
+    baca(b)
+
+    tampilkan "a = ", a, ", b = ", b, "\n"
+    tampilkan "a + b = ", a + b, "\n"
+
+    kembalikan 0
+}

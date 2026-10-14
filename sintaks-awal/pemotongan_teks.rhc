@@ -1,0 +1,86 @@
+-- ============================================================
+-- Tes: Pemotongan Teks (potong)
+-- ============================================================
+
+prosedur utama() {
+    -- UJI 1: Potong dengan dua pembatas (dari "aku" sampai "rumah")
+    tampilkan "═══ UJI 1: Potong dengan dua pembatas ═══\n"
+
+    variabel a: teks = "Sebentar lagi aku pulang ke rumah bersama temanku"
+    tampilkan "Sebelum: ", a, "\n"
+    potong(a, "aku" sampai "rumah")
+    tampilkan "Setelah: ", a, "\n"
+    tampilkan "Harapan: aku pulang ke rumah\n"
+
+
+    -- UJI 2: Potong hanya dengan pembatas pertama (tanpa "sampai")
+    tampilkan "\n═══ UJI 2: Potong hanya dengan pembatas pertama ═══\n"
+
+    variabel b: teks = "Sebentar lagi aku pulang ke rumah"
+    tampilkan "Sebelum: ", b, "\n"
+    potong(b, "aku")
+    tampilkan "Setelah: ", b, "\n"
+    tampilkan "Harapan: aku pulang ke rumah\n"
+
+
+    -- UJI 3: Pembatas pertama tidak ditemukan
+    tampilkan "\n═══ UJI 3: Pembatas pertama tidak ditemukan ═══\n"
+
+    variabel c: teks = "Halo dunia RheinC"
+    tampilkan "Sebelum: ", c, "\n"
+    potong(c, "xyz" sampai "abc")
+    tampilkan "Setelah: ", c, "\n"
+    tampilkan "Harapan: Halo dunia RheinC (tidak berubah)\n"
+
+
+    -- UJI 4: Pembatas kedua tidak ditemukan
+    tampilkan "\n═══ UJI 4: Pembatas kedua tidak ditemukan ═══\n"
+
+    variabel d: teks = "Selamat pagi dunia yang indah"
+    tampilkan "Sebelum: ", d, "\n"
+    potong(d, "dunia" sampai "xyz")
+    tampilkan "Setelah: ", d, "\n"
+    tampilkan "Harapan: dunia yang indah\n"
+
+
+    -- UJI 5: Potong karakter tunggal
+    tampilkan "\n═══ UJI 5: Potong dengan pembatas karakter tunggal ═══\n"
+
+    variabel e: teks = "a,b,c,d,e"
+    tampilkan "Sebelum: ", e, "\n"
+    potong(e, "," sampai ",")
+    tampilkan "Setelah: ", e, "\n"
+    tampilkan "Harapan: ,\n"
+
+
+    -- UJI 6: Potong spasi
+    tampilkan "\n═══ UJI 6: Potong dengan pembatas spasi ═══\n"
+
+    variabel f: teks = "satu dua tiga empat"
+    tampilkan "Sebelum: ", f, "\n"
+    potong(f, "dua" sampai "tiga")
+    tampilkan "Setelah: ", f, "\n"
+    tampilkan "Harapan: dua tiga\n"
+
+
+    -- UJI 7: Pembatas di akhir string (sampai akhir)
+    tampilkan "\n═══ UJI 7: Pembatas kedua di akhir string ═══\n"
+
+    variabel g: teks = "mulai tengah akhir akhir"
+    tampilkan "Sebelum: ", g, "\n"
+    potong(g, "tengah" sampai "akhir")
+    tampilkan "Setelah: ", g, "\n"
+    tampilkan "Harapan: tengah akhir\n"
+
+
+    -- UJI 8: String pendek
+    tampilkan "\n═══ UJI 8: String pendek ═══\n"
+
+    variabel h: teks = "ab"
+    tampilkan "Sebelum: ", h, "\n"
+    potong(h, "a" sampai "b")
+    tampilkan "Setelah: ", h, "\n"
+    tampilkan "Harapan: ab\n"
+
+    tampilkan "\n═══ SEMUA PENGUJIAN SELESAI ═══\n"
+}

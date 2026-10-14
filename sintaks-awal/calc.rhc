@@ -1,0 +1,155 @@
+-- ============================================================
+-- Program: Kalkulator Interaktif Sederhana
+-- Deskripsi: Kalkulator sederhana dengan input dari pengguna
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "╔══════════════════════════════════════════════════╗\n"
+    tampilkan "║          KALKULATOR SEDERHANA - RheinC           ║\n"
+    tampilkan "╚══════════════════════════════════════════════════╝\n"
+
+    variabel a: bilangan
+    variabel b: bilangan
+    variabel pilihan: karakter
+    variabel lanjutkan: logika = benar
+
+    selama lanjutkan {
+        -- Menu operasi
+        tampilkan "\n┌────────────────────────────────────────────────────┐\n"
+        tampilkan "│               PILIH OPERASI                        │\n"
+        tampilkan "├────────────────────────────────────────────────────┤\n"
+        tampilkan "│  1. Penjumlahan  (+)                               │\n"
+        tampilkan "│  2. Pengurangan  (-)                               │\n"
+        tampilkan "│  3. Perkalian    (*)                               │\n"
+        tampilkan "│  4. Pembagian    (/)                               │\n"
+        tampilkan "│  5. Sisa Bagi    (%)                               │\n"
+        tampilkan "│  6. Semua Operasi                                  │\n"
+        tampilkan "│  0. Keluar                                         │\n"
+        tampilkan "└────────────────────────────────────────────────────┘\n"
+        tampilkan "\nPilih operasi (0-6): "
+
+        -- Baca pilihan sebagai karakter
+        baca(pilihan)
+
+        -- Konversi karakter ke bilangan untuk switch
+        variabel pilihan_angka: bilangan = ke_bilangan(ke_teks(pilihan))
+
+        -- Keluar jika pilihan 0
+        jika pilihan_angka == 0 maka {
+            tampilkan "╔══════════════════════════════════════════════════╗\n"
+            tampilkan "║ Terima kasih telah menggunakan kalkulator RheinC!║\n"
+            tampilkan "╚══════════════════════════════════════════════════╝\n"
+            berhenti
+        }
+
+        -- Minta input bilangan (kecuali untuk pilihan 6 yang minta setelah)
+        jika pilihan_angka >= 1 dan pilihan_angka <= 5 maka {
+            tampilkan "\nMasukkan bilangan pertama (a): "
+            baca(a)
+            tampilkan "Masukkan bilangan kedua (b): "
+            baca(b)
+
+            -- Cek pembagian dengan nol
+            jika (pilihan_angka == 4 atau pilihan_angka == 5) dan b == 0 maka {
+                tampilkan "\n❌ ERROR: Tidak dapat membagi dengan nol!\n"
+                lanjut
+            }
+        }
+
+        -- Proses sesuai pilihan
+        pilih pilihan_angka {
+            kasus 1: {
+                variabel hasil: bilangan = a + b
+                tampilkan "┌──────────────────────────────────────────────────┐\n"
+                tampilkan "│                HASIL PENJUMLAHAN                 │\n"
+                tampilkan "├──────────────────────────────────────────────────┤\n"
+                tampilkan "│   ", a, " + ", b, " = ", hasil, "\n"
+                tampilkan "└──────────────────────────────────────────────────┘\n"
+            }
+            kasus 2: {
+                variabel hasil: bilangan = a - b
+                tampilkan "┌──────────────────────────────────────────────────┐\n"
+                tampilkan "│                HASIL PENGURANGAN                 │\n"
+                tampilkan "├──────────────────────────────────────────────────┤\n"
+                tampilkan "│   ", a, " - ", b, " = ", hasil, "\n"
+                tampilkan "└──────────────────────────────────────────────────┘\n"
+            }
+            kasus 3: {
+                variabel hasil: bilangan = a * b
+                tampilkan "┌──────────────────────────────────────────────────┐\n"
+                tampilkan "│                HASIL PERKALIAN                   │\n"
+                tampilkan "├──────────────────────────────────────────────────┤\n"
+                tampilkan "│   ", a, " * ", b, " = ", hasil, "\n"
+                tampilkan "└──────────────────────────────────────────────────┘\n"
+            }
+            kasus 4: {
+                variabel hasil: bilangan = a / b
+                tampilkan "┌──────────────────────────────────────────────────┐\n"
+                tampilkan "│                HASIL PEMBAGIAN                   │\n"
+                tampilkan "├──────────────────────────────────────────────────┤\n"
+                tampilkan "│   ", a, " / ", b, " = ", hasil, "\n"
+                tampilkan "└──────────────────────────────────────────────────┘\n"
+            }
+            kasus 5: {
+                variabel hasil: bilangan = a % b
+                tampilkan "┌──────────────────────────────────────────────────┐\n"
+                tampilkan "│                HASIL SISA BAGI                   │\n"
+                tampilkan "├──────────────────────────────────────────────────┤\n"
+                tampilkan "│   ", a, " % ", b, " = ", hasil, "\n"
+                tampilkan "└──────────────────────────────────────────────────┘\n"
+            }
+            kasus 6: {
+                tampilkan "\nMasukkan bilangan pertama (a): "
+                baca(a)
+                tampilkan "Masukkan bilangan kedua (b): "
+                baca(b)
+
+                jika b == 0 maka {
+                    tampilkan "\n❌ ERROR: Tidak dapat membagi dengan nol!\n"
+                    tampilkan "Operasi pembagian dan sisa bagi dilewati.\n\n"
+                }
+
+                variabel tambah: bilangan = a + b
+                variabel kurang: bilangan = a - b
+                variabel kali: bilangan = a * b
+
+                tampilkan "╔══════════════════════════════════════════════════╗\n"
+                tampilkan "║              HASIL SEMUA OPERASI                 ║\n"
+                tampilkan "╠══════════════════════════════════════════════════╣\n"
+                tampilkan "║   a = ", a, "\n"
+                tampilkan "║   b = ", b, "\n"
+                tampilkan "╠══════════════════════════════════════════════════╣\n"
+                tampilkan "║   Penjumlahan : ", a, " + ", b, " = ", tambah, "\n"
+                tampilkan "║   Pengurangan : ", a, " - ", b, " = ", kurang, "\n"
+                tampilkan "║   Perkalian   : ", a, " * ", b, " = ", kali, "\n"
+
+                jika b != 0 maka {
+                    variabel bagi: bilangan = a / b
+                    variabel sisa: bilangan = a % b
+                    tampilkan "║   Pembagian   : ", a, " / ", b, " = ", bagi, "\n"
+                    tampilkan "║   Sisa Bagi   : ", a, " % ", b, " = ", sisa, "\n"
+                } jika bukan semua diatas {
+                    tampilkan "║   Pembagian   : Tidak dapat dibagi dengan 0\n"
+                    tampilkan "║   Sisa Bagi   : Tidak dapat dibagi dengan 0\n"
+                }
+                tampilkan "╚══════════════════════════════════════════════════╝\n"
+            }
+            bawaan: {
+                tampilkan "\n❌ Pilihan tidak valid! Silakan pilih 0-6.\n"
+            }
+        }
+
+        -- Tanya apakah ingin melanjutkan
+        tampilkan "\nLanjutkan? (y/n): "
+        baca(pilihan)
+
+        jika pilihan != 'y' dan pilihan != 'Y' maka {
+            lanjutkan = salah
+            tampilkan "╔══════════════════════════════════════════════════╗\n"
+            tampilkan "║ Terima kasih telah menggunakan kalkulator RheinC!║\n"
+            tampilkan "╚══════════════════════════════════════════════════╝\n"
+        }
+    }
+
+    kembalikan 0
+}

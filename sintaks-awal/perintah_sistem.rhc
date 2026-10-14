@@ -1,0 +1,23 @@
+-- ============================================================
+-- Tes: Fungsi sistem() untuk menjalankan perintah shell
+-- ============================================================
+
+prosedur utama() {
+    -- Menjalankan perintah dan menyimpan hasil ke variabel
+    variabel hasil: teks
+    sistem("uname -a") -> hasil
+    tampilkan "Sistem: ", hasil, "\n"
+
+    -- Menjalankan perintah sederhana
+    variabel dir_listing: teks
+    sistem("pwd") -> dir_listing
+    tampilkan "Direktori: ", dir_listing, "\n"
+
+    -- Menjalankan perintah tanpa menyimpan hasil
+    sistem("echo 'Halo dari RheinC!'") -- Tidak akan mengembalikan apapun
+
+    -- Menjalankan aplikasi eksternal
+    variabel app_output: teks
+    sistem("./rheinc -h") -> app_output
+    tampilkan "Output aplikasi: ", app_output, "\n"
+}

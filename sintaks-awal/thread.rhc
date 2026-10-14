@@ -1,0 +1,217 @@
+-- ============================================================
+-- Tes Pekerja (Thread)
+-- ============================================================
+
+-- 1. Fungsi yang dijalankan pekerja
+fungsi hitung_kuadrat(x: bilangan) -> bilangan {
+    kembalikan x * x
+}
+
+fungsi hitung_faktorial(n: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan 1
+    }
+    kembalikan n * hitung_faktorial(n - 1)
+}
+
+-- 2. Fungsi tanpa nilai kembali
+prosedur sapa(nama: teks) {
+    tampilkan "Halo, ", nama, "!\n"
+}
+
+-- 3. Pekerja dengan mutex untuk data bersama
+tugas_global variabel total: bilangan = 0
+tugas_global variabel mutex_total: Mutex = mutex()
+
+fungsi tambah_total(n: bilangan) -> hampa {
+    mutex_kunci(mutex_total)
+    total = total + n
+    mutex_buka(mutex_total)
+    kembalikan
+}
+
+-- 4. Pekerja dengan channel
+fungsi kirim_ke_saluran(ch: Saluran(dengan T = bilangan), n: bilangan) -> hampa {
+    saluran_kirim(ch, n * 10)
+    kembalikan
+}
+
+-- 5. Program utama
+prosedur utama() {
+    tampilkan "=== TEST PEKERJA (THREAD) ===\n"
+
+    -- --------------------------------------------------------
+    -- A. Pekerja dasar dengan nilai kembali
+    -- --------------------------------------------------------
+    tampilkan "\n--- A. Pekerja Dasar ---\n"
+
+    variabel p1: Pekerja(dengan T = bilangan) = buat_pekerja(hitung_kuadrat, 7)
+    variabel p2: Pekerja(dengan T = bilangan) = buat_pekerja(hitung_faktorial, 5)
+
+    pilih pekerja_tunggu(p1) {
+        kasus ADA(nilai):
+            tampilkan "Kuadrat(7) = ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Pekerja 1 gagal\n"
+    }
+
+    pilih pekerja_tunggu(p2) {
+        kasus ADA(nilai):
+            tampilkan "Faktorial(5) = ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Pekerja 2 gagal\n"
+    }
+
+    -- --------------------------------------------------------
+    -- B. Pekerja tanpa nilai kembali
+    -- --------------------------------------------------------
+    tampilkan "\n--- B. Pekerja Tanpa Nilai Kembali ---\n"
+
+    variabel p3: Pekerja(dengan T = hampa) = buat_pekerja(sapa, "Budi")
+    pekerja_tunggu(p3)
+
+    -- --------------------------------------------------------
+    -- C. Informasi pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- C. Informasi Pekerja ---\n"
+
+    tampilkan "Nama p1: ", pekerja_nama(p1), "\n"
+    tampilkan "ID p1: ", pekerja_id(p1), "\n"
+    tampilkan "Status p1: ", pekerja_status(p1), "\n"
+
+    pekerja_prioritas(p1, 5)
+    tampilkan "Prioritas p1 diubah ke 5\n"
+
+    -- --------------------------------------------------------
+    -- D. Mutex untuk data bersama
+    -- --------------------------------------------------------
+    tampilkan "\n--- D. Mutex & Data Bersama ---\n"
+
+    variabel p4: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 10)
+    variabel p5: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 20)
+    variabel p6: Pekerja(dengan T = hampa) = buat_pekerja(tambah_total, 30)
+
+    pekerja_tunggu(p4)
+    pekerja_tunggu(p5)
+    pekerja_tunggu(p6)
+
+    tampilkan "Total setelah 3 pekerja: ", total, "\n"
+
+    -- --------------------------------------------------------
+    -- E. Channel antar pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- E. Channel Antar Pekerja ---\n"
+
+    variabel ch: Saluran(dengan T = bilangan) = saluran()
+
+    variabel p7: Pekerja(dengan T = hampa) = buat_pekerja(kirim_ke_saluran, ch, 5)
+    variabel p8: Pekerja(dengan T = hampa) = buat_pekerja(kirim_ke_saluran, ch, 7)
+
+    pekerja_tunggu(p7)
+    pekerja_tunggu(p8)
+
+    -- Terima dari channel
+    untuk i dari 1 sampai 2 {
+        pilih saluran_terima(ch) {
+            kasus ADA(nilai):
+                tampilkan "Diterima dari channel: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Channel kosong\n"
+        }
+    }
+
+    -- --------------------------------------------------------
+    -- F. Thread-local storage
+    -- --------------------------------------------------------
+    tampilkan "\n--- F. Thread-Local Storage ---\n"
+
+    tugas_lokal variabel counter_lokal: bilangan = 0
+    counter_lokal = counter_lokal + 1
+    tampilkan "counter_lokal: ", counter_lokal, "\n"
+
+    tugas_global variabel counter_global: bilangan = 100
+    counter_global = counter_global + 1
+    tampilkan "counter_global: ", counter_global, "\n"
+
+    -- --------------------------------------------------------
+    -- G. Atomic
+    -- --------------------------------------------------------
+    tampilkan "\n--- G. Atomic ---\n"
+
+    variabel a: Atomik(dengan T = bilangan) = atomik(0)
+    atomik_tambah(a, 5)
+    atomik_tambah(a, 10)
+    tampilkan "atomik baca: ", atomik_baca(a), "\n"
+
+    -- --------------------------------------------------------
+    -- H. Semaphore
+    -- --------------------------------------------------------
+    tampilkan "\n--- H. Semaphore ---\n"
+
+    variabel s: Semaphore = semaphore(2)
+    semaphore_tunggu(s)
+    tampilkan "Semaphore diambil\n"
+    semaphore_lepas(s)
+    tampilkan "Semaphore dilepas\n"
+
+    -- --------------------------------------------------------
+    -- I. Condition Variable
+    -- --------------------------------------------------------
+    tampilkan "\n--- I. Condition Variable ---\n"
+
+    variabel c: Kondisi = kondisi()
+    variabel m: Mutex = mutex()
+
+    mutex_kunci(m)
+    kondisi_sinyal(c)
+    mutex_buka(m)
+    tampilkan "Sinyal dikirim\n"
+
+    -- --------------------------------------------------------
+    -- J. Barrier
+    -- --------------------------------------------------------
+    tampilkan "\n--- J. Barrier ---\n"
+
+    variabel b: Barrier = barrier(3)
+    tampilkan "Barrier dibuat untuk 3 pekerja\n"
+
+    -- --------------------------------------------------------
+    -- K. Gabung pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- K. Gabung Pekerja ---\n"
+
+    variabel p9: Pekerja(dengan T = bilangan) = buat_pekerja(hitung_kuadrat, 3)
+    variabel p10: Pekerja(dengan T = bilangan) = buat_pekerja(hitung_kuadrat, 4)
+
+    pekerja_gabung(p9, p10)
+    tampilkan "p9 dan p10 digabung\n"
+
+    -- --------------------------------------------------------
+    -- L. Lepas pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- L. Lepas Pekerja ---\n"
+
+    variabel p11: Pekerja(dengan T = hampa) = buat_pekerja(sapa, "Siti")
+    pekerja_lepas(p11)
+    tampilkan "p11 dilepas\n"
+
+    -- --------------------------------------------------------
+    -- M. Menghentikan pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- M. Hentikan Pekerja ---\n"
+
+    variabel p12: Pekerja(dengan T = hampa) = buat_pekerja(sapa, "Andi")
+    berhentikan_pekerja(p12)
+    tampilkan "p12 dihentikan\n"
+
+    -- --------------------------------------------------------
+    -- N. Tutup pekerja
+    -- --------------------------------------------------------
+    tampilkan "\n--- N. Tutup Pekerja ---\n"
+
+    pekerja_tutup(p1)
+    pekerja_tutup(p2)
+    tampilkan "p1 dan p2 ditutup\n"
+
+    tampilkan "\n=== SELESAI ===\n"
+}

@@ -1,0 +1,46 @@
+-- ============================================================
+-- Program: Array (Larik)
+-- Deskripsi: Demonstrasi penggunaan larik
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== DEMONSTRASI LARIK ===\n"
+
+    -- Deklarasi larik
+    variabel angka: larik[5] dari bilangan
+
+    -- Inisialisasi larik
+    angka[0] = 10
+    angka[1] = 20
+    angka[2] = 30
+    angka[3] = 40
+    angka[4] = 50
+
+    -- Menampilkan isi larik
+    tampilkan "Isi larik:\n"
+    untuk i dari 0 sampai 4 {
+        tampilkan "  angka[", i, "] = ", angka[i], "\n"
+    }
+
+    -- Menghitung jumlah dan rata-rata
+    variabel total: bilangan = 0
+    untuk i dari 0 sampai 4 {
+        total = total + angka[i]
+    }
+
+    variabel rata: bilangan = total / 5
+
+    tampilkan "Total: ", total, "\n"
+    tampilkan "Rata-rata: ", rata, "\n"
+
+    -- Mencari nilai maksimum
+    variabel maks: bilangan = angka[0]
+    untuk i dari 1 sampai 4 {
+        jika angka[i] > maks maka {
+            maks = angka[i]
+        }
+    }
+    tampilkan "Nilai maksimum: ", maks, "\n"
+
+    kembalikan 0
+}

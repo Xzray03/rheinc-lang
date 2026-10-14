@@ -1,0 +1,256 @@
+-- ============================================================
+-- Tes: Fungsi Rekursif
+-- ============================================================
+
+-- ============================================================
+-- Mutual Recursion: is_even dan is_odd
+-- ============================================================
+deklarasi fungsi is_odd(n: bilangan) -> logika;
+fungsi is_even(n: bilangan) -> logika {
+    jika n == 0 maka {
+        kembalikan benar
+    }
+    kembalikan is_odd(n - 1)
+}
+
+fungsi is_odd(n: bilangan) -> logika {
+    jika n == 0 maka {
+        kembalikan salah
+    }
+    kembalikan is_even(n - 1)
+}
+
+-- ============================================================
+-- Mutual Recursion: m dan f (Hofstadter Female/Male)
+-- ============================================================
+deklarasi fungsi male(n: bilangan) -> bilangan;
+fungsi female(n: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan 1
+    }
+    kembalikan n - male(female(n - 1))
+}
+
+fungsi male(n: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan 0
+    }
+    kembalikan n - female(male(n - 1))
+}
+
+-- ============================================================
+-- SINGLE RECURSION (Non-Tail)
+-- ============================================================
+fungsi faktorial(n: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan 1
+    }
+    kembalikan n * faktorial(n - 1)
+}
+
+fungsi fibonacci(n: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan n
+    }
+    kembalikan fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+-- ============================================================
+-- TAIL RECURSION FUNCTIONS
+-- ============================================================
+-- Tail Recursion: Faktorial dengan akumulator
+fungsi faktorial_tail(n: bilangan, akumulator: bilangan) -> bilangan {
+    jika n <= 1 maka {
+        kembalikan akumulator
+    }
+    kembalikan faktorial_tail(n - 1, n * akumulator)
+}
+
+-- Wrapper untuk faktorial tail recursion
+fungsi faktorial_tr(n: bilangan) -> bilangan {
+    kembalikan faktorial_tail(n, 1)
+}
+
+-- Tail Recursion: Fibonacci dengan dua akumulator
+fungsi fibonacci_tail(n: bilangan, a: bilangan, b: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan a
+    }
+    jika n == 1 maka {
+        kembalikan b
+    }
+    kembalikan fibonacci_tail(n - 1, b, a + b)
+}
+
+-- Wrapper untuk fibonacci tail recursion
+fungsi fibonacci_tr(n: bilangan) -> bilangan {
+    kembalikan fibonacci_tail(n, 0, 1)
+}
+
+-- Tail Recursion: Pangkat dengan akumulator
+fungsi pangkat_tail(basis: bilangan, eksp: bilangan, akumulator: bilangan) -> bilangan {
+    jika eksp == 0 maka {
+        kembalikan akumulator
+    }
+    kembalikan pangkat_tail(basis, eksp - 1, basis * akumulator)
+}
+
+-- Wrapper untuk pangkat tail recursion
+fungsi pangkat_tr(basis: bilangan, eksp: bilangan) -> bilangan {
+    kembalikan pangkat_tail(basis, eksp, 1)
+}
+
+-- Tail Recursion: Jumlah digit dengan akumulator
+fungsi jumlah_digit_tail(n: bilangan, akumulator: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan akumulator
+    }
+    kembalikan jumlah_digit_tail(n / 10, akumulator + (n % 10))
+}
+
+-- Wrapper untuk jumlah digit tail recursion
+fungsi jumlah_digit_tr(n: bilangan) -> bilangan {
+    kembalikan jumlah_digit_tail(n, 0)
+}
+
+-- Tail Recursion: GCD dengan Euclidean algorithm (sudah tail recursive)
+fungsi gcd_tail(a: bilangan, b: bilangan) -> bilangan {
+    jika b == 0 maka {
+        kembalikan a
+    }
+    kembalikan gcd_tail(b, a % b)
+}
+
+-- Tail Recursion: Sum dari 1 ke n dengan akumulator
+fungsi sum_tail(n: bilangan, akumulator: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan akumulator
+    }
+    kembalikan sum_tail(n - 1, akumulator + n)
+}
+
+-- Wrapper untuk sum tail recursion
+fungsi sum_tr(n: bilangan) -> bilangan {
+    kembalikan sum_tail(n, 0)
+}
+
+-- Tail Recursion: Reverse number (membalik digit)
+fungsi reverse_tail(n: bilangan, akumulator: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan akumulator
+    }
+    kembalikan reverse_tail(n / 10, akumulator * 10 + (n % 10))
+}
+
+-- Wrapper untuk reverse tail recursion
+fungsi reverse_tr(n: bilangan) -> bilangan {
+    kembalikan reverse_tail(n, 0)
+}
+
+-- Tail Recursion: Cek palindrome number
+fungsi is_palindrome(n: bilangan) -> logika {
+    kembalikan n == reverse_tr(n)
+}
+
+-- Tail Recursion: Binary representation (jumlah digit biner)
+fungsi count_binary_digits_tail(n: bilangan, akumulator: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan akumulator
+    }
+    kembalikan count_binary_digits_tail(n / 2, akumulator + 1)
+}
+
+-- Wrapper
+fungsi count_binary_digits(n: bilangan) -> bilangan {
+    jika n == 0 maka {
+        kembalikan 1
+    }
+    kembalikan count_binary_digits_tail(n, 0)
+}
+
+-- ============================================================
+-- Fungsi Utama
+-- ============================================================
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST REKURSIF ===\n"
+
+    -- Faktorial (Non-Tail vs Tail)
+    tampilkan "=== FAKTORIAL ===\n"
+    untuk i dari 0 sampai 7 {
+        tampilkan "faktorial(", i, ") = ", faktorial(i)
+        tampilkan " | tail: ", faktorial_tr(i), "\n"
+    }
+
+    -- Fibonacci (Non-Tail vs Tail)
+    tampilkan "=== FIBONACCI ===\n"
+    untuk i dari 0 sampai 10 {
+        tampilkan "fibonacci(", i, ") = ", fibonacci(i)
+        tampilkan " | tail: ", fibonacci_tr(i), "\n"
+    }
+
+    -- Pangkat (Tail)
+    tampilkan "=== PANGKAT (Tail Recursion) ===\n"
+    tampilkan "2^8 = ", pangkat_tr(2, 8), "\n"
+    tampilkan "3^4 = ", pangkat_tr(3, 4), "\n"
+    tampilkan "5^3 = ", pangkat_tr(5, 3), "\n"
+    tampilkan "10^0 = ", pangkat_tr(10, 0), "\n"
+    tampilkan "2^10 = ", pangkat_tr(2, 10), "\n"
+
+    -- Jumlah Digit (Tail)
+    tampilkan "=== JUMLAH DIGIT (Tail Recursion) ===\n"
+    tampilkan "jumlah_digit(12345) = ", jumlah_digit_tr(12345), "\n"
+    tampilkan "jumlah_digit(987654) = ", jumlah_digit_tr(987654), "\n"
+    tampilkan "jumlah_digit(100) = ", jumlah_digit_tr(100), "\n"
+    tampilkan "jumlah_digit(99999) = ", jumlah_digit_tr(99999), "\n"
+
+    -- GCD (Tail)
+    tampilkan "=== GCD / FPB (Tail Recursion) ===\n"
+    tampilkan "gcd(48, 18) = ", gcd_tail(48, 18), "\n"
+    tampilkan "gcd(100, 35) = ", gcd_tail(100, 35), "\n"
+    tampilkan "gcd(17, 13) = ", gcd_tail(17, 13), "\n"
+    tampilkan "gcd(270, 192) = ", gcd_tail(270, 192), "\n"
+
+    -- Sum 1 to N (Tail)
+    tampilkan "=== SUM 1 TO N (Tail Recursion) ===\n"
+    tampilkan "sum(5) = ", sum_tr(5), "\n"
+    tampilkan "sum(10) = ", sum_tr(10), "\n"
+    tampilkan "sum(100) = ", sum_tr(100), "\n"
+
+    -- Reverse Number (Tail)
+    tampilkan "=== REVERSE NUMBER (Tail Recursion) ===\n"
+    tampilkan "reverse(12345) = ", reverse_tr(12345), "\n"
+    tampilkan "reverse(987654) = ", reverse_tr(987654), "\n"
+    tampilkan "reverse(100) = ", reverse_tr(100), "\n"
+
+    -- Palindrome Check (Tail)
+    tampilkan "=== PALINDROME CHECK ===\n"
+    tampilkan "is_palindrome(12321) = ", is_palindrome(12321), "\n"
+    tampilkan "is_palindrome(12345) = ", is_palindrome(12345), "\n"
+    tampilkan "is_palindrome(98789) = ", is_palindrome(98789), "\n"
+
+    -- Binary Digits (Tail)
+    tampilkan "=== BINARY DIGITS (Tail Recursion) ===\n"
+    tampilkan "binary_digits(0) = ", count_binary_digits(0), "\n"
+    tampilkan "binary_digits(1) = ", count_binary_digits(1), "\n"
+    tampilkan "binary_digits(255) = ", count_binary_digits(255), "\n"
+    tampilkan "binary_digits(1024) = ", count_binary_digits(1024), "\n"
+
+    -- Mutual Recursion: Even/Odd
+    tampilkan "=== GANJIL/GENAP ===\n"
+    untuk i dari 0 sampai 10 {
+        jika is_even(i) maka {
+            tampilkan i, " adalah GENAP\n"
+        } jika bukan semua diatas {
+            tampilkan i, " adalah GANJIL\n"
+        }
+    }
+
+    -- Mutual Recursion: Hofstadter
+    tampilkan "=== HOFSTADTER SEQUENCE ===\n"
+    tampilkan "N\tFemale\tMale\n"
+    untuk i dari 0 sampai 10 {
+        tampilkan i, "\t", female(i), "\t", male(i), "\n"
+    }
+
+    kembalikan 0
+}

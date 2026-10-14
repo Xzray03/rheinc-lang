@@ -1,0 +1,45 @@
+-- Pengujian fitur 'goto' dan label 'nama: { ... }'
+
+-- Contoh 1: pola alokasi/goto/bebaskan
+prosedur contoh_alokasi() {
+    variabel ptr: tunjuk ke bilangan = alokasi(bilangan)
+    isi(ptr) = 100
+    goto clean_up
+
+    clean_up: {
+        tampilkan isi(ptr)
+        bebaskan(ptr)
+    }
+}
+
+-- Contoh 2: early return + label pembersihan (kembalikan diikuti label)
+fungsi cari(x: bilangan) -> bilangan {
+    jika x < 0 maka {
+        goto gagal
+    }
+    kembalikan x * 2
+
+    gagal: {
+        kembalikan -1
+    }
+}
+
+-- Contoh 3: lompatan mundur (loop manual via goto)
+prosedur hitung_mundur() {
+    variabel i: bilangan = 5
+    ulang: {
+        tampilkan i
+        i = i - 1
+        jika i > 0 maka {
+            goto ulang
+        }
+    }
+}
+
+prosedur utama() {
+    contoh_alokasi()
+    tampilkan cari(21), "\n"
+    tampilkan cari(-5), "\n"
+    hitung_mundur()
+    tampilkan "\n"
+}

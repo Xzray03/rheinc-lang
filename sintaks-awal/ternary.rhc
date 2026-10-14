@@ -1,0 +1,80 @@
+-- ============================================================
+-- Tes: Operasi Ternary
+-- ============================================================
+
+prosedur utama() {
+    -- 1. Ternary sederhana dengan variabel
+    variabel a: bilangan = 15
+    variabel b: bilangan = jika a > 10 maka 1000 selain 500
+    tampilkan "1. Ternary sederhana: b = ", b, "\n"
+    tampilkan "\n"
+
+
+    -- 2. Nested Ternary (ternary dalam ternary)
+    variabel nilai: bilangan = 75
+    variabel grade: teks = jika nilai >= 80 maka "A" selain jika nilai >= 60 maka "B" selain "C"
+    tampilkan "2. Nested ternary: nilai = ", nilai, " → grade = ", grade, "\n"
+    tampilkan "\n"
+
+
+    -- 3. Ternary dengan ekspresi kompleks
+    variabel p: bilangan = 25
+    variabel q: bilangan = 50
+    variabel max: bilangan = jika p > q maka p selain q
+    variabel min: bilangan = jika p < q maka p selain q
+    tampilkan "3. Max/Min: p = ", p, ", q = ", q, "\n"
+    tampilkan "   max = ", max, ", min = ", min, "\n"
+    tampilkan "\n"
+
+
+    -- 4. Ternary dengan operasi aritmetika di hasil
+    variabel diskon: bilangan = 20
+    variabel harga: bilangan = 100000
+    variabel total: bilangan = jika diskon > 0 maka harga - (harga * diskon / 100) selain harga
+    tampilkan "4. Ternary aritmetika: harga = ", harga, ", diskon = ", diskon, "%\n"
+    tampilkan "   total = ", total, "\n"
+    tampilkan "\n"
+
+
+    -- 5. Ternary untuk validasi
+    variabel umur: bilangan = 17
+    variabel status: teks = jika umur >= 17 maka "Bisa buat SIM" selain "Belum bisa buat SIM"
+    tampilkan "5. Validasi umur: umur = ", umur, " → ", status, "\n"
+    tampilkan "\n"
+
+
+    -- 6. Ternary dengan perbandingan string
+    variabel nama: teks = "Budi"
+    variabel sapaan: teks = jika nama == "Budi" maka "Halo Budi!" selain "Halo Pengguna!"
+    tampilkan "6. Ternary string: ", sapaan, "\n"
+    tampilkan "\n"
+
+
+    -- 7. Ternary untuk menentukan ganjil/genap
+    variabel angka: bilangan = 42
+    variabel jenis: teks = jika (angka % 2) == 0 maka "Genap" selain "Ganjil"
+    tampilkan "7. Ganjil/Genap: ", angka, " = bilangan ", jenis, "\n"
+    tampilkan "\n"
+
+
+    -- 8. Ternary dengan logical AND
+    variabel suhu: bilangan = 28
+    variabel cuaca: teks = "cerah"
+    variabel rekomendasi: teks = jika suhu > 25 dan cuaca == "cerah" maka "Cocok untuk ke pantai" selain "Lebih baik di rumah"
+    tampilkan "8. Logika AND: suhu = ", suhu, ", cuaca = ", cuaca, "\n"
+    tampilkan "   Rekomendasi: ", rekomendasi, "\n"
+    tampilkan "\n"
+
+
+    -- 9. Ternary untuk absolute value
+    variabel neg: bilangan = 0 - 99
+    variabel abs_val: bilangan = jika neg < 0 maka 0 - neg selain neg
+    tampilkan "9. Absolute value: |", neg, "| = ", abs_val, "\n"
+    tampilkan "\n"
+
+
+    -- 10. Ternary bertingkat untuk range check
+    variabel score: bilangan = 85
+    variabel hasil: teks = jika score >= 90 maka "Sempurna" selain jika score >= 80 maka "Sangat Baik" selain jika score >= 70 maka "Baik" selain jika score >= 60 maka "Cukup" selain "Kurang"
+    tampilkan "10. Range check: score = ", score, " → ", hasil, "\n"
+}

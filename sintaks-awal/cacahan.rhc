@@ -1,0 +1,107 @@
+-- ============================================================
+-- Tes: Enum (Cacahan)
+-- ============================================================
+
+-- Definisi enum
+cacahan Warna {
+    MERAH,
+    HIJAU,
+    BIRU,
+    KUNING,
+    UNGU
+}
+
+cacahan Status {
+    SUKSES = 0,
+    GAGAL = -1,
+    PENDING = 1,
+    DIBATALKAN = 2
+}
+
+cacahan Hari {
+    SENIN = 1,
+    SELASA,
+    RABU,
+    KAMIS,
+    JUMAT,
+    SABTU,
+    MINGGU
+}
+
+cacahan Izin {
+    BACA = 1,
+    TULIS = 2,
+    EKSEKUSI = 4
+}
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST ENUM (CACAHAN) ===\n"
+
+    -- Test 1: Enum dasar
+    tampilkan "Test 1: Warna\n"
+
+    variabel warna_favorit: Warna = BIRU
+
+    tampilkan "MERAH = ", MERAH, "\n"
+    tampilkan "HIJAU = ", HIJAU, "\n"
+    tampilkan "BIRU = ", BIRU, "\n"
+    tampilkan "Warna favorit = ", warna_favorit, "\n"
+
+    -- Test 2: Enum dengan nilai kustom
+    tampilkan "Test 2: Status\n"
+
+    variabel status: Status = PENDING
+
+    tampilkan "SUKSES = ", SUKSES, "\n"
+    tampilkan "GAGAL = ", GAGAL, "\n"
+    tampilkan "PENDING = ", PENDING, "\n"
+    tampilkan "DIBATALKAN = ", DIBATALKAN, "\n"
+    tampilkan "Status saat ini = ", status, "\n"
+
+    -- Test 3: Enum dalam pilih
+    tampilkan "Test 3: Pilih dengan enum\n"
+
+    variabel hari_ini: Hari = RABU
+
+    pilih hari_ini {
+        kasus SENIN: {
+            tampilkan "Hari Senin - Awal minggu\n"
+        }
+        kasus SELASA:
+        kasus RABU:
+        kasus KAMIS: {
+            tampilkan "Hari kerja - pertengahan minggu\n"
+        }
+        kasus JUMAT: {
+            tampilkan "Hari Jumat - Akhir pekan kerja\n"
+        }
+        kasus SABTU:
+        kasus MINGGU: {
+            tampilkan "Akhir pekan!\n"
+        }
+    }
+
+    -- Test 4: Enum sebagai flag bitwise
+    tampilkan "Test 4: Flag Izin\n"
+
+    variabel izin_file: bilangan = BACA | TULIS
+
+    tampilkan "BACA = ", BACA, "\n"
+    tampilkan "TULIS = ", TULIS, "\n"
+    tampilkan "EKSEKUSI = ", EKSEKUSI, "\n"
+    tampilkan "BACA | TULIS = ", izin_file, "\n"
+
+    jika (izin_file & BACA) != 0 maka {
+        tampilkan "File dapat dibaca\n"
+    }
+
+    jika (izin_file & TULIS) != 0 maka {
+        tampilkan "File dapat ditulis\n"
+    }
+
+    jika (izin_file & EKSEKUSI) == 0 maka {
+        tampilkan "File tidak dapat dieksekusi\n"
+    }
+
+    kembalikan 0
+}

@@ -1,0 +1,53 @@
+-- ============================================================
+-- Tes: Tipe Data Tunjuk (Pointer)
+-- ============================================================
+
+fungsi utama() -> bilangan {
+    tampilkan "=== TEST TIPE DATA TUNJUK ===\n"
+
+    -- Deklarasi variabel dan pointer
+    variabel nilai: bilangan = 42
+    variabel ptr: tunjuk ke bilangan
+
+    -- Ambil alamat
+    ptr = alamat(nilai)
+
+    tampilkan "Nilai: ", nilai, "\n"
+    tampilkan "Alamat nilai: ", alamat(ptr), "\n"
+    tampilkan "Nilai melalui pointer: ", isi(ptr), "\n\n"
+
+    -- Ubah nilai melalui pointer
+    isi(ptr) = 100
+    tampilkan "Setelah isi(ptr) = 100:\n"
+    tampilkan "Nilai: ", nilai, "\n\n"
+
+    -- Pointer ke pointer
+    variabel ptr2: tunjuk ke tunjuk ke bilangan
+    ptr2 = alamat(ptr)
+
+    tampilkan "Pointer ke pointer:\n"
+    tampilkan "isi(isi(ptr2)) = ", isi(isi(ptr2)), "\n\n"
+
+    -- Pointer kosong
+    variabel null_ptr: tunjuk ke bilangan = kosong
+    tampilkan "Pointer kosong: ", alamat(null_ptr), "\n"
+
+    jika null_ptr == kosong maka {
+        tampilkan "null_ptr = kosong (NULL)\n\n"
+    }
+
+    -- Alokasi memori dinamis
+    tampilkan "=== ALOKASI MEMORI ===\n"
+
+    variabel dyn_ptr: tunjuk ke bilangan
+    dyn_ptr = alokasi(bilangan)
+
+    jika dyn_ptr != kosong maka {
+        isi(dyn_ptr) = 999
+        tampilkan "Nilai di memori dinamis: ", isi(dyn_ptr), "\n"
+        bebaskan(dyn_ptr)
+        tampilkan "Memori telah dibebaskan\n"
+    }
+
+    kembalikan 0
+}

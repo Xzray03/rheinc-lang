@@ -1,0 +1,104 @@
+- Tes Iterator
+
+prosedur utama() {
+    -- Iterator manual
+    variabel l: larik[5] dari bilangan = [10, 20, 30, 40, 50]
+
+    variabel it: Iterator(dengan T = bilangan) = iterator_mulai(l)
+    selama bukan iterator_selesai(it) {
+        pilih iterator_berikutnya(it) {
+            kasus ADA(nilai):
+                tampilkan "Manual: ", nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Selesai\n"
+        }
+    }
+
+    -- Sugar syntax dasar
+    tampilkan "\nSugar dasar:\n"
+    untuk setiap x dalam l {
+        tampilkan x, "\n"
+    }
+
+    -- Dengan indeks
+    tampilkan "\nDengan indeks:\n"
+    untuk setiap i, x dalam l {
+        tampilkan i, ": ", x, "\n"
+    }
+
+    -- Dengan langkah
+    tampilkan "\nDengan langkah 2:\n"
+    untuk setiap x dalam l langkah 2 {
+        tampilkan x, "\n"
+    }
+
+    -- Dengan indeks dan langkah
+    tampilkan "\nDengan indeks dan langkah:\n"
+    untuk setiap i, x dalam l langkah 2 {
+        tampilkan i, ": ", x, "\n"
+    }
+
+    -- Untuk koleksi bawaan
+    variabel q: Antrian(dengan T = bilangan) = antrian()
+    antrian_tambah(q, 1)
+    antrian_tambah(q, 2)
+    antrian_tambah(q, 3)
+
+    tampilkan "\nAntrian:\n"
+    untuk setiap x dalam q {
+        tampilkan x, "\n"
+    }
+
+    variabel t: Tumpukan(dengan T = bilangan) = tumpukan()
+    tumpukan_tambah(t, 1)
+    tumpukan_tambah(t, 2)
+    tumpukan_tambah(t, 3)
+
+    tampilkan "\nTumpukan:\n"
+    untuk setiap x dalam t {
+        tampilkan x, "\n"
+    }
+
+    variabel d: Daftar(dengan T = bilangan, jenis = tunggal) = daftar()
+    daftar_tambah(d, 1)
+    daftar_tambah(d, 2)
+    daftar_tambah(d, 3)
+
+    tampilkan "\nDaftar:\n"
+    untuk setiap x dalam d {
+        tampilkan x, "\n"
+    }
+
+    -- Iterator dua arah untuk Daftar ganda
+    variabel dg: Daftar(dengan T = bilangan, jenis = ganda) = daftar(jenis = ganda)
+    daftar_tambah(dg, 10)
+    daftar_tambah(dg, 20)
+    daftar_tambah(dg, 30)
+
+    tampilkan "\nDaftar ganda mundur:\n"
+    variabel itm: Iterator(dengan T = bilangan) = iterator_akhir(dg)
+    selama bukan iterator_selesai(itm) {
+        pilih iterator_sebelumnya(itm) {
+            kasus ADA(nilai):
+                tampilkan nilai, "\n"
+            kasus KOSONG():
+                tampilkan "Selesai\n"
+        }
+    }
+
+    -- Iterator di dalam struktur
+    struktur Wadah {
+        it: Iterator(dengan T = bilangan),
+        nama: teks
+    }
+
+    variabel w: Wadah
+    w.nama = "contoh"
+    w.it = iterator_mulai(l)
+    pilih iterator_berikutnya(w.it) {
+        kasus ADA(nilai):
+            tampilkan "w.it pertama: ", nilai, "\n"
+        kasus KOSONG():
+            tampilkan "Kosong\n"
+    }
+}
