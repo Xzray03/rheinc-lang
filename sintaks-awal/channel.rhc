@@ -231,7 +231,7 @@ prosedur utama() {
     saluran_kirim(ch8, 10)
     saluran_kirim(ch9, 20)
 
-    untuk setiap ch in daftar_ch {
+    untuk setiap ch dalam daftar_ch {
         pilih saluran_terima(ch) {
             kasus ADA(nilai):
                 tampilkan "Dari daftar: ", nilai, "\n"

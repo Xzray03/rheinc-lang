@@ -1,7 +1,7 @@
 -- Pengujian fitur 'lambda(...) { ... }'
 
 -- Fungsi tingkat-tinggi: menerima lambda sebagai argumen (callback)
-fungsi terapkan(f: tunjuk ke fungsi, x: bilangan, y: bilangan) -> bilangan {
+fungsi terapkan(f: tunjuk ke fungsi(a: bilangan, b: bilangan) -> bilangan, x: bilangan, y: bilangan) -> bilangan {
     kembalikan f(x, y)
 }
 

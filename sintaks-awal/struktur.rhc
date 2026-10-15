@@ -12,6 +12,12 @@ struktur Alamat {
     kode_pos: bilangan
 }
 
+struktur Titik {
+    x: bilangan
+    y: bilangan
+    z: bilangan
+}
+
 struktur Mahasiswa {
     nama: teks,
     nim: teks,
@@ -54,6 +60,13 @@ fungsi utama() -> bilangan {
     -- ========================================================
     -- 1. Variabel stack-based (value type)
     -- ========================================================
+    -- Struktur tanpa koma antar field
+    variabel titik: Titik
+    titik.x = 10
+    titik.y = 20
+    titik.z = 30
+    tampilkan "Titik: ", titik.x, ", ", titik.y, ", ", titik.z, "\n"
+
     variabel mhs1: Mahasiswa
 
     mhs1.nama = "Budi Santoso"

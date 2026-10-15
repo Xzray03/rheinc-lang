@@ -20,7 +20,14 @@
 -- 6. Operator ## (token pasting)
 #definisikan CONCAT(a,b) a##b
 
--- 7. Makro bersarang
+-- 7. Variadic macro
+#definisikan LOG(pesan, ...) tampilkan(pesan, __VA_ARGS__)
+
+-- 8. Konstanta untuk ekspresi preprocessor penuh
+#definisikan EXPR_A 6
+#definisikan EXPR_B 3
+
+-- 9. Makro bersarang
 #definisikan FOO 10
 #definisikan BAR FOO
 #definisikan BAZ BAR
@@ -126,4 +133,97 @@ prosedur utama() {
     -- Test makro multi-baris
     tampilkan "\n11. TEST MAKRO MULTI-BARIS:\n"
     LONG_MACRO
+    -- Test variadic macro
+    tampilkan "\n12. TEST VARIADIC MACRO:\n"
+    LOG("Variadic macro aktif", "\n")
+    LOG("Nilai variadic = ", 42, "\n")
+
+    -- Test ekspresi preprocessor penuh
+    tampilkan "\n13. TEST EKSPRESI PREPROCESSOR PENUH:\n"
+
+    #jika (EXPR_A + EXPR_B) == 9
+        tampilkan "arith + benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: arith +\n"
+    #akhir
+
+    #jika (EXPR_A * EXPR_B) == 18
+        tampilkan "arith * benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: arith *\n"
+    #akhir
+
+    #jika (EXPR_A & EXPR_B) == 2
+        tampilkan "bitwise & benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: bitwise &\n"
+    #akhir
+
+    #jika (EXPR_A | EXPR_B) == 7
+        tampilkan "bitwise | benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: bitwise |\n"
+    #akhir
+
+    #jika (EXPR_A ^ EXPR_B) == 5
+        tampilkan "bitwise ^ benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: bitwise ^\n"
+    #akhir
+
+    #jika (EXPR_A << 1) == 12
+        tampilkan "shift << benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: shift <<\n"
+    #akhir
+
+    #jika (EXPR_A >> 1) == 3
+        tampilkan "shift >> benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: shift >>\n"
+    #akhir
+
+    #jika bukan (EXPR_A == EXPR_B)
+        tampilkan "bukan benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: bukan\n"
+    #akhir
+
+    #jika (EXPR_A > EXPR_B) dan (EXPR_B > 0)
+        tampilkan "dan benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: dan\n"
+    #akhir
+
+    #jika (EXPR_A < EXPR_B) atau (EXPR_B == 3)
+        tampilkan "atau benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: atau\n"
+    #akhir
+
+    #jika ((EXPR_A > EXPR_B) ? 1 : 0) == 1
+        tampilkan "ternary benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: ternary\n"
+    #akhir
+
+    #jika UNDEFINED_EXPR == 0
+        tampilkan "identifier undefined = 0 benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: undefined identifier\n"
+    #akhir
+
+    -- Test directive di branch inactive tidak diproses
+    tampilkan "\n14. TEST DIRECTIVE DI INACTIVE BRANCH:\n"
+    #jika FLAG_RELEASE terdefinisi
+        #definisikan SHOULD_NOT_EXIST 1
+        #tambahkan "file_yang_seharusnya_tidak_ada.rhh"
+        variabel skipped_value: bilangan = VERSION
+    #akhir
+
+    #jika SHOULD_NOT_EXIST tidak terdefinisi
+        tampilkan "directive inactive tidak diproses\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: macro inactive tetap terdefinisi\n"
+    #akhir
 }

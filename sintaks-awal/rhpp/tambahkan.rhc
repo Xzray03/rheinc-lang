@@ -2,6 +2,8 @@
 -- Tes: Penambahan Header
 -- ============================================================
 #tambahkan "deklarasi.rhh"
+-- Include berulang: file yang sama hanya boleh diproses sekali.
+#tambahkan "deklarasi.rhh"
 
 prosedur utama() {
     tampilkan a, "\n"

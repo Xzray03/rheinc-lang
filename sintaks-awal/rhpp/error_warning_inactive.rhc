@@ -1,0 +1,12 @@
+-- Positive test: #error dan #warning di inactive branch tidak boleh aktif.
+#definisikan AKTIF 1
+
+prosedur utama() {
+    #jika AKTIF == 2
+        #error "ERROR INI TIDAK BOLEH MUNCUL"
+        #warning "WARNING INI TIDAK BOLEH MUNCUL"
+        tampilkan "Branch ini tidak aktif", "\n"
+    #jika bukan semua diatas
+        tampilkan "Error/warning inactive aman", "\n"
+    #akhir
+}

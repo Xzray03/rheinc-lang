@@ -15,7 +15,8 @@ fungsi utama() -> bilangan {
 
     variabel konten: teks
     konten = "Halo dari RheinC!\n"
-    konten +> "Ini adalah tes file io"
+    konten +> "Ini adalah tes file io\n"
+    konten +> "Baris kedua\n" +> "Baris ketiga\n"
 
     variabel sukses_tulis: logika
 

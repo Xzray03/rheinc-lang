@@ -193,9 +193,9 @@ prosedur utama() {
     variabel campur3 = btb("3") + 7
     tampilkan_btb("3 + 7", campur3)
 
-    -- Sekali big integer, tetap big integer
-    variabel tetap = primitif + btb("1")
-    tampilkan "Tipe tetap: bilangan_tanpa_batas\n"
+    -- Sekali big integer, tetap_bi big integer
+    variabel tetap_bi = primitif + btb("1")
+    tampilkan "Tipe tetap_bi: bilangan_tanpa_batas\n"
 
     -- --------------------------------------------------------
     -- J. Konversi teks (dua arah)

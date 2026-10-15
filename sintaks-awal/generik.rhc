@@ -13,9 +13,13 @@ generik T struktur Pasangan {
     kanan: T
 }
 
+generik T struktur Pembungkus {
+    nilai: T
+}
+
 -- Cacahan generik
 generik T cacahan Opsi {
-    Ada(T),
+    ADA(T),
     Kosong
 }
 
@@ -31,8 +35,13 @@ prosedur utama() {
     p.kanan = "dunia"
     tampilkan p.kiri, " ", p.kanan, "\n"
 
+    -- Generic type argument positional
+    variabel w: Pembungkus(bilangan)
+    w.nilai = 123
+    tampilkan w.nilai, "\n"
+
     -- Cacahan generik
-    variabel o: Opsi(dengan T = bilangan) = Ada(42)
+    variabel o: Opsi(dengan T = bilangan) = ADA(42)
 
     -- Lambda generik
     variabel f = lambda(generik T: Terbandingkan)(x: T) {

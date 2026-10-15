@@ -1,0 +1,7 @@
+-- Negative test: redefinisi macro harus error.
+#definisikan NILAI 1
+#definisikan NILAI 2
+
+prosedur utama() {
+    tampilkan NILAI, "\n"
+}

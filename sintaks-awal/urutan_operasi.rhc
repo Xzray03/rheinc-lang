@@ -25,6 +25,13 @@ fungsi utama() -> bilangan {
     variabel e: bilangan = 2 + 3 ** 2
     tampilkan "2 + 3 ** 2 = ", e, " (seharusnya 11)\n"
 
+    -- Pangkat bersarang: ** right-associative
+    variabel pow_ra: bilangan = 2 ** 3 ** 2
+    tampilkan "2 ** 3 ** 2 = ", pow_ra, " (seharusnya 512)\n"
+
+    variabel pow_la: bilangan = (2 ** 3) ** 2
+    tampilkan "(2 ** 3) ** 2 = ", pow_la, " (seharusnya 64)\n"
+
     tampilkan "=== LOGIKA DAN PERBANDINGAN ===\n"
 
     -- Perbandingan sebelum logika

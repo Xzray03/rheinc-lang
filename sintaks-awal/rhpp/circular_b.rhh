@@ -1,0 +1,2 @@
+-- Negative test: circular include B -> A
+#tambahkan "circular_a.rhh"

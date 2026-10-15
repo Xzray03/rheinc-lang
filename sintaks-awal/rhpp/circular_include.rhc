@@ -1,0 +1,6 @@
+-- Negative test: preprocessor harus mendeteksi circular include.
+#tambahkan "circular_a.rhh"
+
+prosedur utama() {
+    tampilkan "Jika preprocessor benar, file ini tidak akan lolos preprocessing", "\n"
+}
