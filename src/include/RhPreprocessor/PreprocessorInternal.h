@@ -41,12 +41,24 @@ inline bool isPeriodSequence(const std::vector<Token>& tokens, std::size_t pos, 
 }
 
 inline long long parseIntegerToken(const Token& token, const SourceManager& sourceManager, bool& ok) {
-    const std::string text(sourceManager.getText(
-        sourceManager.getFileID(token.loc), token.loc, token.length));
+    const std::string_view raw = sourceManager.getText(
+        sourceManager.getFileID(token.loc), token.loc, token.length);
+    // '_' is a digit separator in numeric literals; it never affects the value.
+    std::string text;
+    text.reserve(raw.size());
+    for (const char c : raw) {
+        if (c != '_') text.push_back(c);
+    }
     try {
         std::size_t used = 0;
-        const long long value = std::stoll(text, &used, 0);
-        ok = used == text.size();
+        std::size_t prefix = 0;
+        int base = 0;
+        if (text.size() > 2 && text[0] == '0' && (text[1] == 'b' || text[1] == 'B')) {
+            prefix = 2;
+            base = 2;
+        }
+        const long long value = std::stoll(text.substr(prefix), &used, base);
+        ok = used == text.size() - prefix;
         return value;
     } catch (...) {
         ok = false;

@@ -1,0 +1,8 @@
+-- Pengujian error: byte UTF-8 tidak valid di string, komentar, dan identifier.
+
+prosedur utama() {
+    variabel a: teks = "rusak: ÿþ di sini"
+    tampilkan a, "\n"
+    -- komentar rusak: Ã(
+    variabel namaÿ: bilangan = 1
+}

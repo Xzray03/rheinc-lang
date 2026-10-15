@@ -1,0 +1,6 @@
+-- Pengujian error: string mentah tidak ditutup sampai akhir file.
+
+prosedur utama() {
+    variabel p: teks = Raw("C:\temp tanpa penutup
+    tampilkan p, "\n"
+}

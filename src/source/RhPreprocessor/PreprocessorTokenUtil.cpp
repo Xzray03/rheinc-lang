@@ -77,7 +77,9 @@ Token Preprocessor::synthesizeToken(std::string text, SourceLocation spellingLoc
     bool maybeFloat = false;
     for (char c : text) {
         if (!(std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == 'e' || c == 'E' ||
-              c == '+' || c == '-' || c == 'x' || c == 'X' ||
+              c == '+' || c == '-' || c == 'x' || c == 'X' || c == '_' ||
+              (text.size() > 1 && text[0] == '0' && (text[1] == 'b' || text[1] == 'B') &&
+               (c == 'b' || c == 'B')) ||
               (text.size() > 1 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X') &&
                std::isxdigit(static_cast<unsigned char>(c))))) {
             maybeNumber = false;

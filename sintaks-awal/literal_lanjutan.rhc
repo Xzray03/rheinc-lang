@@ -1,0 +1,79 @@
+-- ============================================================
+-- Pengujian Lexer: literal biner, string mentah, komentar blok
+-- ============================================================
+
+--[ Komentar blok satu baris ]--
+
+--[
+    Komentar blok
+    beberapa baris.
+    Isinya tidak di-lex: "string", 'c', 0x, $ ` ~
+]--
+
+-- 1. Literal biner dan heksadesimal
+prosedur uji_biner() {
+    variabel b1: bilangan = 0b0
+    variabel b2: bilangan = 0b1010
+    variabel b3: bilangan = 0B1111_0000
+    variabel h1: bilangan = 0xFF
+    variabel h2: bilangan = 0X0f
+    variabel h3: bilangan = 0xDEAD_BEEF
+    tampilkan b1, " ", b2, " ", b3, " ", h1, " ", h2, " ", h3, "\n"
+}
+
+-- 1b. Pemisah digit '_' (hanya boleh di antara dua digit)
+prosedur uji_pemisah_digit() {
+    variabel juta: bilangan = 1_000_000
+    variabel kecil: bilangan = 0b1_0_1
+    variabel pecahan: desimal = 3.141_592_653
+    variabel besar: desimal = 1_000.5e1_0
+    tampilkan juta, " ", kecil, " ", pecahan, " ", besar, "\n"
+}
+
+-- 2. String mentah: escape tidak diproses
+prosedur uji_string_mentah() {
+    variabel path: teks = Raw("C:\temp\baru\n")
+    variabel pola: teks = Raw("\d+\.\d+ \q \\ ' ")
+    variabel kosong: teks = Raw("")
+    tampilkan path, "\n"
+    tampilkan pola, "\n"
+    tampilkan kosong, "\n"
+}
+
+-- 3. Semua escape yang valid pada string dan karakter
+prosedur uji_escape() {
+    variabel s: teks = "n:\n r:\r t:\t bs:\\ dq:\" sq:\' nul:\0"
+    variabel c1: karakter = '\n'
+    variabel c2: karakter = '\r'
+    variabel c3: karakter = '\t'
+    variabel c4: karakter = '\\'
+    variabel c5: karakter = '\''
+    variabel c6: karakter = '\"'
+    variabel c7: karakter = '\0'
+    variabel c8: karakter = 'あ'
+    tampilkan s, "\n"
+}
+
+-- 4. Komentar blok di tengah baris dan dempet dengan token
+prosedur uji_komentar_blok() {
+    variabel x: bilangan = --[ sisipan ]-- 5
+    variabel y: bilangan = x --[ lagi ]-- + 1
+    tampilkan x, " ", y, "\n"
+}
+
+-- 5. "--" sebagai dekremen vs komentar
+prosedur uji_dekremen() {
+    variabel i: bilangan = 3
+    i--
+    --i
+    tampilkan i, "\n"  -- komentar di akhir baris
+}
+
+prosedur utama() {
+    uji_biner()
+    uji_pemisah_digit()
+    uji_string_mentah()
+    uji_escape()
+    uji_komentar_blok()
+    uji_dekremen()
+}

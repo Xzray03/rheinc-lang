@@ -1,0 +1,10 @@
+-- Pengujian error: komentar blok tidak ditutup sampai akhir file.
+
+prosedur utama() {
+    tampilkan "sebelum komentar\n"
+}
+
+--[ komentar ini tidak pernah ditutup
+prosedur tidak_terlihat() {
+    tampilkan "tidak di-lex"
+}

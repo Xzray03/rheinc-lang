@@ -1,0 +1,24 @@
+-- Pengujian error lexer pada literal dan karakter (satu error per baris).
+-- File ini sengaja tidak valid; lexer harus melaporkan error dan terus berjalan.
+
+prosedur utama() {
+    variabel a: teks = "tidak ditutup
+    variabel b: karakter = 'x
+    variabel c: karakter = 'ab'
+    variabel d: teks = "escape salah: \q"
+    variabel e: karakter = '\z'
+    variabel f: bilangan = 0x
+    variabel g: bilangan = 0b
+    variabel h: bilangan = 0b102
+    variabel n: bilangan = 0b10_2
+    variabel i: desimal = 1e
+    variabel j: desimal = 1e+
+    variabel k: bilangan = 123abc
+    variabel o: bilangan = 1_
+    variabel q: bilangan = 1__000
+    variabel r: bilangan = 0x_FF
+    variabel u: bilangan = 12_abc
+    variabel l: bilangan = 5 $ 6
+    variabel m: bilangan = 7 ` 8
+    tampilkan "lexer harus pulih dan sampai di sini\n"
+}

@@ -250,7 +250,9 @@ Token Lexer::scanIdentifierOrKeyword(bool& wordLike) {
         std::size_t length = 0;
         const bool valid = cursor_.peek(cp, length);
         if (length == 0) break;
-        if (!isIdentifierContinue(cp)) break;
+        // An invalid byte inside a word stays part of the identifier so it is
+        // reported (and flagged) here instead of splitting the identifier apart.
+        if (valid && !isIdentifierContinue(cp)) break;
         if (!valid) {
             invalid = true;
             error(cursor_.offset(), 1, "invalid UTF-8 sequence in identifier");
@@ -275,19 +277,47 @@ Token Lexer::scanNumericConstant() {
     const SourceLocation start = cursor_.offset();
     bool invalid = false;
 
-    if (cursor_.startsWith("0x") || cursor_.startsWith("0X")) {
-        cursor_.advance(2);
+    const auto isDecDigit = [](char32_t cp) { return cp >= '0' && cp <= '9'; };
+    const auto isBinDigit = [](char32_t cp) { return cp == '0' || cp == '1'; };
+    const auto isHexDigit = [](char32_t cp) {
+        return (cp >= '0' && cp <= '9') || (cp >= 'a' && cp <= 'f') ||
+               (cp >= 'A' && cp <= 'F');
+    };
+
+    // Consumes a run of digits. A single '_' is accepted as a digit separator only
+    // when it sits directly between two digits ("1_000"); any other '_' is left in
+    // the buffer so the suffix check below reports it. Returns true if at least one
+    // digit was consumed.
+    const auto consumeDigits = [this](auto isDigit) {
         bool any = false;
         while (!cursor_.eof()) {
             char32_t cp = 0;
             std::size_t length = 0;
             cursor_.peek(cp, length);
-            const bool hex = (cp >= '0' && cp <= '9') || (cp >= 'a' && cp <= 'f') ||
-                             (cp >= 'A' && cp <= 'F');
-            if (!hex) break;
-            any = true;
-            cursor_.advance(length);
+            if (isDigit(cp)) {
+                any = true;
+                cursor_.advance(length);
+                continue;
+            }
+            if (any && cp == '_') {
+                const std::string_view buffer = sourceManager_.getBuffer(file_);
+                char32_t next = 0;
+                std::size_t nextLength = 0;
+                utf8::decode(buffer.data(), buffer.size(), cursor_.offset() + length,
+                             next, nextLength);
+                if (isDigit(next)) {
+                    cursor_.advance(length);
+                    continue;
+                }
+            }
+            break;
         }
+        return any;
+    };
+
+    if (cursor_.startsWith("0x") || cursor_.startsWith("0X")) {
+        cursor_.advance(2);
+        const bool any = consumeDigits(isHexDigit);
         if (!any) {
             invalid = true;
             error(start, static_cast<std::uint32_t>(cursor_.offset() - start),
@@ -295,28 +325,34 @@ Token Lexer::scanNumericConstant() {
         }
     } else if (cursor_.startsWith("0b") || cursor_.startsWith("0B")) {
         cursor_.advance(2);
-        bool any = false;
-        while (!cursor_.eof()) {
-            char32_t cp = 0;
-            std::size_t length = 0;
-            cursor_.peek(cp, length);
-            if (cp != '0' && cp != '1') break;
-            any = true;
-            cursor_.advance(length);
-        }
+        const bool any = consumeDigits(isBinDigit);
         if (!any) {
             invalid = true;
             error(start, static_cast<std::uint32_t>(cursor_.offset() - start),
                   "invalid binary literal");
         }
-    } else {
-        while (!cursor_.eof()) {
+        if (!cursor_.eof()) {
+            // A decimal digit right after the binary digits ("0b102") is not a new
+            // token; swallow the rest of the word and report it as one bad literal.
             char32_t cp = 0;
             std::size_t length = 0;
             cursor_.peek(cp, length);
-            if (cp < '0' || cp > '9') break;
-            cursor_.advance(length);
+            if (cp >= '2' && cp <= '9') {
+                const SourceLocation digitLoc = cursor_.offset();
+                while (!cursor_.eof()) {
+                    char32_t next = 0;
+                    std::size_t nextLength = 0;
+                    const bool nextValid = cursor_.peek(next, nextLength);
+                    if (nextLength == 0 || !nextValid || !isIdentifierContinue(next)) break;
+                    cursor_.advance(nextLength);
+                }
+                invalid = true;
+                error(digitLoc, static_cast<std::uint32_t>(cursor_.offset() - digitLoc),
+                      "invalid digit in binary literal");
+            }
         }
+    } else {
+        consumeDigits(isDecDigit);
 
         if (!cursor_.eof() && sourceManager_.getBuffer(file_)[cursor_.offset()] == '.') {
             const std::size_t dotOffset = cursor_.offset();
@@ -326,13 +362,7 @@ Token Lexer::scanNumericConstant() {
                          after, afterLength);
             if (after >= '0' && after <= '9') {
                 cursor_.advance(1);
-                while (!cursor_.eof()) {
-                    char32_t cp = 0;
-                    std::size_t length = 0;
-                    cursor_.peek(cp, length);
-                    if (cp < '0' || cp > '9') break;
-                    cursor_.advance(length);
-                }
+                consumeDigits(isDecDigit);
             }
         }
 
@@ -359,13 +389,7 @@ Token Lexer::scanNumericConstant() {
                     error(expLoc, static_cast<std::uint32_t>(cursor_.offset() - expLoc),
                           "invalid exponent in numeric literal");
                 } else {
-                    while (!cursor_.eof()) {
-                        char32_t d = 0;
-                        std::size_t dLength = 0;
-                        cursor_.peek(d, dLength);
-                        if (d < '0' || d > '9') break;
-                        cursor_.advance(dLength);
-                    }
+                    consumeDigits(isDecDigit);
                 }
             }
         }
@@ -389,8 +413,20 @@ Token Lexer::scanNumericConstant() {
                 cursor_.advance(nextLength);
             }
             invalid = true;
-            error(suffixLoc, static_cast<std::uint32_t>(cursor_.offset() - suffixLoc),
-                  "invalid suffix or adjacent identifier in numeric literal");
+            const std::uint32_t suffixLength =
+                static_cast<std::uint32_t>(cursor_.offset() - suffixLoc);
+            const std::string_view suffix = sourceManager_.getText(file_, suffixLoc, suffixLength);
+            bool separatorOnly = !suffix.empty() && suffix.front() == '_';
+            for (const char c : suffix) {
+                if (c != '_' && !(c >= '0' && c <= '9')) {
+                    separatorOnly = false;
+                    break;
+                }
+            }
+            error(suffixLoc, suffixLength,
+                  separatorOnly
+                      ? "invalid digit separator in numeric literal"
+                      : "invalid suffix or adjacent identifier in numeric literal");
         }
     }
 
