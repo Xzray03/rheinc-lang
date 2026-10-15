@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
       WITH_TESTS=1
       shift
       ;;
-    RhLexer)
+    RhLexer|RhPreprocessor|RhParser|RhSemantic)
       MODULE="$1"
       shift
       ;;
@@ -24,7 +24,8 @@ while [[ $# -gt 0 ]]; do
 Usage:
   ./build.sh                 Build root production artifacts (no tests)
   ./build.sh --with-tests    Build root artifacts and module test binaries
-  ./build.sh RhLexer         Run module-specific RhLexer build (includes test binary)
+  ./build.sh RhLexer         Run module-specific build (includes test binary)
+                             Modules: RhLexer, RhPreprocessor, RhParser, RhSemantic
 
 Environment:
   CXX=g++
@@ -54,6 +55,7 @@ modules=(
   RhLexer
   RhPreprocessor
   RhParser
+  RhSemantic
 )
 
 for module in "${modules[@]}"; do
@@ -71,6 +73,7 @@ if [[ -f "$final_source" ]]; then
   echo "[CXX-LD] $final_binary"
   "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
     "$final_source" \
+    "$BUILD_DIR/libs/rheinc_semantic.a" \
     "$BUILD_DIR/libs/rheinc_parser.a" \
     "$BUILD_DIR/libs/rheinc_preprocessor.a" \
     "$BUILD_DIR/libs/rheinc_lexer.a" \
@@ -79,5 +82,5 @@ if [[ -f "$final_source" ]]; then
   echo "[OK] root build selesai: $final_binary"
 else
   echo "[OK] root production libraries selesai"
-  echo "[INFO] final binary 'rheinc' belum tersedia; tunggu RhParser/codegen selesai"
+  echo "[INFO] final binary 'rheinc' belum tersedia; tunggu codegen selesai"
 fi
