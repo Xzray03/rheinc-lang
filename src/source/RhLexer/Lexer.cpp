@@ -293,6 +293,22 @@ Token Lexer::scanNumericConstant() {
             error(start, static_cast<std::uint32_t>(cursor_.offset() - start),
                   "invalid hexadecimal literal");
         }
+    } else if (cursor_.startsWith("0b") || cursor_.startsWith("0B")) {
+        cursor_.advance(2);
+        bool any = false;
+        while (!cursor_.eof()) {
+            char32_t cp = 0;
+            std::size_t length = 0;
+            cursor_.peek(cp, length);
+            if (cp != '0' && cp != '1') break;
+            any = true;
+            cursor_.advance(length);
+        }
+        if (!any) {
+            invalid = true;
+            error(start, static_cast<std::uint32_t>(cursor_.offset() - start),
+                  "invalid binary literal");
+        }
     } else {
         while (!cursor_.eof()) {
             char32_t cp = 0;

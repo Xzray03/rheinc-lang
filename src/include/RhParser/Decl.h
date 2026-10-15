@@ -34,6 +34,7 @@ struct FunctionDecl final : DeclNode {
     CompoundStmt* body = nullptr;
     bool isProcedure = false;
     std::vector<FunctionModifier> modifiers;
+    TraitConstraintClauses constraints;
 
     FunctionDecl(std::string declName, bool procedure, SourceRange range)
         : DeclNode(AstKind::FunctionDecl, range), name(std::move(declName)),
@@ -77,6 +78,7 @@ struct GlobalVarDecl final : DeclNode {
 
 struct GenericDecl final : DeclNode {
     std::vector<std::string> typeParameters;
+    TraitConstraintClauses constraints;
     DeclNode* declaration = nullptr;
 
     GenericDecl(std::vector<std::string> params, DeclNode* nested,
@@ -100,6 +102,7 @@ struct EnumField final : DeclNode {
 struct EnumDecl final : DeclNode {
     std::string name;
     std::vector<EnumField*> fields;
+    TraitConstraintClauses constraints;
 
     EnumDecl(std::string enumName, std::vector<EnumField*> enumFields,
              SourceRange range)

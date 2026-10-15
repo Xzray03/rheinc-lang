@@ -130,6 +130,7 @@ struct LambdaExpr final : ExprNode {
     std::vector<std::string> typeParameters;
     std::vector<std::pair<std::string, TypeReprNode*>> parameters;
     TypeReprNode* returnType = nullptr;
+    TraitConstraintClauses constraints;
     CompoundStmt* body = nullptr;
 
     LambdaExpr(std::vector<std::string> genericParams,

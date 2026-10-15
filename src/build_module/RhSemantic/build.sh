@@ -47,6 +47,7 @@ OBJECTS_REBUILT=0
 ARCHIVES_REBUILT=0
 
 sources=(
+  src/source/RhSemantic/ConstExpr.cpp
   src/source/RhSemantic/Symbol.cpp
   src/source/RhSemantic/Scope.cpp
   src/source/RhSemantic/TypeContext.cpp

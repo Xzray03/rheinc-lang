@@ -98,6 +98,8 @@ public:
     Type* returnType;
     bool isVariadic;
     std::vector<TypeVariableType*> typeParams;
+    // Trait constraints per type variable (Kategori C).
+    std::vector<std::pair<TypeVariableType*, std::vector<std::string>>> constraints;
 
     FunctionType(std::vector<FunctionParamType> parameters, Type* result, bool variadic)
         : Type(TypeKind::Function), params(std::move(parameters)), returnType(result),
@@ -111,6 +113,7 @@ public:
     StructDecl* decl;
     std::vector<struct Symbol*> fields;
     std::vector<TypeVariableType*> typeParams;
+    std::vector<std::pair<TypeVariableType*, std::vector<std::string>>> constraints;
     explicit StructType(StructDecl* structDecl) : Type(TypeKind::Struct), decl(structDecl) {}
 };
 
@@ -149,6 +152,9 @@ public:
         std::vector<Field> fields;
         ExprNode* aliasValue = nullptr; // plain enum: = <nilai>; or alias to another type
         Type* aliasType = nullptr;      // resolved when aliasValue denotes a type
+        // Evaluated constant value for plain enum cases (codegen-ready).
+        std::int64_t enumValue = 0;
+        bool hasEnumValue = false;
     };
 
     std::string name;
@@ -156,6 +162,8 @@ public:
     bool isPlainEnum;
     std::vector<TypeVariableType*> typeParams;
     std::vector<Case> cases;
+    // Trait constraints per type variable, for generic cacahan_sum.
+    std::vector<std::pair<TypeVariableType*, std::vector<std::string>>> constraints;
 
     SumType(std::string sumName, EnumDecl* enumDecl, bool plain,
             std::vector<TypeVariableType*> params)

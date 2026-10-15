@@ -138,6 +138,7 @@ TestAnnotationDecl* Parser::parseTestAnnotationDeclaration() {
 
 FunctionDecl* Parser::parseFunctionLikeDeclaration(const Token& keywordToken, bool isProcedure,
                                                    bool requireBody, bool allowConstraints) {
+    (void)allowConstraints; // constraints are always captured
     if (!tokens_.is(TokenKind::Identifier)) {
         errorExpected("function or procedure name");
         return astContext_.create<FunctionDecl>("", isProcedure, makeRange(keywordToken));
@@ -186,12 +187,8 @@ FunctionDecl* Parser::parseFunctionLikeDeclaration(const Token& keywordToken, bo
         declaration->returnType = parseTypeRepr();
     }
 
-    if (allowConstraints && tokens_.is(TokenKind::KwDimana)) {
-        tokens_.consume();
-        while (!tokens_.is(TokenKind::LBrace) && !tokens_.is(TokenKind::Semi) &&
-               tokens_.current().kind != TokenKind::Eof) {
-            tokens_.consume();
-        }
+    if (tokens_.is(TokenKind::KwDimana)) {
+        declaration->constraints = parseDimanaConstraints();
     }
 
     if (!requireBody || tokens_.is(TokenKind::Semi)) {
@@ -269,10 +266,7 @@ EnumDecl* Parser::parseEnumDeclaration(const Token& keywordToken) {
         tokenText(name), std::vector<EnumField*>{}, makeRange(keywordToken, name));
 
     if (tokens_.is(TokenKind::KwDimana)) {
-        tokens_.consume();
-        while (!tokens_.is(TokenKind::LBrace) && tokens_.current().kind != TokenKind::Eof) {
-            tokens_.consume();
-        }
+        declaration->constraints = parseDimanaConstraints();
     }
 
     if (!tokens_.expect(TokenKind::LBrace, "'{' after enum name")) {
@@ -319,6 +313,30 @@ EnumDecl* Parser::parseEnumDeclaration(const Token& keywordToken) {
     tokens_.expect(TokenKind::RBrace, "'}' to close enum declaration");
     declaration->range = makeRange(keywordToken, rbrace);
     return declaration;
+}
+
+TraitConstraintClauses Parser::parseDimanaConstraints() {
+    tokens_.consume(); // dimana
+    TraitConstraintClauses clauses;
+    while (tokens_.is(TokenKind::Identifier)) {
+        std::string typeVariable = tokenText(tokens_.consume());
+        tokens_.expect(TokenKind::Colon, "':' in trait constraint");
+        std::vector<std::string> traits;
+        while (tokens_.is(TokenKind::Identifier)) {
+            traits.push_back(tokenText(tokens_.consume()));
+            if (!tokens_.is(TokenKind::Comma)) break;
+            // Comma + Ident + Colon -> separator of the NEXT clause.
+            if (tokens_.peek().kind == TokenKind::Identifier &&
+                tokens_.peek(2).kind == TokenKind::Colon) {
+                break;
+            }
+            tokens_.consume(); // comma between traits
+            if (!tokens_.is(TokenKind::Identifier)) break;
+        }
+        clauses.emplace_back(std::move(typeVariable), std::move(traits));
+        if (!tokens_.tryConsume(TokenKind::Comma)) break;
+    }
+    return clauses;
 }
 
 GenericDecl* Parser::parseGenericDeclaration(const Token& keywordToken) {

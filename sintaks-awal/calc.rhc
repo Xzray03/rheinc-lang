@@ -8,8 +8,8 @@ fungsi utama() -> bilangan {
     tampilkan "║          KALKULATOR SEDERHANA - RheinC           ║\n"
     tampilkan "╚══════════════════════════════════════════════════╝\n"
 
-    variabel a: bilangan
-    variabel b: bilangan
+    variabel a: bilangan = 0
+    variabel b: bilangan = 0
     variabel pilihan: karakter
     variabel lanjutkan: logika = benar
 

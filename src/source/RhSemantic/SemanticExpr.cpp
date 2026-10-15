@@ -1,3 +1,5 @@
+#include <cstdio>
+#include "RhSemantic/Traits.h"
 #include <algorithm>
 #include "RhSemantic/SemanticAnalyzer.h"
 
@@ -140,6 +142,22 @@ Type* SemanticAnalyzer::analyzeArrayLiteral(ArrayLiteralExpr* expr) {
     return context_.types().getArrayType(elementType, expr->elements.size());
 }
 
+static IdentifierExpr* resolveBaseIdentifier(ExprNode* node) {
+    while (node) {
+        if (node->kind == AstKind::IdentifierExpr) return static_cast<IdentifierExpr*>(node);
+        if (node->kind == AstKind::ArrayIndexExpr) {
+            node = static_cast<ArrayIndexExpr*>(node)->object;
+            continue;
+        }
+        if (node->kind == AstKind::MemberExpr) {
+            node = static_cast<MemberExpr*>(node)->object;
+            continue;
+        }
+        break;
+    }
+    return nullptr;
+}
+
 static Type* opsiOf(SemanticContext& context, Type* valueType) {
     Symbol* opsiSymbol = context.globalScope().lookup("Opsi");
     auto* opsiType = opsiSymbol ? dynamic_cast<SumType*>(opsiSymbol->type) : nullptr;
@@ -255,6 +273,9 @@ Type* SemanticAnalyzer::analyzeMember(MemberExpr* expr) {
                 SymbolKind::LocalVar, expr->memberName, structTypeCandidate, nullptr,
                 expr->range, currentScope_);
             currentScope_->insert(captured);
+            declareTracked(captured, true);
+        } else {
+            markAssigned(existing);
         }
         return structTypeCandidate;
     }
@@ -329,6 +350,10 @@ Type* SemanticAnalyzer::analyzeIdentifier(IdentifierExpr* expr) {
         error(expr->range, "identifier has no type: " + expr->name);
         return context_.types().getErrorType();
     }
+    if (symbol->kind == SymbolKind::LocalVar && suppressReadChecks_ == 0 &&
+        !isDefinitelyAssigned(symbol)) {
+        error(expr->range, "variable '" + expr->name + "' may be uninitialized");
+    }
     return symbol->type;
 }
 
@@ -343,6 +368,24 @@ Type* SemanticAnalyzer::analyzeTernary(TernaryExpr* expr) {
 }
 
 Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
+    // A variable passed as any call argument may be written by the callee
+    // (conservative escape): treat it as assigned afterwards.
+    auto markEscapedArgument = [&](ExprNode* argument) {
+        ExprNode* base = argument;
+        while (base && base->kind == AstKind::ArrayIndexExpr) {
+            base = static_cast<ArrayIndexExpr*>(base)->object;
+        }
+        if (base && base->kind == AstKind::IdentifierExpr) {
+            Symbol* symbol = currentScope_->lookup(
+                static_cast<IdentifierExpr*>(base)->name);
+            if (symbol) markAssigned(symbol);
+        }
+    };
+    // A call may write through its arguments (out-params): mark identifier
+    // arguments BEFORE analysing them, so the read check stays silent.
+    for (ExprNode* argument : expr->arguments) {
+        markEscapedArgument(argument);
+    }
     // `hasil(x)` / `hasil dari x` inside a generator or coroutine.
     if (expr->callee->kind == AstKind::IdentifierExpr) {
         const std::string& calleeName = static_cast<IdentifierExpr*>(expr->callee)->name;
@@ -400,6 +443,20 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
                 }
             }
             return context_.types().getBuiltinType(BuiltinTypeKind::Hampa);
+        }
+
+        // E-6: isi(ptr) dereferences a pointer; the operand must be tunjuk.
+        if (calleeName == "isi" && expr->arguments.size() == 1) {
+            Type* argumentType = analyzeExpression(expr->arguments[0]);
+            markEscapedArgument(expr->arguments[0]);
+            if (argumentType == context_.types().getErrorType()) {
+                return context_.types().getErrorType();
+            }
+            if (auto* pointer = dynamic_cast<PointerType*>(argumentType)) {
+                return pointer->pointee;
+            }
+            error(expr->arguments[0]->range, "isi() requires a tunjuk (pointer) operand");
+            return context_.types().getErrorType();
         }
 
         // Constructor call: unknown identifier called with a cacahan_sum expected type.
@@ -470,6 +527,7 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
         for (ExprNode* argument : valueArguments) {
             Type* argumentType = analyzeExpression(argument);
             argumentTypes.push_back(argumentType);
+            markEscapedArgument(argument);
             if (paramIndex < functionType->params.size()) {
                 Type* paramType = substitute(functionType->params[paramIndex].type, substitutions);
                 unify(paramType, argumentType, substitutions);
@@ -486,13 +544,33 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
                 error(valueArguments[i]->range, "argument type mismatch");
             }
         }
+        if (getenv("RHC_DEBUG_TRAIT")) {
+            fprintf(stderr, "[trait] fn constraints=%zu subs=%zu typeParams=%zu\n",
+                    functionType->constraints.size(), substitutions.size(),
+                    functionType->typeParams.size());
+        }
+        // Kategori C: verify trait constraints for inferred/explicit bindings.
+        for (const auto& [variable, traits] : functionType->constraints) {
+            auto it = substitutions.find(variable);
+            if (it == substitutions.end()) continue;
+            for (const std::string& trait : traits) {
+                if (!satisfiesBuiltinTrait(it->second, trait)) {
+                    error(expr->range, "type argument '" + variable->name +
+                                       "' does not satisfy '" + trait + "'");
+                }
+            }
+        }
         return substitute(functionType->returnType, substitutions);
     }
 
     std::vector<Type*> argumentTypes;
     argumentTypes.reserve(expr->arguments.size());
     for (ExprNode* argument : expr->arguments) {
-        argumentTypes.push_back(analyzeExpression(argument));
+        {
+            Type* argumentType = analyzeExpression(argument);
+            argumentTypes.push_back(argumentType);
+            markEscapedArgument(argument);
+        }
     }
 
     if (!functionType->isVariadic && argumentTypes.size() != functionType->params.size()) {
@@ -513,12 +591,32 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
 
 Type* SemanticAnalyzer::analyzeBinary(BinaryExpr* expr) {
     if (expr->op == TokenKind::Equal) {
+        ++suppressReadChecks_;
         Type* lhsType = analyzeExpression(expr->lhs);
+        --suppressReadChecks_;
         if (expr->lhs->kind != AstKind::IdentifierExpr &&
             expr->lhs->kind != AstKind::MemberExpr &&
             expr->lhs->kind != AstKind::ArrayIndexExpr &&
             expr->lhs->kind != AstKind::CallExpr) {
             error(expr->lhs->range, "assignment target must be an lvalue");
+        }
+        if (IdentifierExpr* base = resolveBaseIdentifier(expr->lhs)) {
+            Symbol* target = currentScope_->lookup(base->name);
+            if (target) {
+                if (expr->lhs->kind == AstKind::IdentifierExpr) {
+                    bool isConstDecl = false;
+                    if (auto* global = dynamic_cast<GlobalVarDecl*>(target->decl)) {
+                        isConstDecl = global->isConst;
+                    } else if (auto* local = dynamic_cast<VarDeclStmt*>(target->decl)) {
+                        isConstDecl = local->isConst;
+                    }
+                    if (!isConstDecl && constLocals_.count(target)) isConstDecl = true;
+                    if (isConstDecl) {
+                        error(expr->range, "cannot assign to konstanta tetap: " + base->name);
+                    }
+                }
+                markAssigned(target);
+            }
         }
         // Slice assignment: a[i sampai j] = <array of element>
         if (expr->lhs->kind == AstKind::ArrayIndexExpr) {
@@ -574,6 +672,10 @@ Type* SemanticAnalyzer::analyzeBinary(BinaryExpr* expr) {
             (rhsType != context_.types().getErrorType() && !isNumericType(rhsType))) {
             error(expr->range, "compound assignment requires numeric operands");
             return context_.types().getErrorType();
+        }
+        if (IdentifierExpr* base = resolveBaseIdentifier(expr->lhs)) {
+            Symbol* target = currentScope_->lookup(base->name);
+            if (target) markAssigned(target);
         }
         return lhsType == context_.types().getErrorType() ? rhsType : lhsType;
     case TokenKind::EqualEqual:
@@ -683,6 +785,11 @@ Type* SemanticAnalyzer::analyzeUnary(UnaryExpr* expr) {
             error(expr->range, "increment/decrement requires numeric operand");
             return context_.types().getErrorType();
         }
+        if (expr->operand->kind == AstKind::IdentifierExpr) {
+            Symbol* target = currentScope_->lookup(
+                static_cast<IdentifierExpr*>(expr->operand)->name);
+            if (target) markAssigned(target);
+        }
         return operandType;
     case TokenKind::Tilde:
     case TokenKind::Minus:
@@ -754,6 +861,7 @@ Type* SemanticAnalyzer::analyzeLambda(LambdaExpr* expr) {
         functionType = context_.types().getFunctionType(params, declaredReturn, false, typeVariables);
         currentFunctionType_ = functionType;
         analyzeStatement(expr->body);
+        checkReturnPaths(expr->body, declaredReturn, expr->range);
     } else {
         if (parameterError) {
             functionType = context_.types().getFunctionType(params, errorType, false, typeVariables);
@@ -779,6 +887,16 @@ Type* SemanticAnalyzer::analyzeLambda(LambdaExpr* expr) {
         }
     }
 
+    if (!expr->constraints.empty()) {
+        for (const auto& [tvName, traits] : expr->constraints) {
+            for (auto* v : typeVariables) {
+                if (v->name == tvName) {
+                    functionType->constraints.emplace_back(v, traits);
+                    break;
+                }
+            }
+        }
+    }
     resolver_.popTypeVariables();
     currentFunctionType_ = previousFunctionType;
     currentScope_ = previousScope;

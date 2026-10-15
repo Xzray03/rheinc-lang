@@ -29,6 +29,7 @@ public:
     DeclNode* parseTopLevelDeclaration();
     FunctionDecl* parseFunctionLikeDeclaration(const Token& keywordToken, bool isProcedure, bool requireBody = true, bool allowConstraints = false);
     GenericDecl* parseGenericDeclaration(const Token& keywordToken);
+    TraitConstraintClauses parseDimanaConstraints();
     EnumDecl* parseEnumDeclaration(const Token& keywordToken);
     GlobalVarDecl* parseGlobalVariableDeclaration(StorageModifier storage = StorageModifier::None);
     TestAnnotationDecl* parseTestAnnotationDeclaration();

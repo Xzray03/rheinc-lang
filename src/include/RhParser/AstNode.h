@@ -3,6 +3,9 @@
 #include "RhCore/SourceLocation.h"
 #include "RhLexer/TokenKind.h"
 
+#include <vector>
+#include <string>
+#include <utility>
 #include <cstdint>
 
 namespace rhc {
@@ -12,6 +15,10 @@ enum class StorageModifier {
     TaskLocal,
     TaskGlobal,
 };
+
+// Trait constraint clauses: type-variable name -> required trait names
+// (e.g. `dimana T: Terbandingkan, E: Terpisah`, or inline `generik T: Trait`).
+using TraitConstraintClauses = std::vector<std::pair<std::string, std::vector<std::string>>>;
 
 enum class AstKind {
     TranslationUnit,

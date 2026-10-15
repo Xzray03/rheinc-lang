@@ -1,3 +1,6 @@
+#include "RhSemantic/ConstExpr.h"
+#include "RhSemantic/Traits.h"
+#include "RhParser/Decl.h"
 #include "RhSemantic/TypeResolver.h"
 
 #include "RhParser/TypeRepr.h"
@@ -116,8 +119,32 @@ Type* TypeResolver::resolve(TypeReprNode* repr) {
             current = context_.types().getArrayType(current, std::nullopt);
         }
         for (std::size_t i = array->dimensions.size(); i > 0; --i) {
-            (void)array->dimensions[i - 1];
-            current = context_.types().getArrayType(current, std::nullopt);
+            std::optional<std::int64_t> size;
+            if (array->dimensions[i - 1]) {
+                size = evaluateConstInt(array->dimensions[i - 1]);
+                // A dimension may reference a global konstanta (or a chain of
+                // them); resolve through their initializers.
+                for (int depth = 0; !size && depth < 8 &&
+                                    array->dimensions[i - 1]->kind == AstKind::IdentifierExpr;
+                     ++depth) {
+                    Symbol* symbol = context_.globalScope().lookup(
+                        static_cast<IdentifierExpr*>(array->dimensions[i - 1])->name);
+                    auto* global = symbol ? dynamic_cast<GlobalVarDecl*>(symbol->decl)
+                                          : nullptr;
+                    if (!global || !global->isConst || !global->initializer) break;
+                    array->dimensions[i - 1] = global->initializer;
+                    size = evaluateConstInt(global->initializer);
+                }
+                if (!size || *size <= 0) {
+                    error(array->dimensions[i - 1]->range,
+                          "array size must be a positive constant integer");
+                    size.reset();
+                }
+            }
+            current = context_.types().getArrayType(
+                current, size ? std::optional<std::uint64_t>(
+                                    static_cast<std::uint64_t>(*size))
+                              : std::nullopt);
         }
         result = current;
         break;
@@ -164,6 +191,27 @@ Type* TypeResolver::resolve(TypeReprNode* repr) {
         }
         if (generic && !arguments.empty()) {
             result = context_.types().getGenericInstantiation(base, std::move(arguments));
+            // Kategori C: verify trait constraints on the type arguments.
+            std::vector<std::pair<TypeVariableType*, std::vector<std::string>>> const*
+                constraints = nullptr;
+            if (auto* sum = dynamic_cast<SumType*>(base)) constraints = &sum->constraints;
+            else if (auto* st = dynamic_cast<StructType*>(base)) constraints = &st->constraints;
+            if (constraints) {
+                for (const auto& [variable, traits] : *constraints) {
+                    Type* argumentType = nullptr;
+                    for (const auto& [argumentName, type] :
+                         static_cast<GenericInstantiationType*>(result)->arguments) {
+                        if (argumentName == variable->name) argumentType = type;
+                    }
+                    if (!argumentType) continue;
+                    for (const std::string& trait : traits) {
+                        if (!satisfiesBuiltinTrait(argumentType, trait)) {
+                            error(repr->range, "type argument '" + variable->name +
+                                               "' does not satisfy '" + trait + "'");
+                        }
+                    }
+                }
+            }
         } else {
             result = base;
         }

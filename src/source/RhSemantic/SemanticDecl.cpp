@@ -1,3 +1,7 @@
+#include "RhSemantic/Layout.h"
+#include <cstdio>
+#include "RhSemantic/ConstExpr.h"
+#include <algorithm>
 #include "RhSemantic/SemanticAnalyzer.h"
 
 #include <utility>
@@ -39,8 +43,20 @@ void SemanticAnalyzer::analyzeDeclaration(DeclNode* decl) {
     case AstKind::GlobalVarDecl:
         analyzeGlobalVariable(static_cast<GlobalVarDecl*>(decl));
         break;
-    case AstKind::StructDecl:
+    case AstKind::StructDecl: {
+        // E-5: reject structs with no finite size (direct or generic recursion
+        // by value); pointer indirection breaks the cycle.
+        Symbol* symbol = context_.getDeclSymbol(decl);
+        if (symbol && symbol->type) {
+            bool infinite = false;
+            rhc::computeLayout(symbol->type, &infinite);
+            if (infinite) {
+                error(decl->range, "struktur has infinite size (contains itself by value): " +
+                                       static_cast<StructDecl*>(decl)->name);
+            }
+        }
         break;
+    }
     case AstKind::EnumDecl:
         analyzeEnum(static_cast<EnumDecl*>(decl));
         break;
@@ -136,6 +152,16 @@ void SemanticAnalyzer::analyzeFunction(FunctionDecl* decl) {
         analyzeStatement(decl->body);
     }
 
+    // Prototypes have no body; generators/coroutines are (possibly infinite)
+    // streams and may legitimately never execute kembalikan.
+    const bool isStream =
+        std::find(decl->modifiers.begin(), decl->modifiers.end(),
+                  FunctionModifier::Generator) != decl->modifiers.end() ||
+        std::find(decl->modifiers.begin(), decl->modifiers.end(),
+                  FunctionModifier::Coroutine) != decl->modifiers.end();
+    if (decl->body && !isStream) {
+        checkReturnPaths(decl->body, functionType->returnType, decl->range);
+    }
     currentFunctionType_ = nullptr;
     currentFunctionDecl_ = previousFunctionDecl;
     currentScope_ = previousScope;
@@ -150,6 +176,9 @@ void SemanticAnalyzer::collectGlobalVariable(GlobalVarDecl* decl) {
         context_.globalScope().insertOrReplace(symbol);
     } else if (!context_.globalScope().insert(symbol)) {
         error(decl->range, "redefinition of name: " + decl->name);
+    }
+    if (decl->isConst && !decl->initializer) {
+        error(decl->range, "konstanta requires an initializer: " + decl->name);
     }
     context_.setDeclSymbol(decl, symbol);
     context_.module().globals.push_back(symbol);
@@ -259,6 +288,45 @@ void SemanticAnalyzer::collectEnum(EnumDecl* decl) {
 void SemanticAnalyzer::collectGeneric(GenericDecl* decl) {
     resolver_.pushTypeVariables(decl->typeParameters);
     collectDeclaration(decl->declaration);
+
+    // Kategori C: propagate trait constraints onto the generic type. Must run
+    // while the type-variable scope is still open. Constraints are read from
+    // the nested declaration (FunctionDecl/EnumDecl carry them from `dimana`).
+    const TraitConstraintClauses* constraintClauses = nullptr;
+    if (auto* f = dynamic_cast<FunctionDecl*>(decl->declaration)) {
+        constraintClauses = &f->constraints;
+    } else if (auto* e = dynamic_cast<EnumDecl*>(decl->declaration)) {
+        constraintClauses = &e->constraints;
+    }
+    if (getenv("RHC_DEBUG_TRAIT")) {
+        fprintf(stderr, "[generic] nested constraints=%zu typeParams=%zu\n",
+                constraintClauses ? constraintClauses->size() : 99,
+                decl->typeParameters.size());
+    }
+    if (constraintClauses && !constraintClauses->empty()) {
+        std::string nestedName;
+        if (auto* s = dynamic_cast<StructDecl*>(decl->declaration)) nestedName = s->name;
+        else if (auto* e = dynamic_cast<EnumDecl*>(decl->declaration)) nestedName = e->name;
+        else if (auto* f = dynamic_cast<FunctionDecl*>(decl->declaration)) nestedName = f->name;
+        Symbol* nestedSymbol =
+            nestedName.empty() ? nullptr : context_.globalScope().lookupLocal(nestedName);
+        if (nestedSymbol && nestedSymbol->type) {
+            auto vars = resolver_.currentTypeVariables();
+            auto applyConstraints = [&](auto* target) {
+                for (const auto& [tvName, traits] : *constraintClauses) {
+                    for (auto* v : vars) {
+                        if (v->name == tvName) {
+                            target->constraints.emplace_back(v, traits);
+                            break;
+                        }
+                    }
+                }
+            };
+            if (auto* fn = dynamic_cast<FunctionType*>(nestedSymbol->type)) applyConstraints(fn);
+            else if (auto* sum = dynamic_cast<SumType*>(nestedSymbol->type)) applyConstraints(sum);
+            else if (auto* st = dynamic_cast<StructType*>(nestedSymbol->type)) applyConstraints(st);
+        }
+    }
     resolver_.popTypeVariables();
 
     std::string name;
@@ -285,16 +353,28 @@ void SemanticAnalyzer::analyzeEnum(EnumDecl* decl) {
     Symbol* symbol = context_.getDeclSymbol(decl);
     auto* sumType = symbol ? dynamic_cast<SumType*>(symbol->type) : nullptr;
     if (!sumType) return;
+
+    // Kategori B: evaluate plain-enum constant values (auto-incrementing from
+    // the previous case) so every case is numbered and ready for codegen.
+    ConstTable table;
+    std::int64_t nextValue = 0;
     for (std::size_t i = 0; i < decl->fields.size() && i < sumType->cases.size(); ++i) {
         EnumField* field = decl->fields[i];
         SumType::Case& c = sumType->cases[i];
-        if (field->value && !c.aliasType) {
-            // Plain enum constant value, e.g. SUKSES = 0; must be numeric.
-            Type* valueType = analyzeExpression(field->value);
-            if (!isNumericType(valueType)) {
-                error(field->range, "enum value must be a number");
+        if (c.aliasType) continue; // type alias case: no constant value
+        if (field->value) {
+            if (auto value = evaluateConstInt(field->value, table)) {
+                c.enumValue = *value;
+            } else {
+                error(field->range, "enum value must be a constant integer");
+                c.enumValue = nextValue;
             }
+        } else {
+            c.enumValue = nextValue;
         }
+        c.hasEnumValue = true;
+        table[field->name] = c.enumValue;
+        nextValue = c.enumValue + 1;
     }
 }
 

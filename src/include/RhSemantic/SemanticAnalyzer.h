@@ -76,6 +76,21 @@ private:
     Type* expectedType() const { return expectedTypeStack_.empty() ? nullptr : expectedTypeStack_.back(); }
     void insertGlobalAllowingBuiltinShadow(Symbol* symbol);
 
+    // ===== Kategori A: flow analysis =====
+    // Definite-assignment tracking, keyed by Symbol* (flat; symbols are unique
+    // per declaration, stale entries are unreachable after scope exit).
+    void declareTracked(Symbol* symbol, bool assigned) { assigned_[symbol] = assigned; }
+    void markAssigned(Symbol* symbol) { assigned_[symbol] = true; }
+    bool isDefinitelyAssigned(Symbol* symbol) const;
+    std::unordered_map<Symbol*, bool> assigned_;
+    // Local `tetap` constants (their VarDeclStmt is not a DeclNode, so the
+    // declaration cannot be recovered from Symbol::decl).
+    std::unordered_set<Symbol*> constLocals_;
+    unsigned suppressReadChecks_ = 0;
+    // Return-path analysis: true when the statement cannot fall through.
+    bool statementTerminates(StmtNode* stmt) const;
+    void checkReturnPaths(StmtNode* body, Type* returnType, SourceRange range);
+
     void error(SourceRange range, const std::string& message);
     bool isLogicType(Type* type) const;
     bool isNumericType(Type* type) const;

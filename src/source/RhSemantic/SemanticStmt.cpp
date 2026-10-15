@@ -60,9 +60,18 @@ void SemanticAnalyzer::analyzeStatement(StmtNode* stmt) {
     case AstKind::DeclStmt:
         analyzeDeclStatement(static_cast<DeclStmt*>(stmt));
         break;
-    case AstKind::ExprStmt:
-        analyzeExpression(static_cast<ExprStmt*>(stmt)->expression);
+    case AstKind::ExprStmt: {
+        ExprNode* expression = static_cast<ExprStmt*>(stmt)->expression;
+        analyzeExpression(expression);
+        if (expression->kind == AstKind::MemberExpr) {
+            auto* member = static_cast<MemberExpr*>(expression);
+            if (member->isArrow) {
+                Symbol* target = currentScope_->lookup(member->memberName);
+                if (target) markAssigned(target);
+            }
+        }
         break;
+    }
     default:
         error(stmt->range, "unsupported statement in semantic v1");
         break;
@@ -88,6 +97,9 @@ void SemanticAnalyzer::analyzeVariableStatement(VarDeclStmt* stmt) {
     Type* variableType = declaredType ? declaredType : initializerType;
     if (!variableType) variableType = context_.types().getErrorType();
 
+    if (stmt->isConst && !stmt->initializer) {
+        error(stmt->range, "tetap requires an initializer: " + stmt->name);
+    }
     Symbol* symbol = context_.createSymbol(
         SymbolKind::LocalVar, stmt->name, variableType, nullptr, stmt->range, currentScope_);
     if (!currentScope_->insert(symbol)) {
@@ -99,6 +111,21 @@ void SemanticAnalyzer::analyzeVariableStatement(VarDeclStmt* stmt) {
             error(stmt->range, "redefinition of name: " + stmt->name);
         }
     }
+    // A type annotation carrying construction arguments (e.g.
+    // variabel x: desimal_tetap("1.5", skala = 2)) implies initialization.
+    bool typeConstructs = false;
+    if (!stmt->initializer && stmt->type &&
+        stmt->type->kind == AstKind::CallTypeRepr) {
+        for (const TypeArgumentRepr* argument :
+             static_cast<CallTypeRepr*>(stmt->type)->arguments) {
+            if (argument && argument->value) {
+                typeConstructs = true;
+                break;
+            }
+        }
+    }
+    if (stmt->isConst) constLocals_.insert(symbol);
+    declareTracked(symbol, stmt->initializer != nullptr || typeConstructs);
 }
 
 void SemanticAnalyzer::analyzeIfStatement(IfStmt* stmt) {
@@ -106,9 +133,20 @@ void SemanticAnalyzer::analyzeIfStatement(IfStmt* stmt) {
     if (conditionType && !isLogicType(conditionType)) {
         error(stmt->condition->range, "if condition must be logika");
     }
+    // Definite-assignment merge: after the if, a variable is assigned only if
+    // it was assigned before AND on every path through the branches.
+    const auto before = assigned_;
     analyzeStatement(stmt->thenBranch);
+    const auto thenState = assigned_;
+    assigned_ = before;
     if (stmt->elseBranch) {
         analyzeStatement(stmt->elseBranch);
+    }
+    const auto& elseState = assigned_;
+    for (const auto& [sym, wasAssigned] : before) {
+        const bool t = thenState.count(sym) ? thenState.at(sym) : false;
+        const bool e = elseState.count(sym) ? elseState.at(sym) : false;
+        assigned_[sym] = wasAssigned && t && e;
     }
 }
 
@@ -183,7 +221,12 @@ void SemanticAnalyzer::analyzeForStatement(ForStmt* stmt) {
         }
     }
 
-    analyzeStatement(stmt->body);
+    const auto loopBefore = assigned_;
+        analyzeStatement(stmt->body);
+        // Body is guaranteed to run at least once: assignments persist.
+        for (const auto& [sym, val] : loopBefore) {
+            if (val) assigned_[sym] = true;
+        }
     --loopDepth_;
     currentScope_ = previousScope;
 }
@@ -194,13 +237,20 @@ void SemanticAnalyzer::analyzeWhileStatement(WhileStmt* stmt) {
         error(stmt->condition->range, "while condition must be logika");
     }
     ++loopDepth_;
-    analyzeStatement(stmt->body);
+    const auto loopBefore = assigned_;
+        analyzeStatement(stmt->body);
+        assigned_ = loopBefore; // a loop may execute zero times
     --loopDepth_;
 }
 
 void SemanticAnalyzer::analyzeDoWhileStatement(DoWhileStmt* stmt) {
     ++loopDepth_;
-    analyzeStatement(stmt->body);
+    const auto loopBefore = assigned_;
+        analyzeStatement(stmt->body);
+        // Body is guaranteed to run at least once: assignments persist.
+        for (const auto& [sym, val] : loopBefore) {
+            if (val) assigned_[sym] = true;
+        }
     --loopDepth_;
     Type* conditionType = analyzeExpression(stmt->condition);
     if (!isLogicType(conditionType)) {

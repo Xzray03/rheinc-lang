@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "RhParser/Parser.h"
 
 namespace rhc {
@@ -344,6 +345,7 @@ ExprNode* Parser::parsePrimaryExpression() {
     case TokenKind::KwLambda: {
         const Token lambdaToken = tokens_.consume();
         std::vector<std::string> typeParameters;
+        TraitConstraintClauses lambdaConstraints;
         if (tokens_.is(TokenKind::LParen) && tokens_.peek().kind == TokenKind::KwGenerik) {
             tokens_.consume(); // (
             tokens_.consume(); // generik
@@ -351,7 +353,19 @@ ExprNode* Parser::parsePrimaryExpression() {
                 typeParameters.push_back(tokenText(tokens_.consume()));
                 if (tokens_.is(TokenKind::Colon)) {
                     tokens_.consume();
-                    if (tokens_.is(TokenKind::Identifier)) tokens_.consume();
+                    if (tokens_.is(TokenKind::Identifier)) {
+                        std::string tv = typeParameters.back();
+                        std::string trait = tokenText(tokens_.consume());
+                        auto it = std::find_if(lambdaConstraints.begin(),
+                                               lambdaConstraints.end(),
+                                               [&](const auto& c) { return c.first == tv; });
+                        if (it == lambdaConstraints.end()) {
+                            lambdaConstraints.emplace_back(
+                                tv, std::vector<std::string>{std::move(trait)});
+                        } else {
+                            it->second.push_back(std::move(trait));
+                        }
+                    }
                 }
                 if (!tokens_.tryConsume(TokenKind::Comma)) break;
             }
@@ -385,8 +399,10 @@ ExprNode* Parser::parsePrimaryExpression() {
         range.length = endLoc >= lambdaToken.loc
             ? static_cast<std::uint32_t>(endLoc - lambdaToken.loc)
             : 0;
-        return astContext_.create<LambdaExpr>(std::move(typeParameters), std::move(parameters),
-                                              returnType, body, range);
+        auto* lambdaExpr = astContext_.create<LambdaExpr>(
+            std::move(typeParameters), std::move(parameters), returnType, body, range);
+        lambdaExpr->constraints = std::move(lambdaConstraints);
+        return lambdaExpr;
     }
     case TokenKind::Identifier:
         if ((tokenText(token) == "Antrian" || tokenText(token) == "Tumpukan" ||
@@ -397,6 +413,7 @@ ExprNode* Parser::parsePrimaryExpression() {
             TypeReprNode* generic = astContext_.create<CallTypeRepr>(
                 tokenText(name), std::move(arguments), true,
                 makeRange(name, tokens_.current()));
+            return astContext_.create<TypeExpr>(generic, makeRange(name, tokens_.current()));
             return astContext_.create<TypeExpr>(generic, makeRange(name, tokens_.current()));
         }
         return parseIdentifierOrCallExpression();
@@ -475,6 +492,7 @@ bool Parser::genericTypeAhead() {
 }
 
 ExprNode* Parser::parseIdentifierOrCallExpression() {
+    TraitConstraintClauses lambdaConstraints;
     const Token identifier = tokens_.consume();
     ExprNode* callee = astContext_.create<IdentifierExpr>(tokenText(identifier), makeRange(identifier));
 
