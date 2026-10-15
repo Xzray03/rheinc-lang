@@ -9,6 +9,7 @@
 
 namespace rhc {
 
+class Symbol;
 struct EnumDecl;
 struct StructDecl;
 struct ExprNode;
@@ -111,7 +112,7 @@ class TypeVariableType;
 class StructType final : public Type {
 public:
     StructDecl* decl;
-    std::vector<struct Symbol*> fields;
+    std::vector<Symbol*> fields;
     std::vector<TypeVariableType*> typeParams;
     std::vector<std::pair<TypeVariableType*, std::vector<std::string>>> constraints;
     explicit StructType(StructDecl* structDecl) : Type(TypeKind::Struct), decl(structDecl) {}

@@ -1,4 +1,4 @@
-- Tes Queue (Antrian)
+-- Tes Queue (Antrian)
 
 prosedur utama() {
     -- Membuat antrian

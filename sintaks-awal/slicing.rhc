@@ -1,4 +1,4 @@
-- Tes Slicing
+-- Tes Slicing
 
 prosedur utama() {
     tampilkan "=== TEST SLICING ===\n"

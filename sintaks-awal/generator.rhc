@@ -1,4 +1,4 @@
-- Tes Generator (Pembangkit)
+-- Tes Generator (Pembangkit)
 
 -- Pembangkit dasar
 pembangkit fungsi hitung_naik(batas: bilangan) -> Pembangkit(dengan T = bilangan, R = hampa) {
