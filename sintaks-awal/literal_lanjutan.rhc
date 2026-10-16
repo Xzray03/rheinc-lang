@@ -34,10 +34,10 @@ prosedur uji_pemisah_digit() {
 prosedur uji_string_mentah() {
     variabel path: teks = Raw("C:\temp\baru\n")
     variabel pola: teks = Raw("\d+\.\d+ \q \\ ' ")
-    variabel kosong: teks = Raw("")
+    variabel teks_hampa: teks = Raw("")
     tampilkan path, "\n"
     tampilkan pola, "\n"
-    tampilkan kosong, "\n"
+    tampilkan teks_hampa, "\n"
 }
 
 -- 3. Semua escape yang valid pada string dan karakter

@@ -28,6 +28,6 @@ prosedur utama() {
     variabel d1 = DAFTAR(1, 2) -- [ 1, 2 ]
 
     -- Kurung di dalam __VA_OPT__
-    PANGGIL(fungsi)            -- fungsi()
-    PANGGIL(fungsi, 1, 2)      -- fungsi((1, 2))
+    PANGGIL(panggil_aku)       -- panggil_aku()
+    PANGGIL(panggil_aku, 1, 2) -- panggil_aku((1, 2))
 }
