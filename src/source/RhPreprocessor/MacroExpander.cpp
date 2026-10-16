@@ -61,7 +61,20 @@ bool Preprocessor::invokeFunctionLikeMacro(const MacroDefinition& macro,
                                            std::unordered_set<std::string> hidden,
                                            std::vector<Token>& output) {
     hidden.insert(macro.name);
-    const std::vector<std::vector<Token>> args = parseMacroArguments();
+    std::vector<std::vector<Token>> args = parseMacroArguments();
+    if (macro.isVariadic && !macro.parameters.empty()) {
+        // The last parameter is __VA_ARGS__: it takes every remaining argument
+        // (comma-separated again) and is empty when none were supplied.
+        const std::size_t fixed = macro.parameters.size() - 1;
+        std::vector<Token> variadic;
+        for (std::size_t i = fixed; i < args.size(); ++i) {
+            if (i > fixed) variadic.push_back(synthesizeToken(",", macroNameLoc));
+            variadic.insert(variadic.end(), args[i].begin(), args[i].end());
+        }
+        if (args.size() > fixed) args.resize(fixed);
+        while (args.size() < fixed) args.emplace_back();
+        args.push_back(std::move(variadic));
+    }
     std::vector<Token> substituted = substituteMacroBody(macro, args, hidden);
     std::vector<Token> pasted = applyTokenPaste(substituted, macroNameLoc);
     std::vector<Token> mapped = remapToExpansion(pasted, macroNameLoc);

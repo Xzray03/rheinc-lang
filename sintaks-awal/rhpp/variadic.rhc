@@ -1,0 +1,35 @@
+-- Pengujian makro variadik: __VA_ARGS__ menampung SEMUA argumen sisa.
+
+-- Semua parameter bersifat variadik
+#definisikan SEMUA(...) tampilkan(__VA_ARGS__)
+
+-- Satu parameter tetap, sisanya variadik
+#definisikan LOG(pesan, ...) tampilkan(pesan, __VA_ARGS__)
+
+-- Dua parameter tetap, sisanya variadik
+#definisikan JUMLAH(a, b, ...) a + b + __VA_ARGS__
+
+-- Stringize terhadap __VA_ARGS__
+#definisikan TEKS(...) #__VA_ARGS__
+
+prosedur utama() {
+    -- Argumen variadik: 0, 1, dan banyak
+    SEMUA()                    -- tampilkan()
+    SEMUA(1)                   -- tampilkan(1)
+    SEMUA(1, 2, 3)             -- tampilkan(1, 2, 3)
+
+    -- Satu parameter tetap + variadik
+    LOG("a", 1)                -- tampilkan("a", 1)
+    LOG("b", 1, 2, 3)          -- tampilkan("b", 1, 2, 3)
+    LOG("c", 42, "\n")         -- tampilkan("c", 42, "\n")
+
+    -- Argumen variadik berisi kurung dan koma bersarang
+    LOG("d", (1, 2), 3)        -- tampilkan("d", (1, 2), 3)
+
+    -- Dua parameter tetap + variadik
+    variabel x: bilangan = JUMLAH(1, 2, 3)   -- 1 + 2 + 3
+
+    -- Stringize seluruh argumen variadik
+    variabel t1: teks = TEKS(a, b, c)        -- "a , b , c"
+    variabel t2: teks = TEKS()               -- ""
+}
