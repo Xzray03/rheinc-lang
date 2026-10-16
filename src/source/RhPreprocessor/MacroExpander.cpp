@@ -7,6 +7,50 @@ namespace rhc {
 
 using namespace ppdetail;
 
+namespace {
+
+// Collects macro arguments after the opening '(' until the matching ')'. `next`
+// supplies tokens one by one and returns false when the input is exhausted;
+// `terminated` reports whether the closing ')' was found. Commas nested inside
+// parentheses stay inside their argument.
+template <typename NextToken>
+std::vector<std::vector<Token>> collectMacroArguments(NextToken next, bool& terminated) {
+    std::vector<std::vector<Token>> args;
+    std::vector<Token> current;
+    int depth = 0;
+    terminated = false;
+
+    while (true) {
+        Token token;
+        if (!next(token)) break;
+        if (token.kind == TokenKind::EndOfDirective) continue;
+        if (token.kind == TokenKind::LParen) {
+            ++depth;
+            current.push_back(token);
+            continue;
+        }
+        if (token.kind == TokenKind::RParen) {
+            if (depth == 0) {
+                if (!current.empty() || args.empty()) args.push_back(std::move(current));
+                terminated = true;
+                break;
+            }
+            --depth;
+            current.push_back(token);
+            continue;
+        }
+        if (token.kind == TokenKind::Comma && depth == 0) {
+            args.push_back(std::move(current));
+            current.clear();
+            continue;
+        }
+        current.push_back(token);
+    }
+    return args;
+}
+
+} // namespace
+
 bool Preprocessor::expandIfNeeded(const Token& token, std::vector<Token>& output) {
     if (token.kind != TokenKind::Identifier || !token.ident) return false;
     const MacroDefinition* macro = macros_.find(token.ident->getName());
@@ -24,7 +68,8 @@ bool Preprocessor::expandIfNeeded(const Token& token, std::vector<Token>& output
 std::vector<Token> Preprocessor::expandTokenSequence(
     std::vector<Token> tokens, std::unordered_set<std::string> hidden) {
     std::vector<Token> output;
-    for (const Token& token : tokens) {
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const Token& token = tokens[i];
         if (token.kind == TokenKind::Identifier && token.ident) {
             const std::string name(token.ident->getName());
             if (hidden.contains(name)) {
@@ -32,8 +77,34 @@ std::vector<Token> Preprocessor::expandTokenSequence(
                 continue;
             }
             const MacroDefinition* macro = macros_.find(name);
-            if (!macro || macro->isFunctionLike) {
+            if (!macro) {
                 output.push_back(token);
+                continue;
+            }
+            if (macro->isFunctionLike) {
+                // A function-like macro is only invoked when '(' follows its name.
+                if (i + 1 >= tokens.size() || tokens[i + 1].kind != TokenKind::LParen) {
+                    output.push_back(token);
+                    continue;
+                }
+                std::size_t pos = i + 2;
+                bool terminated = false;
+                std::vector<std::vector<Token>> args = collectMacroArguments(
+                    [&](Token& out) {
+                        if (pos >= tokens.size()) return false;
+                        out = tokens[pos++];
+                        return true;
+                    },
+                    terminated);
+                if (!terminated) {
+                    output.push_back(token);
+                    continue;
+                }
+                std::vector<Token> nested;
+                invokeFunctionLikeMacroWithArgs(*macro, token.loc, hidden, std::move(args),
+                                                nested);
+                output.insert(output.end(), nested.begin(), nested.end());
+                i = pos - 1;
                 continue;
             }
             std::vector<Token> nested;
@@ -61,8 +132,17 @@ bool Preprocessor::invokeFunctionLikeMacro(const MacroDefinition& macro,
                                            SourceLocation macroNameLoc,
                                            std::unordered_set<std::string> hidden,
                                            std::vector<Token>& output) {
-    hidden.insert(macro.name);
     std::vector<std::vector<Token>> args = parseMacroArguments();
+    return invokeFunctionLikeMacroWithArgs(macro, macroNameLoc, std::move(hidden),
+                                           std::move(args), output);
+}
+
+bool Preprocessor::invokeFunctionLikeMacroWithArgs(const MacroDefinition& macro,
+                                                   SourceLocation macroNameLoc,
+                                                   std::unordered_set<std::string> hidden,
+                                                   std::vector<std::vector<Token>> args,
+                                                   std::vector<Token>& output) {
+    hidden.insert(macro.name);
     if (macro.isVariadic && !macro.parameters.empty()) {
         // The last parameter is __VA_ARGS__: it takes every remaining argument
         // (comma-separated again) and is empty when none were supplied.
@@ -84,40 +164,13 @@ bool Preprocessor::invokeFunctionLikeMacro(const MacroDefinition& macro,
 }
 
 std::vector<std::vector<Token>> Preprocessor::parseMacroArguments() {
-    std::vector<std::vector<Token>> args;
-    std::vector<Token> current;
-    int depth = 0;
-
     Token open;
     getRawToken(open); // '('
-    if (open.kind != TokenKind::LParen) return args;
+    if (open.kind != TokenKind::LParen) return {};
 
-    while (true) {
-        Token token;
-        if (!getRawToken(token)) break;
-        if (token.kind == TokenKind::EndOfDirective) continue;
-        if (token.kind == TokenKind::LParen) {
-            ++depth;
-            current.push_back(token);
-            continue;
-        }
-        if (token.kind == TokenKind::RParen) {
-            if (depth == 0) {
-                if (!current.empty() || args.empty()) args.push_back(std::move(current));
-                break;
-            }
-            --depth;
-            current.push_back(token);
-            continue;
-        }
-        if (token.kind == TokenKind::Comma && depth == 0) {
-            args.push_back(std::move(current));
-            current.clear();
-            continue;
-        }
-        current.push_back(token);
-    }
-    return args;
+    bool terminated = false;
+    return collectMacroArguments([this](Token& token) { return getRawToken(token); },
+                                 terminated);
 }
 
 std::vector<Token> Preprocessor::substituteMacroBody(

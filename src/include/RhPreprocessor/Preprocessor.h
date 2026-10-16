@@ -58,6 +58,12 @@ private:
                                  std::unordered_set<std::string> hidden,
                                  std::vector<Token>& output);
 
+    bool invokeFunctionLikeMacroWithArgs(const MacroDefinition& macro,
+                                         SourceLocation macroNameLoc,
+                                         std::unordered_set<std::string> hidden,
+                                         std::vector<std::vector<Token>> args,
+                                         std::vector<Token>& output);
+
     std::vector<std::vector<Token>> parseMacroArguments();
     std::vector<Token> substituteMacroBody(const MacroDefinition& macro,
                                            const std::vector<std::vector<Token>>& args,

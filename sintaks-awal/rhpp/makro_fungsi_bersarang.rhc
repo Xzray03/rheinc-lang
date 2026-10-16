@@ -1,0 +1,56 @@
+-- Pengujian makro fungsi bersarang: makro fungsi di dalam makro lain (termasuk
+-- makro variadik) harus terekspansi penuh.
+
+#definisikan LOG(pesan, ...) tampilkan(pesan __VA_OPT__(,) __VA_ARGS__)
+#definisikan MAX(a, b) ((a) > (b) ? (a) : (b))
+#definisikan KUADRAT(x) ((x) * (x))
+#definisikan SEMUA(...) tampilkan(__VA_ARGS__)
+
+-- Makro variadik yang meneruskan __VA_ARGS__ ke makro fungsi lain
+#definisikan LOG2(...) LOG(__VA_ARGS__)
+#definisikan LOG3(...) LOG2(__VA_ARGS__)
+
+-- Makro fungsi memanggil makro fungsi lain di badannya
+#definisikan MAX3(a, b, c) MAX(MAX(a, b), c)
+#definisikan JARAK2(x, y) KUADRAT(x) + KUADRAT(y)
+
+-- Pemanggilan bersarang langsung di argumen
+-- (MAX di dalam MAX, makro fungsi di dalam makro variadik)
+
+-- Nama makro fungsi tanpa "(" tidak diekspansi
+#definisikan TANPA_KURUNG MAX
+
+-- Rekursi: nama makro yang sedang diekspansi tidak diekspansi lagi
+#definisikan REKURSIF(x) REKURSIF(x)
+#definisikan GANJIL(x) GENAP(x)
+#definisikan GENAP(x) GANJIL(x)
+
+prosedur utama() {
+    -- Dua tingkat: LOG2 -> LOG
+    LOG2("a")                       -- tampilkan("a" )
+    LOG2("b", 1, 2)                 -- tampilkan("b" , 1, 2)
+
+    -- Tiga tingkat: LOG3 -> LOG2 -> LOG
+    LOG3("c", 7)                    -- tampilkan("c" , 7)
+
+    -- Makro fungsi di dalam argumen makro fungsi
+    variabel m1: bilangan = MAX(MAX(1, 2), 3)
+    -- ((((1) > (2) ? (1) : (2))) > (3) ? (((1) > (2) ? (1) : (2))) : (3))
+
+    -- Makro fungsi memanggil makro fungsi lain
+    variabel m2: bilangan = MAX3(4, 5, 6)
+    variabel j: bilangan = JARAK2(3, 4)
+    -- ((3) * (3)) + ((4) * (4))
+
+    -- Makro fungsi di dalam argumen makro variadik
+    SEMUA(KUADRAT(2), MAX(1, 2))
+    -- tampilkan(((2) * (2)), ((1) > (2) ? (1) : (2)))
+
+    -- Tanpa "(" makro fungsi dibiarkan apa adanya
+    variabel f = TANPA_KURUNG
+    -- MAX
+
+    -- Rekursi tidak boleh membuat ekspansi tak terbatas
+    REKURSIF(1)                     -- REKURSIF(1)
+    GANJIL(2)                       -- GANJIL(2)
+}
