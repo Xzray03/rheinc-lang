@@ -6,7 +6,8 @@
 #definisikan DUA 2
 #definisikan TIGA 3
 #definisikan LEBIH_BESAR(a, b) ((a) > (b))
-#definisikan JUMLAH(...) (0 __VA_OPT__(+ __VA_ARGS__))
+#definisikan ADA_SISA(...) (0 __VA_OPT__(+ 1))
+#definisikan LEWAT(...) MAX(__VA_ARGS__)
 
 prosedur utama() {
     -- Makro fungsi langsung
@@ -44,17 +45,24 @@ prosedur utama() {
         tampilkan "GAGAL: dan/bukan\n"
     #akhir
 
-    -- Makro variadik dengan __VA_OPT__
-    #jika JUMLAH() == 0
+    -- Makro variadik dengan __VA_OPT__: isinya hanya ada bila argumen tidak kosong
+    #jika ADA_SISA() == 0
         tampilkan "variadik kosong benar\n"
     #jika bukan semua diatas
         tampilkan "GAGAL: variadik kosong\n"
     #akhir
 
-    #jika JUMLAH(1, 2, 3) == 6
+    #jika ADA_SISA(1, 2, 3) == 1
         tampilkan "variadik banyak benar\n"
     #jika bukan semua diatas
         tampilkan "GAGAL: variadik banyak\n"
+    #akhir
+
+    -- Makro variadik yang meneruskan __VA_ARGS__ ke makro fungsi lain
+    #jika LEWAT(4, 9) == 9
+        tampilkan "variadik ke makro fungsi benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: variadik ke makro fungsi\n"
     #akhir
 
     -- Predikat terdefinisi pada makro fungsi (tanpa "(")
