@@ -1,0 +1,14 @@
+-- Negative test: __VA_ARGS__ dan __VA_OPT__ hanya valid di makro variadik.
+-- Setiap #definisikan di bawah harus menghasilkan satu error.
+
+#definisikan A(x) __VA_ARGS__
+#definisikan B(x) __VA_OPT__(x)
+#definisikan C __VA_ARGS__
+#definisikan D(...) __VA_OPT__ x
+#definisikan E(...) __VA_OPT__(x
+#definisikan F(...) __VA_OPT__(__VA_OPT__(x))
+#definisikan G(..., x) x
+
+prosedur utama() {
+    tampilkan "makro di atas tidak boleh terdefinisi\n"
+}

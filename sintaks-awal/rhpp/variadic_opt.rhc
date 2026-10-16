@@ -1,0 +1,33 @@
+-- Pengujian __VA_OPT__(...): isinya hanya muncul bila argumen variadik TIDAK kosong.
+
+-- Koma pemisah hanya ikut bila ada argumen variadik
+#definisikan LOG(pesan, ...) tampilkan(pesan __VA_OPT__(,) __VA_ARGS__)
+
+-- Isi __VA_OPT__ boleh berupa banyak token dan memakai __VA_ARGS__
+#definisikan CETAK(...) tampilkan("ada: " __VA_OPT__(, __VA_ARGS__, "\n"))
+
+-- Makro hanya dengan variadik
+#definisikan DAFTAR(...) [ __VA_OPT__(__VA_ARGS__) ]
+
+-- Kurung bersarang di dalam __VA_OPT__
+#definisikan PANGGIL(f, ...) f(__VA_OPT__((__VA_ARGS__)))
+
+prosedur utama() {
+    -- LOG: tanpa dan dengan argumen variadik
+    LOG("a")                   -- tampilkan("a" )
+    LOG("b", 1)                -- tampilkan("b" , 1)
+    LOG("c", 1, 2, 3)          -- tampilkan("c" , 1, 2, 3)
+
+    -- CETAK: __VA_OPT__ berisi beberapa token
+    CETAK()                    -- tampilkan("ada: ")
+    CETAK(7)                   -- tampilkan("ada: " , 7, "\n")
+    CETAK(7, 8)                -- tampilkan("ada: " , 7, 8, "\n")
+
+    -- DAFTAR
+    variabel d0 = DAFTAR()     -- [ ]
+    variabel d1 = DAFTAR(1, 2) -- [ 1, 2 ]
+
+    -- Kurung di dalam __VA_OPT__
+    PANGGIL(fungsi)            -- fungsi()
+    PANGGIL(fungsi, 1, 2)      -- fungsi((1, 2))
+}

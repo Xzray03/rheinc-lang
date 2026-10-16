@@ -1,5 +1,6 @@
 #include "RhPreprocessor/Preprocessor.h"
 #include "RhPreprocessor/PreprocessorInternal.h"
+#include <cstddef>
 #include <utility>
 
 namespace rhc {
@@ -134,12 +135,60 @@ std::vector<Token> Preprocessor::substituteMacroBody(
         return &args[static_cast<std::size_t>(it->second)];
     };
 
-    std::vector<Token> substituted;
+    // __VA_OPT__(tokens) expands to its tokens only when the variadic argument is
+    // non-empty, and to nothing otherwise.
+    bool hasVariadicArgs = false;
+    if (macro.isVariadic && !macro.parameters.empty()) {
+        const std::size_t variadicIndex = macro.parameters.size() - 1;
+        if (variadicIndex < args.size()) {
+            for (const Token& argToken : args[variadicIndex]) {
+                if (argToken.kind != TokenKind::EndOfDirective) {
+                    hasVariadicArgs = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    std::vector<Token> body;
+    body.reserve(macro.body.size());
     for (std::size_t i = 0; i < macro.body.size(); ++i) {
         const Token& token = macro.body[i];
-        if (token.kind == TokenKind::Hash && i + 1 < macro.body.size() &&
-            macro.body[i + 1].kind == TokenKind::Identifier) {
-            if (const std::vector<Token>* arg = getArg(tokenText(macro.body[i + 1]))) {
+        if (macro.isVariadic && token.kind == TokenKind::Identifier &&
+            tokenText(token) == "__VA_OPT__" && i + 1 < macro.body.size() &&
+            macro.body[i + 1].kind == TokenKind::LParen) {
+            std::size_t close = macro.body.size();
+            int depth = 0;
+            for (std::size_t j = i + 2; j < macro.body.size(); ++j) {
+                if (macro.body[j].kind == TokenKind::LParen) {
+                    ++depth;
+                } else if (macro.body[j].kind == TokenKind::RParen) {
+                    if (depth == 0) {
+                        close = j;
+                        break;
+                    }
+                    --depth;
+                }
+            }
+            if (close != macro.body.size()) {
+                if (hasVariadicArgs) {
+                    body.insert(body.end(),
+                                macro.body.begin() + static_cast<std::ptrdiff_t>(i + 2),
+                                macro.body.begin() + static_cast<std::ptrdiff_t>(close));
+                }
+                i = close;
+                continue;
+            }
+        }
+        body.push_back(token);
+    }
+
+    std::vector<Token> substituted;
+    for (std::size_t i = 0; i < body.size(); ++i) {
+        const Token& token = body[i];
+        if (token.kind == TokenKind::Hash && i + 1 < body.size() &&
+            body[i + 1].kind == TokenKind::Identifier) {
+            if (const std::vector<Token>* arg = getArg(tokenText(body[i + 1]))) {
                 std::string rawText;
                 bool first = true;
                 for (const Token& argToken : *arg) {
@@ -152,9 +201,9 @@ std::vector<Token> Preprocessor::substituteMacroBody(
 
                 ExpansionPiece piece;
                 piece.text = text;
-                piece.spellingLoc = macro.body[i].loc;
+                piece.spellingLoc = body[i].loc;
                 const FileID expansionFile = sourceManager_.createExpansion(
-                    macro.body[i].loc, {std::move(piece)});
+                    body[i].loc, {std::move(piece)});
 
                 Token stringToken;
                 stringToken.kind = TokenKind::StringLiteral;
@@ -171,7 +220,7 @@ std::vector<Token> Preprocessor::substituteMacroBody(
             if (const std::vector<Token>* arg = getArg(tokenText(token))) {
                 const bool adjacentPaste =
                     (!substituted.empty() && substituted.back().kind == TokenKind::HashHash) ||
-                    (i + 1 < macro.body.size() && macro.body[i + 1].kind == TokenKind::HashHash);
+                    (i + 1 < body.size() && body[i + 1].kind == TokenKind::HashHash);
                 if (adjacentPaste) {
                     substituted.insert(substituted.end(), arg->begin(), arg->end());
                 } else {

@@ -123,6 +123,10 @@ void Preprocessor::handleDefinisikan(const std::vector<Token>& tokens, SourceLoc
                 macro.isVariadic = true;
                 macro.parameters.emplace_back("__VA_ARGS__");
                 pos += 3;
+                if (pos < tokens.size() && tokens[pos].kind != TokenKind::RParen) {
+                    error(tokens[pos].loc, "'...' must be the last macro parameter");
+                    return;
+                }
                 continue;
             }
             if (tokens[pos].kind != TokenKind::Identifier) {
@@ -142,6 +146,50 @@ void Preprocessor::handleDefinisikan(const std::vector<Token>& tokens, SourceLoc
 
     for (; pos < tokens.size(); ++pos) {
         macro.body.push_back(tokens[pos]);
+    }
+
+    // __VA_ARGS__ and __VA_OPT__ only make sense inside a variadic macro body, and
+    // __VA_OPT__ needs a balanced, non-nested "( ... )" group.
+    for (std::size_t i = 0; i < macro.body.size(); ++i) {
+        const Token& token = macro.body[i];
+        if (token.kind != TokenKind::Identifier) continue;
+        const std::string text = tokenText(token);
+        const bool isVaArgs = text == "__VA_ARGS__";
+        const bool isVaOpt = text == "__VA_OPT__";
+        if (!isVaArgs && !isVaOpt) continue;
+        if (!macro.isVariadic) {
+            error(token.loc, text +
+                                 " can only appear in the expansion of a variadic macro");
+            return;
+        }
+        if (!isVaOpt) continue;
+        if (i + 1 >= macro.body.size() || macro.body[i + 1].kind != TokenKind::LParen) {
+            error(token.loc, "__VA_OPT__ must be followed by '('");
+            return;
+        }
+        int depth = 0;
+        std::size_t close = macro.body.size();
+        for (std::size_t j = i + 2; j < macro.body.size(); ++j) {
+            const Token& inner = macro.body[j];
+            if (inner.kind == TokenKind::Identifier && tokenText(inner) == "__VA_OPT__") {
+                error(inner.loc, "__VA_OPT__ may not appear inside __VA_OPT__");
+                return;
+            }
+            if (inner.kind == TokenKind::LParen) {
+                ++depth;
+            } else if (inner.kind == TokenKind::RParen) {
+                if (depth == 0) {
+                    close = j;
+                    break;
+                }
+                --depth;
+            }
+        }
+        if (close == macro.body.size()) {
+            error(token.loc, "unterminated __VA_OPT__");
+            return;
+        }
+        i = close;
     }
 
     if (!macros_.define(macro)) {
