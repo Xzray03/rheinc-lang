@@ -6,7 +6,9 @@
 #include "RhAST/ValidateAst.h"
 #include "RhSemantic/SemanticAnalyzer.h"
 #include "RhParser/Decl.h"
+#include "RhSemantic/Type.h"
 
+#include <iostream>
 #include <sstream>
 #include <utility>
 
@@ -50,6 +52,44 @@ const Type* AstToIrTranslator::Impl::exprTypeOr(const ExprNode* expr,
     return type;
 }
 
+ValueId AstToIrTranslator::Impl::emitCallByName(
+        const std::string& name, std::vector<ValueId> args,
+        SourceLocation loc) {
+    FuncId fn = InvalidFunc;
+    const auto found = functionsByName.find(name);
+    if (found != functionsByName.end()) {
+        fn = found->second;
+    } else {
+        fn = builder.createFunction(name, InvalidType, loc);
+        functionsByName[name] = fn;
+        module.globals[name] = fn;
+    }
+    TypeId resultType = InvalidType;
+    if (const Symbol* symbol = lookupGlobalSymbol(name)) {
+        if (symbol->type && symbol->type->kind() == TypeKind::Function) {
+            const auto* fnType = static_cast<const FunctionType*>(symbol->type);
+            if (fnType->returnType && !typeContainsError(fnType->returnType)) {
+                resultType = mapType(fnType->returnType, nullptr);
+            }
+        }
+    }
+    if (resultType == InvalidType) {
+        IrType voidType;
+        voidType.kind = IrTypeKind::Void;
+        resultType = builder.internType(voidType);
+    }
+    std::vector<IrOperand> operands;
+    operands.push_back(IrOperand::func(fn));
+    for (ValueId arg : args) operands.push_back(IrOperand::value(arg));
+    return builder.emit(IrOpcode::Call, resultType, std::move(operands), loc);
+}
+
+const Symbol* AstToIrTranslator::Impl::lookupGlobalSymbol(
+        const std::string& name) const {
+    if (!semantic) return nullptr;
+    return semantic->context().globalScope().lookup(name);
+}
+
 bool AstToIrTranslator::Impl::isStructTypeName(const std::string& name) const {
     return lookupStructType(name) != nullptr;
 }
@@ -63,6 +103,39 @@ const Type* AstToIrTranslator::Impl::lookupStructType(
     return nullptr;
 }
 
+// true bila tipe mengandung ErrorType di KEDALAMAN (bukan hanya
+// permukaan). RhSemantic kadang memberi ErrorType tanpa diagnostic
+// (mis. panggilan fungsi tak dikenal yang dibiarkan) — tipe hasil
+// seperti PointerType{ErrorType} tidak boleh meledakkan mapType di
+// titik yang tidak relevan; pemetaannya ditunda seperti ErrorType
+// permukaan, dan error jujur hanya muncul bila nilai benar-benar
+// butuh tipe.
+bool typeContainsError(const Type* type) {
+    if (!type) return true;   // tipe absen dianggap tidak valid
+    if (type->kind() == TypeKind::Error) return true;
+    if (type->kind() == TypeKind::Pointer) {
+        return typeContainsError(
+            static_cast<const PointerType*>(type)->pointee);
+    }
+    if (type->kind() == TypeKind::Array) {
+        return typeContainsError(
+            static_cast<const ArrayType*>(type)->elementType);
+    }
+    if (type->kind() == TypeKind::Slice) {
+        return typeContainsError(
+            static_cast<const SliceType*>(type)->elementType);
+    }
+    if (type->kind() == TypeKind::Function) {
+        const auto* fn = static_cast<const FunctionType*>(type);
+        if (fn->returnType && typeContainsError(fn->returnType)) return true;
+        for (const FunctionParamType& param : fn->params) {
+            if (typeContainsError(param.type)) return true;
+        }
+        return false;
+    }
+    return false;
+}
+
 ValueId AstToIrTranslator::Impl::lookupRaw(const std::string& name) const {
     for (auto it = env.rbegin(); it != env.rend(); ++it) {
         const auto found = it->vars.find(name);
@@ -73,7 +146,16 @@ ValueId AstToIrTranslator::Impl::lookupRaw(const std::string& name) const {
 
 ValueId AstToIrTranslator::Impl::lookupLocal(const std::string& name) {
     const ValueId stored = lookupRaw(name);
-    if (stored == InvalidValue) return InvalidValue;
+    if (stored == InvalidValue) {
+        // Global mutable: baca lewat Load dari storage global.
+        const auto global = module.globalVarIndex.find(name);
+        if (global != module.globalVarIndex.end()) {
+            return builder.emit(IrOpcode::Load,
+                                module.globalVars[global->second].type,
+                                {IrOperand::global(global->second)}, 0, name);
+        }
+        return InvalidValue;
+    }
     if (!isMemoryStyle(name)) return stored;
     // Variabel memory-style: baca lewat Load dari ptr Alloc.
     const IrFunction& fn = builder.function(currentFunc);

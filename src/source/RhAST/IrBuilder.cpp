@@ -741,6 +741,7 @@ bool IrBuilder::Impl::verifyFunc(FuncId func, std::string* errorOut,
             case IrOperandKind::TypeV:     ok = op.id < module.types.size(); break;
             case IrOperandKind::ConstantV: ok = op.id < module.constants.size(); break;
             case IrOperandKind::ImmV:      ok = true; break;  // inline, tanpa tabel
+            case IrOperandKind::GlobalV:   ok = op.id < module.globalVars.size(); break;
             }
             if (!ok) {
                 std::ostringstream m;

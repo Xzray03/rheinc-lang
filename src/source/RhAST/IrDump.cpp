@@ -63,6 +63,7 @@ std::string opcodeName(IrOpcode op) {
     case IrOpcode::CmpLe:       return "cmp_le";
     case IrOpcode::CmpGt:       return "cmp_gt";
     case IrOpcode::CmpGe:       return "cmp_ge";
+    case IrOpcode::Append:      return "append";
     case IrOpcode::Cast:        return "cast";
     case IrOpcode::Call:        return "call";
     case IrOpcode::CallIndirect:return "call_indirect";
@@ -115,6 +116,7 @@ public:
         if (options_.full) {
             dumpTypes();
             dumpConstants();
+            dumpGlobals();
         }
         for (std::size_t i = 0; i < module_.functions.size(); ++i) {
             dumpFunction(static_cast<FuncId>(i));
@@ -270,6 +272,8 @@ private:
             return typeRef(op.id);
         case IrOperandKind::ImmV:
             return std::to_string(op.id);
+        case IrOperandKind::GlobalV:
+            return "@G" + std::to_string(op.id);
         }
         return "?";
     }
@@ -330,6 +334,20 @@ private:
             }
         }
         return InvalidValue;
+    }
+
+    void dumpGlobals() {
+        pad();
+        out_ << "(globals";
+        ++indent_;
+        for (std::size_t i = 0; i < module_.globalVars.size(); ++i) {
+            const IrGlobal& g = module_.globalVars[i];
+            pad();
+            out_ << "(@G" << i << " @" << g.name << ' '
+                 << typeRef(g.type) << ')';
+        }
+        --indent_;
+        out_ << ')';
     }
 
     void dumpFunction(FuncId funcId) {

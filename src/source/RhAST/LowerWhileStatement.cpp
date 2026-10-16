@@ -2,6 +2,7 @@
 
 #include "RhParser/Stmt.h"
 #include "RhSemantic/SemanticAnalyzer.h"
+#include "RhSemantic/Symbol.h"
 #include "RhSemantic/SemanticContext.h"
 #include "RhSemantic/Type.h"
 
@@ -21,6 +22,10 @@ bool AstToIrTranslator::Impl::lowerBreak() {
 }
 
 bool AstToIrTranslator::Impl::lowerContinue() {
+    if (!loopStack.empty() && loopStack.back().header == InvalidBlock) {
+        return error(AstIrErrorCode::MalformedShape, nullptr,
+                     "lanjut di dalam pilih tidak valid (bukan perulangan)");
+    }
     if (loopStack.empty()) {
         return error(AstIrErrorCode::MalformedShape, nullptr,
                      "lanjut di luar perulangan (seharusnya ditolak semantic)");
@@ -150,11 +155,270 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
     return !builder.broken();
 }
 
+// ===== foreach iterator-protocol (koleksi generik: Daftar, dsb) =====
+// Desugar:
+//   it = iterator_mulai(koleksi)
+//   selama bukan iterator_selesai(it)
+//     pilih iterator_berikutnya(it) {
+//       kasus ADA(v): elem = v; body
+//       kasus KOSONG(): berhenti
+//     }
+// Subjek pilih diberi tipe Opsi via resolusi varian (lihat
+// LowerPilihStatement); primitif call/selama/pilih sudah terverifikasi.
+bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
+                                                   ValueId iterable) {
+    const NameValueMap preLoopEnv = env.back().vars;
+    const BlockId preLoopBlock = currentBlock;
+    const std::string itName =
+        "%each.it." + std::to_string(syntheticCounter++);
+
+    const ValueId it = emitCallByName("iterator_mulai", {iterable},
+                                      stmt->range.begin);
+    if (it == InvalidValue) return false;
+    bindLocal(itName, it);
+
+    const BlockId condB = builder.createBlock(currentFunc, "each.cond");
+    const BlockId bodyB = builder.createBlock(currentFunc, "each.body");
+    const BlockId updateB = builder.createBlock(currentFunc, "each.update");
+    const BlockId exitB = builder.createBlock(currentFunc, "each.exit");
+
+    builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
+                          {IrOperand::block(condB)}, stmt->range.begin);
+    loopStack.push_back({updateB, exitB});
+
+    // Kondisi: bukan iterator_selesai(it).
+    setCurrent(condB);
+    const ValueId selesai = emitCallByName("iterator_selesai",
+                                           {lookupLocal(itName)},
+                                           stmt->range.begin);
+    if (selesai == InvalidValue) return false;
+    const ValueId cond = builder.emit(
+        IrOpcode::Not, builder.function(currentFunc).values[selesai].type,
+        {IrOperand::value(selesai)}, stmt->range.begin);
+    builder.setTerminator(currentFunc, condB, IrOpcode::CondBr,
+                          {IrOperand::value(cond), IrOperand::block(bodyB),
+                           IrOperand::block(exitB)},
+                          stmt->range.begin);
+
+    // Body: pilih iterator_berikutnya(it) { ADA(v): elem=v; body;
+    //                                       KOSONG: exit }.
+    setCurrent(bodyB);
+    const NameValueMap bodyStartEnv = env.back().vars;
+    const ValueId berikutnya = emitCallByName(
+        "iterator_berikutnya", {lookupLocal(itName)}, stmt->range.begin);
+    if (berikutnya == InvalidValue) return false;
+    TypeId sumTypeId =
+        builder.function(currentFunc).values[berikutnya].type;
+    // Hasil inferensi-gagal: resolve sum builtin Opsi dari global scope
+    // (sama seperti LowerPilihStatement).
+    if (sumTypeId == InvalidType ||
+        module.types[sumTypeId].kind != IrTypeKind::Sum) {
+        if (const Symbol* symbol = lookupGlobalSymbol("Opsi")) {
+            if (symbol->type && symbol->type->kind() == TypeKind::Sum) {
+                sumTypeId = mapType(symbol->type, stmt->iterable);
+            }
+        }
+    }
+    if (sumTypeId == InvalidType ||
+        module.types[sumTypeId].kind != IrTypeKind::Sum) {
+        loopStack.pop_back();
+        return error(AstIrErrorCode::MatchNonSum, stmt->iterable,
+                     "iterator_berikutnya tidak menghasilkan tipe sum "
+                     "(resolusi Opsi gagal)");
+    }
+    const IrType& sumType = module.types[sumTypeId];
+    int adaIndex = -1, kosongIndex = -1;
+    for (std::size_t v = 0; v < sumType.variants.size(); ++v) {
+        if (sumType.variants[v].name == "ADA") adaIndex = (int)v;
+        if (sumType.variants[v].name == "KOSONG") kosongIndex = (int)v;
+    }
+    if (adaIndex < 0 || kosongIndex < 0) {
+        loopStack.pop_back();
+        return error(AstIrErrorCode::MalformedShape, stmt->iterable,
+                     "tipe hasil iterator tanpa varian ADA/KOSONG");
+    }
+
+    const BlockId adaB = builder.createBlock(currentFunc, "each.ada");
+    const BlockId kosongB = builder.createBlock(currentFunc, "each.kosong");
+    const TypeId elemIrType = sumType.variants[adaIndex].payloadType;
+
+    std::vector<IrOperand> matchOps;
+    matchOps.push_back(IrOperand::value(berikutnya));
+    for (const int vi : {adaIndex, kosongIndex}) {
+        matchOps.push_back(IrOperand::value(
+            builder.emit(IrOpcode::ConstInt, sumTypeId,
+                         {IrOperand::imm(static_cast<std::uint32_t>(
+                             sumType.variants[vi].tagValue))},
+                         stmt->range.begin)));
+        matchOps.push_back(IrOperand::block(
+            vi == adaIndex ? adaB : kosongB));
+    }
+    matchOps.push_back(IrOperand::block(kosongB));  // default
+    builder.setTerminator(currentFunc, bodyB, IrOpcode::MatchTag,
+                          std::move(matchOps), stmt->range.begin);
+
+    // kasus ADA: bind elemen, jalankan body, lanjut update.
+    env.back().vars = bodyStartEnv;
+    setCurrent(adaB);
+    const ValueId elem = builder.emit(
+        IrOpcode::Extract, elemIrType,
+        {IrOperand::value(berikutnya), IrOperand::imm(0)},
+        stmt->range.begin);
+    const std::string& elemName =
+        stmt->loopVariables.empty() ? stmt->loopVariable
+                                    : stmt->loopVariables.back();
+    bindLocal(elemName, elem);
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); return false; }
+    if (blockOpen()) {
+        builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
+                              {IrOperand::block(updateB)},
+                              stmt->range.begin);
+    }
+
+    // kasus KOSONG: keluar loop.
+    env.back().vars = bodyStartEnv;
+    setCurrent(kosongB);
+    builder.setTerminator(currentFunc, kosongB, IrOpcode::Br,
+                          {IrOperand::block(exitB)}, stmt->range.begin);
+    loopStack.pop_back();
+
+    setCurrent(updateB);
+    builder.setTerminator(currentFunc, updateB, IrOpcode::Br,
+                          {IrOperand::block(condB)}, stmt->range.begin);
+
+    // Loop-carried phi untuk variabel yang berubah di body.
+    for (const auto& [name, valueAfter] : env.back().vars) {
+        const auto it2 = bodyStartEnv.find(name);
+        if (it2 == bodyStartEnv.end() || it2->second == valueAfter) continue;
+        const TypeId phiType =
+            builder.function(currentFunc).values[it2->second].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
+                                              0, name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it2->second);
+        builder.addPhiIncoming(currentFunc, phi, updateB, valueAfter);
+        env.back().vars[name] = phi;
+    }
+
+    setCurrent(exitB);
+    return !builder.broken();
+}
+
+// ===== untuk-setiap (foreach atas larik fixed-size) =====
+// Desugar index-based: i = 0; selama i < N { x = l[i]; body; i += langkah }.
+// foreach atas view/teks (panjang dinamis) dan koleksi iterator-protocol
+// (Daftar<T>, dsb) ditolak jujur — fase terpisah.
+bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
+    if (failed || builder.broken() || !blockOpen()) return false;
+
+    const ValueId iterable = lowerExpr(stmt->iterable);
+    if (iterable == InvalidValue) return false;
+    const TypeId iterableType =
+        builder.function(currentFunc).values[iterable].type;
+    if (iterableType == InvalidType ||
+        module.types[iterableType].kind != IrTypeKind::Array) {
+        return lowerForEachIterator(stmt, iterable);
+    }
+    const std::uint64_t count = module.types[iterableType].arraySize;
+    const TypeId elementType = module.types[iterableType].elementType;
+
+    // Nama variabel: 1 var = elemen; 2 var = (indeks, elemen).
+    const bool withIndex = stmt->loopVariables.size() >= 2;
+    const std::string& elemName =
+        withIndex ? stmt->loopVariables.back() : stmt->loopVariable;
+    const std::string indexName =
+        withIndex ? stmt->loopVariables.front() : "%each.i";
+
+    const NameValueMap preLoopEnv = env.back().vars;
+    const BlockId preLoopBlock = currentBlock;
+
+    const ValueId zero = builder.emit(IrOpcode::ConstInt, elementType,
+                                      {IrOperand::imm(0)},
+                                      stmt->range.begin);
+    const ValueId limit = builder.emit(
+        IrOpcode::ConstInt, elementType, {IrOperand::imm(
+            static_cast<std::uint32_t>(count))}, stmt->range.begin);
+    bindLocal(indexName, zero);
+
+    const BlockId condB = builder.createBlock(currentFunc, "each.cond");
+    const BlockId bodyB = builder.createBlock(currentFunc, "each.body");
+    const BlockId updateB = builder.createBlock(currentFunc, "each.update");
+    const BlockId exitB = builder.createBlock(currentFunc, "each.exit");
+
+    builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
+                          {IrOperand::block(condB)}, stmt->range.begin);
+    loopStack.push_back({updateB, exitB});
+
+    setCurrent(condB);
+    const ValueId i0 = lookupLocal(indexName);
+    const ValueId cond = builder.emit(
+        IrOpcode::CmpLt, elementType,
+        {IrOperand::value(i0), IrOperand::value(limit)},
+        stmt->range.begin);
+    builder.setTerminator(currentFunc, condB, IrOpcode::CondBr,
+                          {IrOperand::value(cond), IrOperand::block(bodyB),
+                           IrOperand::block(exitB)},
+                          stmt->range.begin);
+
+    setCurrent(bodyB);
+    const NameValueMap bodyStartEnv = env.back().vars;
+    const ValueId i1 = lookupLocal(indexName);
+    const ValueId elem = builder.emit(
+        IrOpcode::Extract, elementType,
+        {IrOperand::value(iterable), IrOperand::value(i1)},
+        stmt->range.begin, elemName);
+    bindLocal(elemName, elem);
+    if (!lowerStmt(stmt->body)) return false;
+    BlockId bodyEnd = currentBlock;
+    if (blockOpen()) {
+        builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
+                              {IrOperand::block(updateB)}, stmt->range.begin);
+    } else {
+        bodyEnd = InvalidBlock;
+    }
+    loopStack.pop_back();
+
+    setCurrent(updateB);
+    const ValueId i2 = lookupLocal(indexName);
+    ValueId next = InvalidValue;
+    if (stmt->stepValue) {
+        const ValueId step = lowerExpr(stmt->stepValue);
+        if (step == InvalidValue) return false;
+        next = builder.emit(IrOpcode::Add, elementType,
+                            {IrOperand::value(i2), IrOperand::value(step)},
+                            stmt->range.begin, indexName);
+    } else {
+        next = builder.emit(IrOpcode::Inc, elementType,
+                            {IrOperand::value(i2)}, stmt->range.begin,
+                            indexName);
+    }
+    bindLocal(indexName, next);
+    builder.setTerminator(currentFunc, updateB, IrOpcode::Br,
+                          {IrOperand::block(condB)}, stmt->range.begin);
+
+    for (const auto& [name, valueAfter] : env.back().vars) {
+        const auto it = bodyStartEnv.find(name);
+        if (it == bodyStartEnv.end() || it->second == valueAfter) continue;
+        const TypeId phiType =
+            builder.function(currentFunc).values[it->second].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
+                                              0, name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it->second);
+        builder.addPhiIncoming(currentFunc, phi, updateB, valueAfter);
+        env.back().vars[name] = phi;
+    }
+
+    setCurrent(exitB);
+    return !builder.broken();
+}
+
 // ===== untuk-dari-sampai-langkah (range for) =====
 
 bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
     if (failed || builder.broken() || !blockOpen()) return false;
-    if (stmt->isForEach || stmt->loopVariable.empty()) {
+    if (stmt->isForEach) {
+        return lowerForEach(stmt);
+    }
+    if (stmt->loopVariable.empty()) {
         return error(AstIrErrorCode::UnsupportedNode,
                      const_cast<ForStmt*>(stmt),
                      "for-range butuh loop variable tunggal");

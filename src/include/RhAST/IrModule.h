@@ -69,6 +69,15 @@ private:
     std::unordered_map<const void*, ValueId> globals_;
 };
 
+// Storage variabel global mutable (irVersion 3): read = Load(@Gi),
+// write = Store(@Gi, v). Inisialisasi non-literal dilakukan fungsi
+// implisit .__global_init yang membangun nilai dan Store ke @Gi.
+struct IrGlobal {
+    std::string name;
+    TypeId type = InvalidType;   // tipe value (bukan pointer)
+    SourceLocation loc = 0;
+};
+
 // Modul IR hasil kerja RhAST (spesifikasi Bagian 2.2).
 // IR self-contained: pass lain dapat memproses IR tanpa membawa object
 // semantic; TypeMapping/SymbolMapping hanyalah metadata translasi.
@@ -78,6 +87,8 @@ struct IrModule {
     std::vector<IrFunction> functions;
     std::vector<IrType> types;          // type table per module
     std::vector<IrConstant> constants;  // constant pool per module
+    std::vector<IrGlobal> globalVars;               // storage global mutable
+    std::unordered_map<std::string, std::uint32_t> globalVarIndex;  // name -> idx
     std::unordered_map<std::string, FuncId> globals;  // symbol table global
     TypeMapping typeMapping;            // semantic TypeId -> IrTypeId
     SymbolMapping symbolMapping;        // symbol semantic -> IR

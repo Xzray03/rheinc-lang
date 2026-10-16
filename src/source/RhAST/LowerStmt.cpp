@@ -28,6 +28,21 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         popEnv();
         return true;
     }
+    case AstKind::DeclStmt: {
+        // Deklarasi struct/enum di dalam scope fungsi: tipe dipetakan
+        // lazily saat dipakai (resolve lewat RhSemantic) — tidak ada
+        // instruksi yang dihasilkan.
+        const auto* node = static_cast<const DeclStmt*>(stmt);
+        const DeclNode* innerDecl = node->declaration;
+        if (innerDecl &&
+            (innerDecl->kind == AstKind::StructDecl ||
+             innerDecl->kind == AstKind::EnumDecl)) {
+            return true;
+        }
+        return error(AstIrErrorCode::UnsupportedNode, stmt,
+                     "DeclStmt berisi deklarasi yang belum didukung "
+                     "di dalam fungsi");
+    }
     case AstKind::ExprStmt: {
         const auto* node = static_cast<const ExprStmt*>(stmt);
         return lowerExpr(node->expression) != InvalidValue;
@@ -78,7 +93,14 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
                 initial = emitDefaultValue(varType, semanticType,
                                            stmt->range.begin);
             }
-            if (initial == InvalidValue) return false;
+            if (initial == InvalidValue) {
+                if (!failed && !builder.broken()) {
+                    return error(AstIrErrorCode::TypeMappingFailed, stmt,
+                                 "initializer '" + node->name + "' tidak "
+                                 "menghasilkan nilai IR yang valid");
+                }
+                return false;
+            }
             builder.emit(IrOpcode::Store, InvalidType,
                          {IrOperand::value(ptr), IrOperand::value(initial)},
                          stmt->range.begin);
@@ -90,7 +112,14 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         ValueId initial = InvalidValue;
         if (node->initializer) {
             initial = lowerExpr(node->initializer);
-            if (initial == InvalidValue) return false;
+            if (initial == InvalidValue) {
+                if (!failed && !builder.broken()) {
+                    return error(AstIrErrorCode::TypeMappingFailed, stmt,
+                                 "initializer '" + node->name + "' tidak "
+                                 "menghasilkan nilai IR yang valid");
+                }
+                return false;
+            }
         } else {
             // Default value eksplisit (zero/empty/construct), bukan
             // ConstInt 0 mentah — tipe non-integer butuh representasi
@@ -157,6 +186,7 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         return true;
     }
     case AstKind::PilihStmt:
+        return lowerPilihStatement(static_cast<const PilihStmt*>(stmt));
     case AstKind::CaseClause:
     case AstKind::JedaStmt:
     case AstKind::KeluarStmt:

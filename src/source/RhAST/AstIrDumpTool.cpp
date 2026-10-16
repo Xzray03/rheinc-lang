@@ -13,6 +13,30 @@
 
 using namespace rhc;
 
+namespace {
+
+const char* severityName(DiagnosticSeverity severity) {
+    switch (severity) {
+    case DiagnosticSeverity::Note: return "note";
+    case DiagnosticSeverity::Warning: return "warning";
+    case DiagnosticSeverity::Error: return "error";
+    case DiagnosticSeverity::Fatal: return "fatal";
+    }
+    return "diagnostic";
+}
+
+// Spec Bagian 9.1: diagnostic -> stderr.
+void printDiagnostics(const DiagnosticEngine& diagnostics) {
+    for (const Diagnostic& diagnostic : diagnostics.diagnostics()) {
+        std::cerr << diagnostic.path << ':' << diagnostic.line << ':'
+                  << diagnostic.column << ": "
+                  << severityName(diagnostic.severity) << ": "
+                  << diagnostic.message << '\n';
+    }
+}
+
+} // namespace
+
 // rheinc_ast_test [--full] [--no-loc] <file.rhc>
 //
 // Pipeline: lex -> preprocess -> parse -> semantic(wajib ok) ->
@@ -56,18 +80,21 @@ int main(int argc, char** argv) {
     Parser parser(preprocessor, sourceManager, diagnostics);
     TranslationUnitDecl* unit = parser.parseTranslationUnit();
     if (diagnostics.hasErrors() || !unit) {
+        printDiagnostics(diagnostics);
         return 1;
     }
 
     SemanticAnalyzer semantic(sourceManager, diagnostics);
     semantic.analyze(unit);
     if (diagnostics.hasErrors()) {
+        printDiagnostics(diagnostics);
         return 1;
     }
 
     AstToIrTranslator translator(sourceManager, diagnostics);
     IrModule* module = translator.translate(unit, semantic);
     if (!module) {
+        printDiagnostics(diagnostics);
         return 1;  // diagnostic Error/Fatal sudah masuk engine
     }
 

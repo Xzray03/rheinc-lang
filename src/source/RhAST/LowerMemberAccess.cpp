@@ -67,6 +67,59 @@ bool collectPath(const ExprNode* expr, const IdentifierExpr*& root,
 
 } // namespace
 
+// Default value murni dari struktur IrType (dipakai untuk tipe hasil
+// substitusi generik, di mana semantic type tidak lagi representatif).
+ValueId emitDefaultFromIrType(AstToIrTranslator::Impl& self,
+                              TypeId typeId, SourceLocation loc) {
+    const IrType& t = self.module.types[typeId];
+    switch (t.kind) {
+    case IrTypeKind::Bool:
+        return self.builder.emit(IrOpcode::ConstBool, typeId,
+                            {IrOperand::imm(0)}, loc);
+    case IrTypeKind::Int: {
+        std::vector<IrOperand> ops;
+        ops.push_back(IrOperand::imm(0));
+        if (t.sizeBytes == 8) ops.push_back(IrOperand::imm(0));
+        return self.builder.emit(IrOpcode::ConstInt, typeId, std::move(ops), loc);
+    }
+    case IrTypeKind::Float: {
+        std::vector<IrOperand> ops;
+        ops.push_back(IrOperand::imm(0));
+        if (t.sizeBytes == 8) ops.push_back(IrOperand::imm(0));
+        return self.builder.emit(IrOpcode::ConstFloat, typeId, std::move(ops), loc);
+    }
+    case IrTypeKind::Pointer:
+        return self.builder.emit(IrOpcode::ConstNull, typeId, {}, loc);
+    case IrTypeKind::View: {
+        const ConstId empty = self.encodeStringLiteral("", typeId, nullptr);
+        return self.builder.emit(IrOpcode::ConstString, typeId,
+                            {IrOperand::constant(empty)}, loc);
+    }
+    case IrTypeKind::Array:
+    case IrTypeKind::Struct: {
+        std::vector<IrOperand> operands;
+        operands.push_back(IrOperand::type(typeId));
+        const std::size_t count = t.kind == IrTypeKind::Array
+            ? static_cast<std::size_t>(t.arraySize)
+            : t.fields.size();
+        for (std::size_t i = 0; i < count; ++i) {
+            const TypeId fieldType = t.kind == IrTypeKind::Array
+                ? t.elementType : t.fields[i].type;
+            const ValueId v = emitDefaultFromIrType(self, fieldType, loc);
+            if (v == InvalidValue) return InvalidValue;
+            operands.push_back(IrOperand::value(v));
+        }
+        return self.builder.emit(IrOpcode::Construct, typeId,
+                            std::move(operands), loc);
+    }
+    default:
+        self.error(AstIrErrorCode::UnsupportedNode, nullptr,
+              "default value IR kind=" +
+              std::to_string(static_cast<int>(t.kind)) + " belum didukung");
+        return InvalidValue;
+    }
+}
+
 // Default value (zero/empty) sesuai prinsip verbose IR: Construct
 // eksplisit dengan tiap field diisi konstanta zero yang sesuai tipe.
 ValueId AstToIrTranslator::Impl::emitDefaultValue(TypeId typeId,
@@ -110,8 +163,28 @@ ValueId AstToIrTranslator::Impl::emitDefaultValue(TypeId typeId,
         return builder.emit(IrOpcode::Construct, typeId, std::move(operands),
                             loc);
     }
+    if (type->kind() == TypeKind::GenericInstantiation) {
+        // Tipe hasil substitusi generik: bangun default dari struktur
+        // IrType yang sudah ter-map (fields terkonkretisasi).
+        return emitDefaultFromIrType(*this, typeId, loc);
+    }
+    if (type->kind() == TypeKind::Array) {
+        const auto* array = static_cast<const ArrayType*>(type);
+        std::vector<IrOperand> operands;
+        operands.push_back(IrOperand::type(typeId));
+        for (std::uint64_t i = 0; i < array->size.value_or(0); ++i) {
+            const ValueId v = emitDefaultValue(
+                module.types[typeId].elementType, array->elementType, loc);
+            if (v == InvalidValue) return InvalidValue;
+            operands.push_back(IrOperand::value(v));
+        }
+        return builder.emit(IrOpcode::Construct, typeId, std::move(operands),
+                            loc);
+    }
     error(AstIrErrorCode::UnsupportedNode, nullptr,
-          "default value untuk tipe ini belum didukung (array/view/sum)");
+          "default value untuk tipe semantic kind=" +
+          std::to_string(static_cast<int>(type->kind())) +
+          " belum didukung");
     return InvalidValue;
 }
 
@@ -173,6 +246,13 @@ ValueId AstToIrTranslator::Impl::lowerMemberRead(const ExprNode* expr) {
 //   - by-value    -> Insert chain, root di-versioning ulang (§3.2)
 ValueId AstToIrTranslator::Impl::lowerMemberWrite(const ExprNode* target,
                                                   const ExprNode* valueExpr) {
+    const ValueId value = lowerExpr(valueExpr);
+    if (value == InvalidValue) return InvalidValue;
+    return lowerMemberWriteValue(target, value);
+}
+
+ValueId AstToIrTranslator::Impl::lowerMemberWriteValue(
+        const ExprNode* target, ValueId value) {
     const IdentifierExpr* root = nullptr;
     std::vector<MemberStep> steps;
     if (!collectPath(target, root, steps, semantic->context())) {
@@ -180,8 +260,6 @@ ValueId AstToIrTranslator::Impl::lowerMemberWrite(const ExprNode* target,
               "assignment member dengan root non-identifier belum didukung");
         return InvalidValue;
     }
-    const ValueId value = lowerExpr(valueExpr);
-    if (value == InvalidValue) return InvalidValue;
 
     const Type* rootType = semantic->context().getExprType(
         const_cast<IdentifierExpr*>(root));

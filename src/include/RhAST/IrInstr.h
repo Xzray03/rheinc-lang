@@ -22,16 +22,16 @@ namespace rhc {
 //   ConstString   [0](ConstantV)                -> ConstId string di pool
 //   ConstNull     []                            -> pointer null
 //   Alloc         [0](TypeV)                    -> alokasi instance tipe
-//   Load          [0](ValueV ptr)               -> baca dari alamat
-//   Store         [0](ValueV ptr) [1](ValueV v) -> tulis v ke alamat
+//   Load          [0](ValueV ptr | GlobalV g)   -> baca dari alamat/global
+//   Store         [0](ValueV ptr | GlobalV g) [1](ValueV v) -> tulis v ke alamat/global
 //   CopyConst     [0](ValueV dst) [1](ConstantV)-> salin data pool ke memory
-//   AddrOf        [0](ValueV target)            -> alamat objek (alamat x)
+//   AddrOf        [0](ValueV target | FuncV f)  -> alamat objek / fn ptr (alamat x, fungsi sebagai nilai)
 //   Deref         [0](ValueV ptr)               -> isi(ptr): baca nilai pointee
 //   FieldAddr     [0](ValueV base) [1](TypeV) [2](ImmV idx)
 //                                                -> alamat field ke-idx struct
 //   Construct     [0](TypeV) lalu ValueV/ConstantV per elemen
-//   Extract       [0](ValueV agg) [1](ConstantV idx) -> baca field/elemen
-//   Insert        [0](ValueV agg) [1](ConstantV idx) [2](ValueV v)
+//   Extract       [0](ValueV agg) [1](ImmV|ValueV idx) -> baca field/elemen
+//   Insert        [0](ValueV agg) [1](ImmV|ValueV idx) [2](ValueV v)
 //                                                -> value baru; agg lama utuh
 //   (binop arit/bit/logika/cmp) [0](ValueV a) [1](ValueV b)
 //   (unop)          [0](ValueV a)
@@ -39,8 +39,8 @@ namespace rhc {
 //   Call          [0](FuncV) lalu ValueV/ConstantV per argumen
 //   CallIndirect  [0](ValueV fnptr) lalu argumen
 //   Phi           pasangan berurut: [2k](BlockV pred) [2k+1](ValueV v)
-//   MatchTag      [0](ValueV sum) lalu pasangan (ConstantV tag, BlockV target),
-//                 terakhir [n](BlockV default)
+//   MatchTag      [0](ValueV sum) lalu pasangan (ValueV tag const-instr,
+//                 BlockV target), terakhir [n](BlockV default)
 //   SwitchInt     [0](ValueV subjek) lalu pasangan (ConstantV nilai, BlockV),
 //                 terakhir [n](BlockV default)
 //   Br            [0](BlockV target)
@@ -104,6 +104,9 @@ enum class IrOpcode : std::uint16_t {
     CmpGt,
     CmpGe,
 
+    // append buffer teks: a +> b -> buffer baru a+b (memory-style)
+    Append,
+
     // konversi tipe (casting.rhc / konversi_tipe.rhc)
     Cast,
 
@@ -140,6 +143,8 @@ enum class IrOperandKind : std::uint8_t {
     TypeV,      // id adalah TypeId (operand bertipe, e.g. alloc)
     ImmV,       // id adalah immediate inline (const_int/const_float/const_bool);
                 // integer biasa TIDAK masuk constant pool (spesifikasi 6.2)
+    GlobalV,    // id adalah indeks IrModule::globalVars (storage global);
+                // dipakai sebagai ptr oleh Load/Store
 };
 
 struct IrOperand {
@@ -156,6 +161,7 @@ struct IrOperand {
     static constexpr IrOperand block(BlockId blockId)     { return {IrOperandKind::BlockV, blockId}; }
     static constexpr IrOperand func(FuncId funcId)        { return {IrOperandKind::FuncV, funcId}; }
     static constexpr IrOperand type(TypeId typeId)        { return {IrOperandKind::TypeV, typeId}; }
+    static constexpr IrOperand global(std::uint32_t idx)  { return {IrOperandKind::GlobalV, idx}; }
     static constexpr IrOperand imm(std::uint32_t immValue){ return {IrOperandKind::ImmV, immValue}; }
 };
 
@@ -175,6 +181,7 @@ inline constexpr bool isTerminator(IrOpcode op) {
     case IrOpcode::CondBr:
     case IrOpcode::SwitchTag:
     case IrOpcode::SwitchInt:
+    case IrOpcode::MatchTag:
     case IrOpcode::Ret:
     case IrOpcode::RetVoid:
     case IrOpcode::Unreachable:

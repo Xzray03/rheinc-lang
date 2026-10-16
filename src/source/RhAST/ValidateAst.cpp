@@ -70,13 +70,36 @@ private:
         case AstKind::ErrorDecl:
             return fail(decl, AstIrErrorCode::ErrorNode,
                         "ErrorDecl (hasil recovery parser) lolos ke RhAST");
-        case AstKind::GenericDecl:
-            return fail(decl, AstIrErrorCode::UnsupportedNode,
-                        "GenericDecl: lowering generik belum diimplementasi");
-        case AstKind::EnumDecl:
-        case AstKind::EnumField:
-            return fail(decl, AstIrErrorCode::UnsupportedNode,
-                        "enum/sum type belum didukung RhAST");
+        case AstKind::GenericDecl: {
+            const auto* node = static_cast<const GenericDecl*>(decl);
+            if (node->typeParameters.empty()) {
+                return fail(decl, AstIrErrorCode::MalformedShape,
+                            "GenericDecl tanpa type parameter");
+            }
+            if (!require(node->declaration, decl,
+                         "GenericDecl.declaration")) {
+                return false;
+            }
+            // Isi: fungsi/struktur/cacahan generik — divalidasi sebagai
+            // deklarasi biasa (parameter generik = TypeVariable).
+            return checkDecl(node->declaration, "isi GenericDecl");
+        }
+        case AstKind::EnumDecl: {
+            const auto* node = static_cast<const EnumDecl*>(decl);
+            if (!requireName(node->name, decl, "EnumDecl.name")) return false;
+            for (const EnumField* field : node->fields) {
+                if (!checkDecl(field, "kasus enum")) return false;
+            }
+            return true;
+        }
+        case AstKind::EnumField: {
+            const auto* node = static_cast<const EnumField*>(decl);
+            if (!requireName(node->name, decl, "EnumField.name")) return false;
+            if (node->value && !checkExpr(node->value, "nilai kasus enum")) {
+                return false;
+            }
+            return true;
+        }
         case AstKind::TestAnnotationDecl:
             return fail(decl, AstIrErrorCode::UnsupportedNode,
                         "anotasi uji belum didukung RhAST");
@@ -94,10 +117,9 @@ private:
                             "fungsi ber-modifier (async/coroutine/generator) "
                             "belum didukung RhAST");
             }
-            if (!node->constraints.empty()) {
-                return fail(decl, AstIrErrorCode::UnsupportedNode,
-                            "trait constraint belum didukung RhAST");
-            }
+            // Trait constraints ("dimana T: Terbandingkan") diabaikan
+            // saat lowering — pengecekan trait adalah tugas RhSemantic;
+            // RhAST menerima bentuk yang sudah lolos semantic.
             for (const ParamDecl* param : node->parameters) {
                 if (!checkDecl(param, "parameter fungsi")) return false;
             }
@@ -171,10 +193,30 @@ private:
         case AstKind::ErrorStmt:
             return fail(stmt, AstIrErrorCode::ErrorNode,
                         "ErrorStmt (hasil recovery parser) lolos ke RhAST");
-        case AstKind::PilihStmt:
-        case AstKind::CaseClause:
-            return fail(stmt, AstIrErrorCode::UnsupportedNode,
-                        "pilih/match belum didukung RhAST");
+        case AstKind::PilihStmt: {
+            const auto* node = static_cast<const PilihStmt*>(stmt);
+            if (!require(node->subject, stmt, "PilihStmt.subject")) return false;
+            if (!checkExpr(node->subject, "subjek pilih")) return false;
+            for (const CaseClause* clause : node->clauses) {
+                if (!checkStmt(clause, "kasus pilih")) return false;
+            }
+            return true;
+        }
+        case AstKind::CaseClause: {
+            const auto* node = static_cast<const CaseClause*>(stmt);
+            if (node->patterns.empty() && !node->isDefault) {
+                return fail(stmt, AstIrErrorCode::MalformedShape,
+                            "kasus tanpa pattern dan bukan bawaan");
+            }
+            for (const PatternNode* pattern : node->patterns) {
+                if (!checkPattern(pattern)) return false;
+            }
+            // Body boleh null (fall-through ke kasus berikutnya).
+            if (node->body && !checkStmt(node->body, "body kasus")) {
+                return false;
+            }
+            return true;
+        }
         case AstKind::JedaStmt:
             return fail(stmt, AstIrErrorCode::UnsupportedNode,
                         "jeda (generator) belum didukung RhAST");
@@ -230,8 +272,20 @@ private:
         case AstKind::ForStmt: {
             const auto* node = static_cast<const ForStmt*>(stmt);
             if (node->isForEach) {
-                return fail(stmt, AstIrErrorCode::UnsupportedNode,
-                            "perulangan foreach belum didukung RhAST");
+                // foreach: iterable + 1-2 loop variable (elemen, atau
+                // indeks + elemen). Body wajib.
+                if (node->loopVariable.empty() && node->loopVariables.empty()) {
+                    return fail(stmt, AstIrErrorCode::MalformedShape,
+                                "foreach tanpa loop variable");
+                }
+                if (!require(node->iterable, stmt,
+                             "ForStmt.iterable (foreach)")) {
+                    return false;
+                }
+                if (!checkExpr(node->iterable, "iterable foreach")) {
+                    return false;
+                }
+                return checkStmt(node->body, "body foreach");
             }
             if (node->loopVariable.empty() && node->loopVariables.empty()) {
                 return fail(stmt, AstIrErrorCode::MalformedShape,
@@ -442,6 +496,52 @@ private:
         }
     }
 
+    // ===== Pattern =====
+
+    bool checkPattern(const PatternNode* pattern) {
+        if (!require(pattern, nullptr, "pattern")) return false;
+        switch (pattern->kind) {
+        case AstKind::ExpressionPattern: {
+            const auto* node = static_cast<const ExpressionPattern*>(pattern);
+            if (!require(node->expression, pattern,
+                         "ExpressionPattern.expression")) {
+                return false;
+            }
+            return checkExpr(node->expression, "pattern ekspresi");
+        }
+        case AstKind::ConstructorPattern: {
+            const auto* node = static_cast<const ConstructorPattern*>(pattern);
+            if (!requireName(node->constructorName, pattern,
+                             "ConstructorPattern.constructorName")) {
+                return false;
+            }
+            for (const PatternBinding* binding : node->bindings) {
+                if (!checkBinding(binding)) return false;
+            }
+            return true;
+        }
+        default:
+            return fail(pattern, AstIrErrorCode::UnsupportedNode,
+                        "jenis pattern belum didukung RhAST");
+        }
+    }
+
+    bool checkBinding(const PatternBinding* binding) {
+        if (!require(binding, nullptr, "PatternBinding")) return false;
+        if (!requireName(binding->name, binding, "PatternBinding.name")) {
+            return false;
+        }
+        if (binding->type &&
+            !checkTypeRepr(binding->type, binding, "PatternBinding.type")) {
+            return false;
+        }
+        if (binding->nestedPattern &&
+            !checkPattern(binding->nestedPattern)) {
+            return false;
+        }
+        return true;
+    }
+
     // ===== TypeRepr =====
 
     bool checkTypeRepr(const TypeReprNode* type, const AstNode* parent,
@@ -461,12 +561,21 @@ private:
             }
             for (const TypeArgumentRepr* arg : node->arguments) {
                 if (!require(arg, type, "TypeArgumentRepr")) return false;
-                if (!require(arg->type, type,
-                             "TypeArgumentRepr.type")) {
+                // Tiga bentuk legal: nama parameter generik (deklarasi),
+                // tipe konkret (pemakaian), atau NILAI argumen
+                // (mis. bilangan_tanpa_batas("1"), desimal_tetap(x, skala=2)).
+                if (arg->name.empty() && !arg->type && !arg->value) {
+                    return fail(type, AstIrErrorCode::MalformedShape,
+                                "TypeArgumentRepr tanpa nama, tipe, maupun "
+                                "nilai");
+                }
+                if (arg->type &&
+                    !checkTypeRepr(arg->type, type,
+                                   "argumen tipe generik")) {
                     return false;
                 }
-                if (!checkTypeRepr(arg->type, type,
-                                   "argumen tipe generik")) {
+                if (arg->value &&
+                    !checkExpr(arg->value, "nilai argumen tipe")) {
                     return false;
                 }
             }

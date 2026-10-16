@@ -18,7 +18,7 @@ bool AstToIrTranslator::Impl::lowerFunction(const FunctionDecl* decl) {
     // Signature IR dari tipe semantic fungsi (via symbol decl).
     TypeId fnType = InvalidType;
     if (const Symbol* symbol = semantic->context().getDeclSymbol(decl)) {
-        fnType = mapType(symbol->type);
+        fnType = mapType(symbol->type, decl, "fn-symbol");
         if (failed) return false;
     }
 

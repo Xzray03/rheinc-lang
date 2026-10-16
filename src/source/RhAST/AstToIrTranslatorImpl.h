@@ -26,6 +26,7 @@ struct StmtNode;
 struct StringLiteralExpr;
 struct TypeReprNode;
 struct TranslationUnitDecl;
+class Symbol;
 class Type;
 
 struct AstToIrTranslator::Impl {
@@ -86,6 +87,33 @@ struct AstToIrTranslator::Impl {
     // dideklarasikan lebih dulu/then belakang tetap resolve (forward ref).
     std::unordered_map<std::string, FuncId> functionsByName;
 
+    // ===== Konstanta global (tetap) =====
+    // By-value intern per modul: pembacaan men-emit ulang instruksi
+    // konstanta di fungsi pemakai (dedup konstanta dilakukan oleh
+    // constant pool untuk string; scalar inline). Global MUTABLE
+    // (variabel/tugas_global) butuh global storage di IR — fase
+    // terpisah (irVersion bump).
+    struct GlobalConst {
+        TypeId type = InvalidType;
+        IrOpcode op = IrOpcode::ConstInt;   // ConstInt/ConstBool/ConstString
+        std::uint64_t bits = 0;             // imm integer/bool
+        ConstId poolId = InvalidConst;      // string
+    };
+    std::unordered_map<std::string, GlobalConst> globalConsts;
+    bool lowerGlobalConst(const struct GlobalVarDecl* decl);  // LowerGlobal.cpp
+    // Global mutable: nama -> indeks IrModule::globalVars; decls dengan
+    // initializer non-literal dikerjakan fungsi implisit .__global_init.
+    // Panggilan fungsi builtin TANPA node AST (untuk desugar): resolve
+    // nama ke FuncId (stub bila perlu); tipe hasil dari symbol global
+    // scope (fallback Void). Dipakai desugar foreach iterator-protocol.
+    ValueId emitCallByName(const std::string& name,
+                           std::vector<ValueId> args, SourceLocation loc);
+    std::uint32_t syntheticCounter = 0;
+
+    bool lowerGlobalMutable(const struct GlobalVarDecl* decl);  // LowerGlobal.cpp
+    bool lowerGlobalInitFunction();                             // LowerGlobal.cpp
+    std::vector<const struct GlobalVarDecl*> globalInitDecls;
+
     // ===== Model agregat (spesifikasi Bagian 3) =====
     // Aturan aliasability §3.1: variabel yang PERNAH di-alamati
     // (unary "alamat"/&) hidup memory-style (Alloc + Store/Load);
@@ -100,8 +128,15 @@ struct AstToIrTranslator::Impl {
     // biasa berarti versi SSA terkini (lihat lookupLocal/bindLocal).
     void collectAddressTaken(const StmtNode* stmt);  // CollectAddressTaken.cpp
     ValueId lowerMemberRead(const ExprNode* memberExpr);   // LowerMemberAccess.cpp
+    ValueId lowerTernaryExpr(const struct TernaryExpr* expr);  // LowerTernaryExpr.cpp
+    ValueId lowerArrayLiteral(const struct ArrayLiteralExpr* expr);   // LowerArray.cpp
+    ValueId lowerArrayIndexRead(const struct ArrayIndexExpr* expr);   // LowerArray.cpp
+    ValueId lowerArrayIndexWrite(const struct ArrayIndexExpr* target,
+                                 const ExprNode* valueExpr);          // LowerArray.cpp
+    ValueId lowerArrayIndexWriteValue(const struct ArrayIndexExpr* target, ValueId value);  // idem
     ValueId lowerMemberWrite(const ExprNode* target,
                              const ExprNode* valueExpr);   // LowerMemberAccess.cpp
+    ValueId lowerMemberWriteValue(const ExprNode* target, ValueId value);  // idem (compound)
     // Default value (zero/empty) untuk tipe — dipakai VarDeclStmt tanpa
     // initializer dan elemen Construct default.
     ValueId emitDefaultValue(TypeId typeId, const Type* type,
@@ -115,13 +150,19 @@ struct AstToIrTranslator::Impl {
     bool lowerWhileStatement(const struct WhileStmt* stmt); // LowerWhileStatement.cpp
     bool lowerDoWhileStatement(const struct DoWhileStmt* stmt);
     bool lowerForStatement(const struct ForStmt* stmt);
+    bool lowerForEach(const struct ForStmt* stmt);  // LowerWhileStatement.cpp
+    bool lowerForEachIterator(const struct ForStmt* stmt, ValueId iterable);  // idem
+    bool lowerPilihStatement(const struct PilihStmt* stmt); // LowerPilihStatement.cpp
     bool lowerBreak();                            // LowerWhileStatement.cpp
     bool lowerContinue();
     void emitScopeDefers(std::size_t scopeIndex); // ExpandDefer.cpp
     void emitAllDefers();                         // ExpandDefer.cpp
-    ValueId lowerExpr(const ExprNode* expr);      // LowerExpr.cpp
+    ValueId lowerExpr(const ExprNode* expr);      // LowerExpr.cpp (wrapper kontrak)
+    ValueId lowerExprImpl(const ExprNode* expr);  // LowerExpr.cpp
+
     // node = konteks lokasi (hanya untuk pesan error).
-    TypeId mapType(const Type* type, const AstNode* node = nullptr);  // MapSemanticType.cpp
+    TypeId mapType(const Type* type, const AstNode* node = nullptr,
+               const char* caller = nullptr);  // MapSemanticType.cpp
     ConstId encodeStringLiteral(const std::string& text, TypeId stringType,
                                 const AstNode* node);  // EncodeConstant.cpp
     FuncId resolveCallee(const ExprNode* callee); // LowerExpr.cpp
@@ -149,6 +190,11 @@ struct AstToIrTranslator::Impl {
     // penulisan carries tipe yang benar.
     const Type* exprTypeOr(const ExprNode* expr, const TypeReprNode* repr);
 
+    // Symbol di global scope (builtin function/type teregister sebagai
+    // symbol). Dipakai sebagai fallback tipe saat getExprType memberi
+    // ErrorType tanpa diagnostic (temuan RhSemantic).
+    const Symbol* lookupGlobalSymbol(const std::string& name) const;
+
     // true bila nama merujuk tipe struct di module (argumen generik
     // seperti "alokasi(Mahasiswa)" diparse sebagai IdentifierExpr).
     bool isStructTypeName(const std::string& name) const;
@@ -173,5 +219,9 @@ struct AstToIrTranslator::Impl {
     ValueId lookupLocal(const std::string& name);
     void bindLocal(const std::string& name, ValueId value);
 };
+
+// true bila tipe mengandung ErrorType di kedalaman (definisi di
+// AstToIrTranslator.cpp) — lihat komentar di sana untuk rasional.
+bool typeContainsError(const Type* type);
 
 } // namespace rhc
