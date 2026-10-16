@@ -103,6 +103,7 @@ struct EnumDecl final : DeclNode {
     std::string name;
     std::vector<EnumField*> fields;
     TraitConstraintClauses constraints;
+    bool isSum = false; // declared with `cacahan_sum` (vs plain `cacahan`)
 
     EnumDecl(std::string enumName, std::vector<EnumField*> enumFields,
              SourceRange range)

@@ -80,12 +80,37 @@ struct BinaryExpr final : ExprNode {
         : ExprNode(AstKind::BinaryExpr, range), lhs(left), op(operation), rhs(right) {}
 };
 
+enum class UnaryOp {
+    Plus,
+    Minus,
+    BitNot,
+    Increment,
+    Decrement,
+    Await,
+    LogicalNot, // bukan
+    AddressOf,  // alamat
+};
+
+inline const char* unaryOpName(UnaryOp op) {
+    switch (op) {
+    case UnaryOp::Plus: return "plus";
+    case UnaryOp::Minus: return "minus";
+    case UnaryOp::BitNot: return "tilde";
+    case UnaryOp::Increment: return "plus_plus";
+    case UnaryOp::Decrement: return "minus_minus";
+    case UnaryOp::Await: return "kw_await";
+    case UnaryOp::LogicalNot: return "bukan";
+    case UnaryOp::AddressOf: return "alamat";
+    }
+    return "unknown";
+}
+
 struct UnaryExpr final : ExprNode {
-    TokenKind op = TokenKind::Unknown;
+    UnaryOp op = UnaryOp::Plus;
     ExprNode* operand = nullptr;
     bool postfix = false;
 
-    UnaryExpr(TokenKind operation, ExprNode* value, bool isPostfix, SourceRange range)
+    UnaryExpr(UnaryOp operation, ExprNode* value, bool isPostfix, SourceRange range)
         : ExprNode(AstKind::UnaryExpr, range), op(operation), operand(value), postfix(isPostfix) {}
 };
 

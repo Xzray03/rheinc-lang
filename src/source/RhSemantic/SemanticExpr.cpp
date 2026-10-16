@@ -763,18 +763,16 @@ Type* SemanticAnalyzer::analyzeBinary(BinaryExpr* expr) {
 
 Type* SemanticAnalyzer::analyzeUnary(UnaryExpr* expr) {
     Type* operandType = analyzeExpression(expr->operand);
-    const std::string opText = std::string(sourceManager_.getText(
-        sourceManager_.getFileID(expr->range.begin), expr->range.begin, expr->range.length));
 
-    if (expr->op == TokenKind::KwAwait) {
+    if (expr->op == UnaryOp::Await) {
         // The `-> nama` annotation is handled by the arrow-capture member
         // access, so the operand keeps its type (e.g. Opsi(T) for pilih).
         return operandType;
     }
 
     switch (expr->op) {
-    case TokenKind::PlusPlus:
-    case TokenKind::MinusMinus:
+    case UnaryOp::Increment:
+    case UnaryOp::Decrement:
         if (expr->operand->kind != AstKind::IdentifierExpr &&
             expr->operand->kind != AstKind::MemberExpr &&
             expr->operand->kind != AstKind::ArrayIndexExpr) {
@@ -791,19 +789,15 @@ Type* SemanticAnalyzer::analyzeUnary(UnaryExpr* expr) {
             if (target) markAssigned(target);
         }
         return operandType;
-    case TokenKind::Tilde:
-    case TokenKind::Minus:
-    case TokenKind::Plus:
+    case UnaryOp::BitNot:
+    case UnaryOp::Minus:
+    case UnaryOp::Plus:
         if (!isNumericType(operandType)) {
             error(expr->range, "unary +/- requires numeric operand");
             return context_.types().getErrorType();
         }
         return operandType;
-    default:
-        break;
-    }
-
-    if (opText == "bukan") {
+    case UnaryOp::LogicalNot:
         if (operandType == context_.types().getErrorType()) {
             return context_.types().getErrorType();
         }
@@ -812,8 +806,7 @@ Type* SemanticAnalyzer::analyzeUnary(UnaryExpr* expr) {
             return context_.types().getErrorType();
         }
         return context_.types().getBuiltinType(BuiltinTypeKind::Logika);
-    }
-    if (opText == "alamat") {
+    case UnaryOp::AddressOf:
         if (expr->operand->kind != AstKind::IdentifierExpr &&
             expr->operand->kind != AstKind::MemberExpr &&
             expr->operand->kind != AstKind::ArrayIndexExpr &&
@@ -821,6 +814,8 @@ Type* SemanticAnalyzer::analyzeUnary(UnaryExpr* expr) {
             error(expr->operand->range, "alamat requires lvalue operand");
         }
         return context_.types().getPointerType(operandType);
+    case UnaryOp::Await:
+        break;
     }
 
     error(expr->range, "unsupported unary operator in semantic v1");

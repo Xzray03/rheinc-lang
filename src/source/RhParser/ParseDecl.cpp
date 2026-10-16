@@ -248,10 +248,15 @@ StructDecl* Parser::parseStructDeclaration(const Token& keywordToken) {
 }
 
 EnumDecl* Parser::parseEnumDeclaration(const Token& keywordToken) {
+    bool isSum = keywordToken.kind == TokenKind::Identifier &&
+                 tokenText(keywordToken) == "cacahan_sum";
     if (tokens_.is(TokenKind::KwCacahan) ||
         (tokens_.is(TokenKind::Identifier) &&
          (tokenText(tokens_.current()) == "cacahan_sum" ||
           tokenText(tokens_.current()) == "cacahan"))) {
+        if (tokens_.is(TokenKind::Identifier) && tokenText(tokens_.current()) == "cacahan_sum") {
+            isSum = true;
+        }
         tokens_.consume();
     }
 
@@ -264,6 +269,7 @@ EnumDecl* Parser::parseEnumDeclaration(const Token& keywordToken) {
     const Token name = tokens_.consume();
     EnumDecl* declaration = astContext_.create<EnumDecl>(
         tokenText(name), std::vector<EnumField*>{}, makeRange(keywordToken, name));
+    declaration->isSum = isSum;
 
     if (tokens_.is(TokenKind::KwDimana)) {
         declaration->constraints = parseDimanaConstraints();

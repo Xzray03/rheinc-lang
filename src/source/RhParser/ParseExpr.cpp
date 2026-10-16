@@ -52,6 +52,17 @@ bool isRightAssociative(TokenKind kind) {
     return kind == TokenKind::StarStar;
 }
 
+UnaryOp unaryOpFromToken(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::Minus: return UnaryOp::Minus;
+    case TokenKind::Tilde: return UnaryOp::BitNot;
+    case TokenKind::PlusPlus: return UnaryOp::Increment;
+    case TokenKind::MinusMinus: return UnaryOp::Decrement;
+    case TokenKind::KwAwait: return UnaryOp::Await;
+    default: return UnaryOp::Plus;
+    }
+}
+
 bool isAssignmentOperator(TokenKind kind) {
     switch (kind) {
     case TokenKind::Equal:
@@ -126,14 +137,14 @@ ExprNode* Parser::parseUnaryExpression() {
     }
     if (token.kind == TokenKind::Identifier && tokenText(token) == "alamat") {
         const Token op = tokens_.consume();
-        return astContext_.create<UnaryExpr>(TokenKind::Unknown, parseUnaryExpression(), false,
+        return astContext_.create<UnaryExpr>(UnaryOp::AddressOf, parseUnaryExpression(), false,
                                              makeRange(op));
     }
     if (token.kind == TokenKind::Identifier && token.ident &&
         token.ident->getContextualKeywordID() == ContextualKeywordID::Bukan) {
         const Token op = tokens_.consume();
         // `bukan` binds looser than relational: bukan x > y == bukan (x > y).
-        return astContext_.create<UnaryExpr>(TokenKind::Unknown, parseBinaryExpression(60), false,
+        return astContext_.create<UnaryExpr>(UnaryOp::LogicalNot, parseBinaryExpression(60), false,
                                              makeRange(op));
     }
     switch (token.kind) {
@@ -143,8 +154,8 @@ ExprNode* Parser::parseUnaryExpression() {
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
         tokens_.consume();
-        return astContext_.create<UnaryExpr>(token.kind, parseUnaryExpression(), false,
-                                             makeRange(token));
+        return astContext_.create<UnaryExpr>(unaryOpFromToken(token.kind), parseUnaryExpression(),
+                                             false, makeRange(token));
     case TokenKind::KwAwait: {
         tokens_.consume();
         ExprNode* operand = parseUnaryExpression();
@@ -152,7 +163,7 @@ ExprNode* Parser::parseUnaryExpression() {
         if (tokens_.tryConsume(TokenKind::Arrow) && tokens_.is(TokenKind::Identifier)) {
             tokens_.consume();
         }
-        return astContext_.create<UnaryExpr>(token.kind, operand, false, makeRange(token));
+        return astContext_.create<UnaryExpr>(UnaryOp::Await, operand, false, makeRange(token));
     }
     default:
         return parsePostfixExpression();
@@ -165,8 +176,8 @@ ExprNode* Parser::parsePostfixExpression() {
         const Token token = tokens_.current();
         if (token.kind == TokenKind::PlusPlus || token.kind == TokenKind::MinusMinus) {
             tokens_.consume();
-            expression = astContext_.create<UnaryExpr>(token.kind, expression, true,
-                                                       makeRange(token));
+            expression = astContext_.create<UnaryExpr>(unaryOpFromToken(token.kind), expression,
+                                                       true, makeRange(token));
             continue;
         }
         if (token.kind == TokenKind::LBracket) {

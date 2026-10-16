@@ -239,7 +239,7 @@ void SemanticAnalyzer::collectEnum(EnumDecl* decl) {
     // Phase 1: create the type and register the symbol so recursive
     // references (e.g. CABANG(anak: Opsi(POHON))) can resolve.
     auto* sumType = context_.types().createSumType(
-        decl->name, decl, !hasPayload, resolver_.currentTypeVariables());
+        decl->name, decl, !decl->isSum && !hasPayload, resolver_.currentTypeVariables());
     for (EnumField* field : decl->fields) {
         SumType::Case c;
         c.name = field->name;

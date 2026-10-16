@@ -69,9 +69,9 @@ std::optional<std::int64_t> evaluateConstInt(ExprNode* expr,
             auto operand = evaluateConstInt(unary->operand, constants);
             if (!operand) return std::nullopt;
             switch (unary->op) {
-                case TokenKind::Minus: return -*operand;
-                case TokenKind::Plus: return *operand;
-                case TokenKind::Tilde: return ~(*operand);
+                case UnaryOp::Minus: return -*operand;
+                case UnaryOp::Plus: return *operand;
+                case UnaryOp::BitNot: return ~(*operand);
                 default: return std::nullopt;
             }
         }

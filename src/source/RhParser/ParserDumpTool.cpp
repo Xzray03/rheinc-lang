@@ -168,7 +168,7 @@ void printExpr(rhc::ExprNode* expr) {
     case rhc::AstKind::UnaryExpr: {
         auto* unary = static_cast<rhc::UnaryExpr*>(expr);
         std::cout << '(' << (unary->postfix ? "post" : "pre") << '-'
-                  << rhc::tokenKindName(unary->op) << ' ';
+                  << rhc::unaryOpName(unary->op) << ' ';
         printExpr(unary->operand);
         std::cout << ')';
         break;
@@ -505,7 +505,7 @@ void printDecl(rhc::DeclNode* decl) {
     }
     case rhc::AstKind::EnumDecl: {
         auto* enumDecl = static_cast<rhc::EnumDecl*>(decl);
-        std::cout << "(enum " << enumDecl->name;
+        std::cout << "(enum " << enumDecl->name << (enumDecl->isSum ? " sum" : "");
         for (rhc::EnumField* field : enumDecl->fields) {
             std::cout << " (case " << field->name;
             for (const auto& [name, type] : field->fields) {
