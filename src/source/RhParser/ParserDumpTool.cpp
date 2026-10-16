@@ -551,6 +551,16 @@ void printDecl(rhc::DeclNode* decl) {
 
 } // namespace
 
+const char* severityName(rhc::DiagnosticSeverity severity) {
+    switch (severity) {
+    case rhc::DiagnosticSeverity::Note: return "note";
+    case rhc::DiagnosticSeverity::Warning: return "warning";
+    case rhc::DiagnosticSeverity::Error: return "error";
+    case rhc::DiagnosticSeverity::Fatal: return "fatal";
+    }
+    return "diagnostic";
+}
+
 int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "usage: rheinc-parse-dump <file.rhc>\n";
@@ -590,7 +600,7 @@ int main(int argc, char** argv) {
 
     for (const rhc::Diagnostic& diagnostic : diagnostics.diagnostics()) {
         std::cerr << diagnostic.path << ':' << diagnostic.line << ':' << diagnostic.column
-                  << ": error: " << diagnostic.message << '\n';
+                  << ": " << severityName(diagnostic.severity) << ": " << diagnostic.message << '\n';
     }
     return diagnostics.hasErrors() ? 1 : 0;
 }
