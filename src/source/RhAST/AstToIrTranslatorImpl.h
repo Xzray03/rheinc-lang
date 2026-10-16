@@ -1,0 +1,177 @@
+#pragma once
+
+// Header INTERNAL (tidak di-install; hanya dipakai file .cpp RhAST).
+// Mendefinisikan AstToIrTranslator::Impl — state translator fase 2 —
+// agar konvensi "satu file sumber = satu fungsi" (spesifikasi Bagian
+// 8.2) bisa dijaga: tiap Lower*.cpp/Map*.cpp mengimplementasikan tepat
+// satu method Impl.
+
+#include "RhAST/AstToIrTranslator.h"
+#include "RhAST/IrBuilder.h"
+#include "RhAST/IrErrorCatalog.h"
+
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+namespace rhc {
+
+class SemanticAnalyzer;
+struct AstNode;
+struct ExprNode;
+struct FunctionDecl;
+struct ParamDecl;
+struct StmtNode;
+struct StringLiteralExpr;
+struct TypeReprNode;
+struct TranslationUnitDecl;
+class Type;
+
+struct AstToIrTranslator::Impl {
+    Impl(SourceManager& sourceManagerRef, DiagnosticEngine& diagnosticsRef,
+         AstToIrOptions optionsValue);
+
+    SourceManager& sourceManager;
+    DiagnosticEngine& diagnostics;
+    AstToIrOptions options;
+
+    IrModule module;
+    IrBuilder builder;
+
+    SemanticAnalyzer* semantic = nullptr;   // non-owning; prasyarat hidup
+    const TranslationUnitDecl* unit = nullptr;
+    bool failed = false;                    // hard-stop: error pertama
+
+    // ===== Utilitas diagnostic =====
+    // Error fase 2 (katalog); node boleh null (kembalikan false).
+    bool error(AstIrErrorCode code, const AstNode* node,
+               const std::string& detail);
+    // Invariant internal (bug compiler): Fatal; builder jadi broken.
+    bool fatal(const std::string& detail);
+
+    // ===== Konteks fungsi & lingkungan (scope env) saat lowering =====
+    FuncId currentFunc = InvalidFunc;
+    BlockId currentBlock = InvalidBlock;   // block tempat instruksi disisipkan
+    // Block "tutup" (setelah return/break/goto): statement berikutnya
+    // di-skip sampai construct membuat block baru.
+    bool blockOpen() const { return currentBlock != InvalidBlock; }
+
+    // Lingkungan per scope: variabel (nama -> versi terkini) + antrian
+    // jamin (defer) scope ini — FIFO sesuai DEVIATIONS.md D-1.
+    struct ScopeEnv {
+        std::unordered_map<std::string, ValueId> vars;
+        std::vector<const StmtNode*> defers;   // body jamin, urutan FIFO
+    };
+    std::vector<ScopeEnv> env;
+
+    // Konteks perulangan untuk berhenti/lanjut.
+    struct LoopContext {
+        BlockId header;   // lanjut -> br header
+        BlockId exit;     // berhenti -> br exit
+    };
+    std::vector<LoopContext> loopStack;
+
+    // goto/label: resolusi dua arah (forward jump di-resolve setelah
+    // semua block terbentuk — akhir lowerFunction).
+    std::unordered_map<std::string, BlockId> labelBlocks;
+    struct PendingGoto {
+        BlockId bridge;      // block perantara yang menunggu terminator Br
+        std::string label;
+        SourceLocation loc;
+    };
+    std::vector<PendingGoto> pendingGotos;
+
+    // Fungsi yang sudah terdaftar, agar panggilan ke fungsi yang
+    // dideklarasikan lebih dulu/then belakang tetap resolve (forward ref).
+    std::unordered_map<std::string, FuncId> functionsByName;
+
+    // ===== Model agregat (spesifikasi Bagian 3) =====
+    // Aturan aliasability §3.1: variabel yang PERNAH di-alamati
+    // (unary "alamat"/&) hidup memory-style (Alloc + Store/Load);
+    // akses member-nya lewat FieldAddr — perubahan via pointer terlihat
+    // di semua jalur baca. Variabel struct lain = SSA first-class
+    // (Construct/Extract/Insert + versioning).
+    std::unordered_set<std::string> addressTaken;   // di-reset per fungsi
+    bool isMemoryStyle(const std::string& name) const {
+        return addressTaken.find(name) != addressTaken.end();
+    }
+    // Nilai alamat (ptr Alloc) variabel memory-style; untuk variabel
+    // biasa berarti versi SSA terkini (lihat lookupLocal/bindLocal).
+    void collectAddressTaken(const StmtNode* stmt);  // CollectAddressTaken.cpp
+    ValueId lowerMemberRead(const ExprNode* memberExpr);   // LowerMemberAccess.cpp
+    ValueId lowerMemberWrite(const ExprNode* target,
+                             const ExprNode* valueExpr);   // LowerMemberAccess.cpp
+    // Default value (zero/empty) untuk tipe — dipakai VarDeclStmt tanpa
+    // initializer dan elemen Construct default.
+    ValueId emitDefaultValue(TypeId typeId, const Type* type,
+                             SourceLocation loc);          // LowerMemberAccess.cpp
+
+    // ===== Fase 2: lowering (satu fungsi per file) =====
+    bool lowerTranslationUnit();                  // LowerTranslationUnit.cpp
+    bool lowerFunction(const FunctionDecl* decl); // LowerFunction.cpp
+    bool lowerStmt(const StmtNode* stmt);         // LowerStmt.cpp
+    bool lowerIfStatement(const struct IfStmt* stmt);      // LowerIfStatement.cpp
+    bool lowerWhileStatement(const struct WhileStmt* stmt); // LowerWhileStatement.cpp
+    bool lowerDoWhileStatement(const struct DoWhileStmt* stmt);
+    bool lowerForStatement(const struct ForStmt* stmt);
+    bool lowerBreak();                            // LowerWhileStatement.cpp
+    bool lowerContinue();
+    void emitScopeDefers(std::size_t scopeIndex); // ExpandDefer.cpp
+    void emitAllDefers();                         // ExpandDefer.cpp
+    ValueId lowerExpr(const ExprNode* expr);      // LowerExpr.cpp
+    // node = konteks lokasi (hanya untuk pesan error).
+    TypeId mapType(const Type* type, const AstNode* node = nullptr);  // MapSemanticType.cpp
+    ConstId encodeStringLiteral(const std::string& text, TypeId stringType,
+                                const AstNode* node);  // EncodeConstant.cpp
+    FuncId resolveCallee(const ExprNode* callee); // LowerExpr.cpp
+
+    // Phi di join point (spesifikasi 4.2): gabungkan env pred-pred
+    // pada join block; hasil diterapkan caller ke scope terkini.
+    using NameValueMap = std::unordered_map<std::string, ValueId>;
+    NameValueMap mergeAtJoin(
+        BlockId join, const std::vector<std::pair<BlockId, const NameValueMap*>>& preds,
+        const NameValueMap& fallback);            // InsertPhiAtJoin.cpp
+
+    // SATU-SATUNYA cara mengubah block kerja: selalu sinkron dengan
+    // insert point IrBuilder (builder.emit memakai insert point-nya
+    // sendiri — duplikasi sumber kebenaran ini sumber bug).
+    void setCurrent(BlockId block) {
+        currentBlock = block;
+        if (block != InvalidBlock && currentFunc != InvalidFunc) {
+            builder.setInsertPoint(currentFunc, block);
+        }
+    }
+
+    // Tipe ekspresi dengan fallback ke TypeRepr deklarasi: RhSemantic
+    // kadang memberi ErrorType untuk node valid (mis. call generik
+    // "alokasi(T)" — inferensi hasil tak terekam), sementara TypeRepr
+    // penulisan carries tipe yang benar.
+    const Type* exprTypeOr(const ExprNode* expr, const TypeReprNode* repr);
+
+    // true bila nama merujuk tipe struct di module (argumen generik
+    // seperti "alokasi(Mahasiswa)" diparse sebagai IdentifierExpr).
+    bool isStructTypeName(const std::string& name) const;
+    const Type* lookupStructType(const std::string& name) const;
+    TypeId pointerTo(TypeId elementType) {
+        IrType t;
+        t.kind = IrTypeKind::Pointer;
+        t.elementType = elementType;
+        t.sizeBytes = 8;
+        t.alignBytes = 8;
+        return builder.internType(t);
+    }
+
+    // helper kecil
+    void pushEnv() { env.emplace_back(); }
+    void popEnv() { env.pop_back(); }
+    const NameValueMap& currentVars() const { return env.back().vars; }
+    // Nilai tersimpan mentah: SSA value biasa, atau ptr Alloc untuk
+    // variabel memory-style. Tidak meng-emit instruksi.
+    ValueId lookupRaw(const std::string& name) const;
+    // Nilai untuk dibaca: variabel memory-style di-Load dulu.
+    ValueId lookupLocal(const std::string& name);
+    void bindLocal(const std::string& name, ValueId value);
+};
+
+} // namespace rhc

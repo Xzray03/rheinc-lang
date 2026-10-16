@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
       WITH_TESTS=1
       shift
       ;;
-    RhLexer|RhPreprocessor|RhParser|RhSemantic)
+    RhLexer|RhPreprocessor|RhParser|RhSemantic|RhAST)
       MODULE="$1"
       shift
       ;;
@@ -25,7 +25,7 @@ Usage:
   ./build.sh                 Build root production artifacts (no tests)
   ./build.sh --with-tests    Build root artifacts and module test binaries
   ./build.sh RhLexer         Run module-specific build (includes test binary)
-                             Modules: RhLexer, RhPreprocessor, RhParser, RhSemantic
+                             Modules: RhLexer, RhPreprocessor, RhParser, RhSemantic, RhAST
 
 Environment:
   CXX=g++
@@ -56,6 +56,7 @@ modules=(
   RhPreprocessor
   RhParser
   RhSemantic
+  RhAST
 )
 
 for module in "${modules[@]}"; do
@@ -73,6 +74,7 @@ if [[ -f "$final_source" ]]; then
   echo "[CXX-LD] $final_binary"
   "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
     "$final_source" \
+    "$BUILD_DIR/libs/rheinc_ast.a" \
     "$BUILD_DIR/libs/rheinc_semantic.a" \
     "$BUILD_DIR/libs/rheinc_parser.a" \
     "$BUILD_DIR/libs/rheinc_preprocessor.a" \
