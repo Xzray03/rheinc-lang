@@ -71,7 +71,7 @@ private:
     std::vector<Token> applyTokenPaste(const std::vector<Token>& tokens,
                                        SourceLocation loc);
 
-    std::vector<Token> expandForConditional(std::vector<Token> tokens) const;
+    std::vector<Token> expandForConditional(std::vector<Token> tokens);
     bool evaluateConditionalExpression(const std::vector<Token>& tokens, long long& result);
 
     std::string tokenText(const Token& token) const;

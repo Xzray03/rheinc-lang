@@ -7,50 +7,6 @@ namespace rhc {
 
 using namespace ppdetail;
 
-namespace {
-
-// Collects macro arguments after the opening '(' until the matching ')'. `next`
-// supplies tokens one by one and returns false when the input is exhausted;
-// `terminated` reports whether the closing ')' was found. Commas nested inside
-// parentheses stay inside their argument.
-template <typename NextToken>
-std::vector<std::vector<Token>> collectMacroArguments(NextToken next, bool& terminated) {
-    std::vector<std::vector<Token>> args;
-    std::vector<Token> current;
-    int depth = 0;
-    terminated = false;
-
-    while (true) {
-        Token token;
-        if (!next(token)) break;
-        if (token.kind == TokenKind::EndOfDirective) continue;
-        if (token.kind == TokenKind::LParen) {
-            ++depth;
-            current.push_back(token);
-            continue;
-        }
-        if (token.kind == TokenKind::RParen) {
-            if (depth == 0) {
-                if (!current.empty() || args.empty()) args.push_back(std::move(current));
-                terminated = true;
-                break;
-            }
-            --depth;
-            current.push_back(token);
-            continue;
-        }
-        if (token.kind == TokenKind::Comma && depth == 0) {
-            args.push_back(std::move(current));
-            current.clear();
-            continue;
-        }
-        current.push_back(token);
-    }
-    return args;
-}
-
-} // namespace
-
 bool Preprocessor::expandIfNeeded(const Token& token, std::vector<Token>& output) {
     if (token.kind != TokenKind::Identifier || !token.ident) return false;
     const MacroDefinition* macro = macros_.find(token.ident->getName());

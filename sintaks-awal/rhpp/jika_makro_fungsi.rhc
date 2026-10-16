@@ -1,0 +1,72 @@
+-- Pengujian makro fungsi di dalam ekspresi #jika.
+-- Setiap blok harus menghasilkan satu "benar"; "GAGAL" tidak boleh muncul.
+
+#definisikan MAX(a, b) ((a) > (b) ? (a) : (b))
+#definisikan KUADRAT(x) ((x) * (x))
+#definisikan DUA 2
+#definisikan TIGA 3
+#definisikan LEBIH_BESAR(a, b) ((a) > (b))
+#definisikan JUMLAH(...) (0 __VA_OPT__(+ __VA_ARGS__))
+
+prosedur utama() {
+    -- Makro fungsi langsung
+    #jika MAX(1, 2) == 2
+        tampilkan "MAX langsung benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: MAX langsung\n"
+    #akhir
+
+    -- Argumen berupa makro objek
+    #jika MAX(DUA, TIGA) == 3
+        tampilkan "argumen makro objek benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: argumen makro objek\n"
+    #akhir
+
+    -- Makro fungsi bersarang
+    #jika MAX(MAX(1, 5), 3) == 5
+        tampilkan "MAX bersarang benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: MAX bersarang\n"
+    #akhir
+
+    -- Makro fungsi di dalam ekspresi yang lebih besar
+    #jika KUADRAT(DUA) + KUADRAT(TIGA) == 13
+        tampilkan "ekspresi gabungan benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: ekspresi gabungan\n"
+    #akhir
+
+    -- Digabung dengan operator logika
+    #jika LEBIH_BESAR(TIGA, DUA) dan bukan LEBIH_BESAR(DUA, TIGA)
+        tampilkan "dan/bukan benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: dan/bukan\n"
+    #akhir
+
+    -- Makro variadik dengan __VA_OPT__
+    #jika JUMLAH() == 0
+        tampilkan "variadik kosong benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: variadik kosong\n"
+    #akhir
+
+    #jika JUMLAH(1, 2, 3) == 6
+        tampilkan "variadik banyak benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: variadik banyak\n"
+    #akhir
+
+    -- Predikat terdefinisi pada makro fungsi (tanpa "(")
+    #jika MAX terdefinisi
+        tampilkan "MAX terdefinisi benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: MAX terdefinisi\n"
+    #akhir
+
+    #jika TIDAK_ADA tidak terdefinisi
+        tampilkan "TIDAK_ADA tidak terdefinisi benar\n"
+    #jika bukan semua diatas
+        tampilkan "GAGAL: TIDAK_ADA tidak terdefinisi\n"
+    #akhir
+}

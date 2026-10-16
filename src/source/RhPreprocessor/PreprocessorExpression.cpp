@@ -6,7 +6,7 @@ namespace rhc {
 
 using namespace ppdetail;
 
-std::vector<Token> Preprocessor::expandForConditional(std::vector<Token> tokens) const {
+std::vector<Token> Preprocessor::expandForConditional(std::vector<Token> tokens) {
     bool changed = true;
     int guard = 0;
     while (changed && guard++ < 64) {
@@ -54,6 +54,35 @@ std::vector<Token> Preprocessor::expandForConditional(std::vector<Token> tokens)
                     output.push_back(token);
                     output.push_back(tokens[i + 1]);
                     ++i;
+                    continue;
+                }
+
+                // Function-like macros are invoked when '(' follows the name, exactly as
+                // in ordinary code: MAX(1, 2) == 2. Without '(' the name is kept and the
+                // evaluator treats it as an undefined identifier.
+                if (const MacroDefinition* macro = macros_.find(name);
+                    macro && macro->isFunctionLike) {
+                    if (i + 1 < tokens.size() && tokens[i + 1].kind == TokenKind::LParen) {
+                        std::size_t pos = i + 2;
+                        bool terminated = false;
+                        std::vector<std::vector<Token>> args = collectMacroArguments(
+                            [&](Token& out) {
+                                if (pos >= tokens.size()) return false;
+                                out = tokens[pos++];
+                                return true;
+                            },
+                            terminated);
+                        if (terminated) {
+                            std::vector<Token> nested;
+                            invokeFunctionLikeMacroWithArgs(*macro, token.loc, {},
+                                                            std::move(args), nested);
+                            output.insert(output.end(), nested.begin(), nested.end());
+                            i = pos - 1;
+                            changed = true;
+                            continue;
+                        }
+                    }
+                    output.push_back(token);
                     continue;
                 }
 
