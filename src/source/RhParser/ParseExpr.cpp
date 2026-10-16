@@ -174,7 +174,10 @@ ExprNode* Parser::parsePostfixExpression() {
     ExprNode* expression = parsePrimaryExpression();
     while (true) {
         const Token token = tokens_.current();
-        if (token.kind == TokenKind::PlusPlus || token.kind == TokenKind::MinusMinus) {
+        // Bahasa ini tidak memakai titik koma: `++`/`--` di awal baris memulai statement
+        // baru (prefix), bukan postfix dari ekspresi pada baris sebelumnya.
+        if ((token.kind == TokenKind::PlusPlus || token.kind == TokenKind::MinusMinus) &&
+            !hasFlag(token.flags, TokenFlags::StartOfLine)) {
             tokens_.consume();
             expression = astContext_.create<UnaryExpr>(unaryOpFromToken(token.kind), expression,
                                                        true, makeRange(token));

@@ -103,6 +103,11 @@ bool Preprocessor::lex(Token& result) {
 
         std::vector<Token> expanded;
         if (expandIfNeeded(token, expanded)) {
+            // Token pertama hasil ekspansi menempati posisi nama makro, jadi ia mewarisi
+            // penanda awal baris (mis. `DEKREMEN(x)` di awal baris yang berekspansi ke `--x`).
+            if (!expanded.empty() && hasFlag(token.flags, TokenFlags::StartOfLine)) {
+                expanded.front().flags = expanded.front().flags | TokenFlags::StartOfLine;
+            }
             expandedBuffer_ = std::move(expanded);
             expandedPos_ = 0;
             continue;

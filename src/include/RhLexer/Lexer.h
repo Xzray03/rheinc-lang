@@ -59,6 +59,9 @@ private:
     LexerCursor cursor_;
     bool emittedEOF_ = false;
     bool prevWordLike_ = false;
+    // Mode raw mengembalikan newline sebagai token EndOfDirective lalu langsung return,
+    // sehingga status "awal baris" harus dibawa ke pemanggilan lexImpl berikutnya.
+    bool atLineStart_ = false;
 };
 
 } // namespace rhc

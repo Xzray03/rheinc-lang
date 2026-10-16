@@ -29,7 +29,8 @@ Token Lexer::lexImpl(bool rawMode) {
 
     TokenFlags commonFlags = rawMode ? TokenFlags::RawMode : TokenFlags::None;
     bool hadWhitespace = false;
-    bool startOfLine = cursor_.offset() == 0;
+    bool startOfLine = cursor_.offset() == 0 || atLineStart_;
+    atLineStart_ = false;
 
     while (true) {
         if (rawMode && atLogicalNewline()) {
@@ -40,6 +41,7 @@ Token Lexer::lexImpl(bool rawMode) {
                                     TokenFlags::EndOfDirective);
             token.flags = token.flags | commonFlags;
             prevWordLike_ = false;
+            atLineStart_ = true;
             return token;
         }
 
