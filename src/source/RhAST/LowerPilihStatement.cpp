@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Pattern.h"
 #include "RhSemantic/Symbol.h"
@@ -94,8 +94,11 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
         }
     }
     // Scope fungsi (dipakai pembangunan target & binding kasus).
-    const IrType* sumTypePtr =
-        subjectIsSum ? &module.types[subjectTypeId] : nullptr;
+    // BY VALUE: referensi ke module.types akan dangling bila mapType/
+    // internType mem-push tipe baru di tengah lowering (vector realloc).
+    const IrType sumTypeValue =
+        subjectIsSum ? module.types[subjectTypeId] : IrType();
+    const IrType* sumTypePtr = subjectIsSum ? &sumTypeValue : nullptr;
 
     if (anyConstructor && !subjectIsSum) {
         return error(AstIrErrorCode::MatchNonSum, stmt->subject,
@@ -103,7 +106,7 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
     }
     if (anyConstructor) {
         // ===== MatchTag: pasangan (tag, block) per varian =====
-        const IrType& sumType = *sumTypePtr;
+        const IrType& sumType = *sumTypePtr;  // referensi ke copy lokal
         for (const CaseClause* clause : stmt->clauses) {
             if (clause->isDefault) continue;
             for (const PatternNode* pattern : clause->patterns) {

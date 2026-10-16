@@ -1,10 +1,11 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Expr.h"
 #include "RhSemantic/SemanticAnalyzer.h"
 #include "RhSemantic/SemanticContext.h"
 #include "RhSemantic/Type.h"
 
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -59,13 +60,21 @@ ValueId AstToIrTranslator::Impl::lowerArrayIndexWrite(
 
 ValueId AstToIrTranslator::Impl::lowerArrayIndexWriteValue(
         const ArrayIndexExpr* target, ValueId value) {
-    if (target->object->kind != AstKind::IdentifierExpr) {
+    // Kumpulkan path indeks dari luar ke dalam.
+    std::vector<const ExprNode*> indexExprs;
+    const ExprNode* base = target;
+    while (base && base->kind == AstKind::ArrayIndexExpr) {
+        const auto* idx = static_cast<const ArrayIndexExpr*>(base);
+        indexExprs.push_back(idx->index);
+        base = idx->object;
+    }
+    if (!base || base->kind != AstKind::IdentifierExpr) {
         error(AstIrErrorCode::UnsupportedNode, target,
               "assignment elemen larik dengan root non-identifier "
-              "(bersarang/deref) belum didukung");
+              "(campuran member/index atau deref) belum didukung");
         return InvalidValue;
     }
-    const auto* root = static_cast<const IdentifierExpr*>(target->object);
+    const auto* root = static_cast<const IdentifierExpr*>(base);
     const ValueId rootValue = lookupRaw(root->name);
     if (rootValue == InvalidValue) {
         error(AstIrErrorCode::MalformedShape, target,
@@ -73,16 +82,33 @@ ValueId AstToIrTranslator::Impl::lowerArrayIndexWriteValue(
               "dideklarasikan");
         return InvalidValue;
     }
-    const ValueId index = lowerExpr(target->index);
-    if (index == InvalidValue) return InvalidValue;
-
     const TypeId rootType =
         builder.function(currentFunc).values[rootValue].type;
-    const ValueId updated = builder.emit(
-        IrOpcode::Insert, rootType,
-        {IrOperand::value(rootValue), IrOperand::value(index),
-         IrOperand::value(value)},
-        target->range.begin);
+
+    std::function<ValueId(ValueId, std::size_t)> writeAt =
+        [&](ValueId current, std::size_t level) -> ValueId {
+        const ValueId idx = lowerExpr(indexExprs[indexExprs.size() - 1 - level]);
+        if (idx == InvalidValue) return InvalidValue;
+        if (level + 1 == indexExprs.size()) {
+            return builder.emit(IrOpcode::Insert, rootType,
+                                {IrOperand::value(current),
+                                 IrOperand::value(idx),
+                                 IrOperand::value(value)},
+                                target->range.begin);
+        }
+        const ValueId inner = builder.emit(
+            IrOpcode::Extract, InvalidType,
+            {IrOperand::value(current), IrOperand::value(idx)},
+            target->range.begin);
+        const ValueId newInner = writeAt(inner, level + 1);
+        if (newInner == InvalidValue) return InvalidValue;
+        return builder.emit(IrOpcode::Insert, rootType,
+                            {IrOperand::value(current),
+                             IrOperand::value(idx),
+                             IrOperand::value(newInner)},
+                            target->range.begin);
+    };
+    const ValueId updated = writeAt(rootValue, 0);
     if (updated == InvalidValue) return InvalidValue;
     bindLocal(root->name, updated);
     return value;

@@ -107,6 +107,14 @@ enum class IrOpcode : std::uint16_t {
     // append buffer teks: a +> b -> buffer baru a+b (memory-style)
     Append,
 
+    // perkalian matriks (a @ b)
+    MatMul,
+
+    // panjang larik/view (hasil Int)
+    Len,
+    // view baru dari larik/teks: [0]src [1]start [2]end [3]step (hasil View)
+    SliceView,
+
     // konversi tipe (casting.rhc / konversi_tipe.rhc)
     Cast,
 

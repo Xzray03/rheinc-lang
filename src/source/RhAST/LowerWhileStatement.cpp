@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Stmt.h"
 #include "RhSemantic/SemanticAnalyzer.h"
@@ -226,7 +226,7 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
                      "iterator_berikutnya tidak menghasilkan tipe sum "
                      "(resolusi Opsi gagal)");
     }
-    const IrType& sumType = module.types[sumTypeId];
+    const IrType sumType = module.types[sumTypeId];  // by value: anti-UAF realloc
     int adaIndex = -1, kosongIndex = -1;
     for (std::size_t v = 0; v < sumType.variants.size(); ++v) {
         if (sumType.variants[v].name == "ADA") adaIndex = (int)v;
@@ -314,12 +314,21 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
     if (iterable == InvalidValue) return false;
     const TypeId iterableType =
         builder.function(currentFunc).values[iterable].type;
-    if (iterableType == InvalidType ||
-        module.types[iterableType].kind != IrTypeKind::Array) {
+    // View: panjang dinamis — dihitung via Len saat runtime.
+    const bool isView = iterableType != InvalidType &&
+                        module.types[iterableType].kind == IrTypeKind::View;
+    if ((iterableType == InvalidType ||
+         (module.types[iterableType].kind != IrTypeKind::Array && !isView))) {
         return lowerForEachIterator(stmt, iterable);
     }
-    const std::uint64_t count = module.types[iterableType].arraySize;
     const TypeId elementType = module.types[iterableType].elementType;
+    const ValueId dynamicLimit =
+        isView ? builder.emit(IrOpcode::Len, elementType,
+                              {IrOperand::value(iterable)},
+                              stmt->range.begin)
+               : InvalidValue;
+    const std::uint64_t count =
+        isView ? 0 : module.types[iterableType].arraySize;
 
     // Nama variabel: 1 var = elemen; 2 var = (indeks, elemen).
     const bool withIndex = stmt->loopVariables.size() >= 2;
@@ -334,9 +343,12 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
     const ValueId zero = builder.emit(IrOpcode::ConstInt, elementType,
                                       {IrOperand::imm(0)},
                                       stmt->range.begin);
-    const ValueId limit = builder.emit(
-        IrOpcode::ConstInt, elementType, {IrOperand::imm(
-            static_cast<std::uint32_t>(count))}, stmt->range.begin);
+    const ValueId limit =
+        isView ? dynamicLimit
+               : builder.emit(IrOpcode::ConstInt, elementType,
+                              {IrOperand::imm(static_cast<std::uint32_t>(
+                                  count))},
+                              stmt->range.begin);
     bindLocal(indexName, zero);
 
     const BlockId condB = builder.createBlock(currentFunc, "each.cond");

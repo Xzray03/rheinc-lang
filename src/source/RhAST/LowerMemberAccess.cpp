@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Expr.h"
 #include "RhSemantic/SemanticAnalyzer.h"
@@ -18,8 +18,28 @@ namespace {
 struct MemberStep {
     std::string name;
     std::uint32_t index;
-    const StructType* container;
+    const Type* container;   // StructType atau BuiltinObjectType
 };
+
+// Tipe field pada step: struct fields ATAU members object builtin
+// (non-function). Indeks mengikuti urutan yang sama dengan collectPath.
+TypeId memberFieldType(AstToIrTranslator::Impl& self,
+                       const MemberStep& step) {
+    if (const auto* struktur =
+            dynamic_cast<const StructType*>(step.container)) {
+        return self.mapType(struktur->fields[step.index]->type,
+                            struktur->fields[step.index]->decl);
+    }
+    const auto* object = static_cast<const BuiltinObjectType*>(step.container);
+    std::uint32_t i = 0;
+    for (const auto& [memberName, type] : object->members) {
+        (void)memberName;
+        if (type->kind() == TypeKind::Function) continue;
+        if (i == step.index) return self.mapType(type, nullptr);
+        ++i;
+    }
+    return InvalidType;
+}
 
 // Kumpulkan path member dari root IdentifierExpr.
 // a.b.c  -> root=a, steps=[b, c];  p->x->y -> root=p, steps=[x, y].
@@ -46,21 +66,47 @@ bool collectPath(const ExprNode* expr, const IdentifierExpr*& root,
         if (containerType && containerType->kind() == TypeKind::Pointer) {
             containerType = static_cast<const PointerType*>(containerType)->pointee;
         }
-        if (!containerType || containerType->kind() != TypeKind::Struct) {
-            return false;
-        }
-        const auto* struktur = static_cast<const StructType*>(containerType);
+        // Resolve member: fields struct, instantiasi struct generik,
+        // ATAU members object builtin (non-function = fields).
+        if (!containerType) return false;
+        const Type* memberType = nullptr;
+        std::uint32_t memberIndex = 0;
         bool found = false;
-        for (std::size_t i = 0; i < struktur->fields.size(); ++i) {
-            if (struktur->fields[i]->name == it->first) {
-                steps.push_back({it->first, static_cast<std::uint32_t>(i),
-                                 struktur});
-                containerType = struktur->fields[i]->type;
-                found = true;
-                break;
+        const Type* structLike = containerType;
+        if (const auto* inst =
+                dynamic_cast<const GenericInstantiationType*>(containerType)) {
+            structLike = inst->generic;
+        }
+        if (const auto* struktur =
+                dynamic_cast<const StructType*>(structLike)) {
+            for (std::size_t i = 0; i < struktur->fields.size(); ++i) {
+                if (struktur->fields[i]->name == it->first) {
+                    memberType = struktur->fields[i]->type;
+                    memberIndex = static_cast<std::uint32_t>(i);
+                    found = true;
+                    break;
+                }
+            }
+        } else if (const auto* object =
+                       dynamic_cast<const BuiltinObjectType*>(containerType)) {
+            std::uint32_t i = 0;
+            for (const auto& [memberName, type] : object->members) {
+                if (type->kind() == TypeKind::Function) {
+                    ++i;
+                    continue;  // method, bukan field
+                }
+                if (memberName == it->first) {
+                    memberType = type;
+                    memberIndex = i;
+                    found = true;
+                    break;
+                }
+                ++i;
             }
         }
-        if (!found) return false;
+        if (!found || !memberType) return false;
+        steps.push_back({it->first, memberIndex, structLike});
+        containerType = memberType;
     }
     return !steps.empty();
 }
@@ -71,7 +117,7 @@ bool collectPath(const ExprNode* expr, const IdentifierExpr*& root,
 // substitusi generik, di mana semantic type tidak lagi representatif).
 ValueId emitDefaultFromIrType(AstToIrTranslator::Impl& self,
                               TypeId typeId, SourceLocation loc) {
-    const IrType& t = self.module.types[typeId];
+    const IrType t = self.module.types[typeId];  // by value: anti-UAF realloc
     switch (t.kind) {
     case IrTypeKind::Bool:
         return self.builder.emit(IrOpcode::ConstBool, typeId,
@@ -111,6 +157,26 @@ ValueId emitDefaultFromIrType(AstToIrTranslator::Impl& self,
         }
         return self.builder.emit(IrOpcode::Construct, typeId,
                             std::move(operands), loc);
+    }
+    case IrTypeKind::Sum: {
+        // Default sum: varian pertama + payload default bila ada.
+        if (t.variants.empty()) {
+            self.error(AstIrErrorCode::UnsupportedNode, nullptr,
+                       "default value sum tanpa varian");
+            return InvalidValue;
+        }
+        std::vector<IrOperand> operands;
+        operands.push_back(IrOperand::type(typeId));
+        operands.push_back(IrOperand::imm(
+            static_cast<std::uint32_t>(t.variants.front().tagValue)));
+        if (t.variants.front().payloadType != InvalidType) {
+            const ValueId payload =
+                emitDefaultFromIrType(self, t.variants.front().payloadType, loc);
+            if (payload == InvalidValue) return InvalidValue;
+            operands.push_back(IrOperand::value(payload));
+        }
+        return self.builder.emit(IrOpcode::Construct, typeId,
+                                 std::move(operands), loc);
     }
     default:
         self.error(AstIrErrorCode::UnsupportedNode, nullptr,
@@ -213,7 +279,7 @@ ValueId AstToIrTranslator::Impl::lowerMemberRead(const ExprNode* expr) {
         if (addr == InvalidValue) return InvalidValue;
         for (const MemberStep& step : steps) {
             const TypeId fieldType =
-                mapType(step.container->fields[step.index]->type);
+                memberFieldType(*this, step);
             addr = builder.emit(IrOpcode::FieldAddr, pointerTo(fieldType),
                                 {IrOperand::value(addr),
                                  IrOperand::type(mapType(step.container)),
@@ -231,8 +297,7 @@ ValueId AstToIrTranslator::Impl::lowerMemberRead(const ExprNode* expr) {
     ValueId current = lookupLocal(root->name);
     if (current == InvalidValue) return InvalidValue;
     for (const MemberStep& step : steps) {
-        const TypeId fieldType = mapType(step.container->fields[step.index]->type,
-            step.container->fields[step.index]->decl);
+        const TypeId fieldType = memberFieldType(*this, step);
         current = builder.emit(IrOpcode::Extract, fieldType,
                                {IrOperand::value(current),
                                 IrOperand::imm(step.index)},
@@ -272,7 +337,7 @@ ValueId AstToIrTranslator::Impl::lowerMemberWriteValue(
         if (addr == InvalidValue) return InvalidValue;
         for (std::size_t i = 0; i + 1 < steps.size(); ++i) {
             const TypeId fieldType =
-                mapType(steps[i].container->fields[steps[i].index]->type);
+                memberFieldType(*this, steps[i]);
             addr = builder.emit(IrOpcode::FieldAddr, pointerTo(fieldType),
                                 {IrOperand::value(addr),
                                  IrOperand::type(mapType(steps[i].container)),
@@ -280,8 +345,7 @@ ValueId AstToIrTranslator::Impl::lowerMemberWriteValue(
                                 target->range.begin);
         }
         const MemberStep& last = steps.back();
-        const TypeId lastFieldType =
-            mapType(last.container->fields[last.index]->type);
+        const TypeId lastFieldType = memberFieldType(*this, last);
         addr = builder.emit(IrOpcode::FieldAddr, pointerTo(lastFieldType),
                             {IrOperand::value(addr),
                              IrOperand::type(mapType(last.container)),
@@ -300,8 +364,7 @@ ValueId AstToIrTranslator::Impl::lowerMemberWriteValue(
     std::function<ValueId(ValueId, std::size_t)> insertAt =
         [&](ValueId currentBase, std::size_t i) -> ValueId {
         const MemberStep& step = steps[i];
-        const TypeId fieldType = mapType(step.container->fields[step.index]->type,
-            step.container->fields[step.index]->decl);
+        const TypeId fieldType = memberFieldType(*this, step);
         if (i + 1 == steps.size()) {
             return builder.emit(IrOpcode::Insert, mapType(rootType),
                                 {IrOperand::value(currentBase),

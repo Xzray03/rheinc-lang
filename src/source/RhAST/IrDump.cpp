@@ -64,6 +64,9 @@ std::string opcodeName(IrOpcode op) {
     case IrOpcode::CmpGt:       return "cmp_gt";
     case IrOpcode::CmpGe:       return "cmp_ge";
     case IrOpcode::Append:      return "append";
+    case IrOpcode::MatMul:      return "mat_mul";
+    case IrOpcode::Len:         return "len";
+    case IrOpcode::SliceView:   return "slice_view";
     case IrOpcode::Cast:        return "cast";
     case IrOpcode::Call:        return "call";
     case IrOpcode::CallIndirect:return "call_indirect";

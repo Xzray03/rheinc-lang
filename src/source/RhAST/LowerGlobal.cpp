@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Decl.h"
 #include "RhParser/Expr.h"

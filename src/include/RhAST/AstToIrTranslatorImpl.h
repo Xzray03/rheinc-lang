@@ -129,6 +129,18 @@ struct AstToIrTranslator::Impl {
     void collectAddressTaken(const StmtNode* stmt);  // CollectAddressTaken.cpp
     ValueId lowerMemberRead(const ExprNode* memberExpr);   // LowerMemberAccess.cpp
     ValueId lowerTernaryExpr(const struct TernaryExpr* expr);  // LowerTernaryExpr.cpp
+    ValueId lowerSliceFrom(const ExprNode* objectExpr, const struct SliceExpr* node,
+                           const ExprNode* locExpr);  // LowerExpr.cpp
+    ValueId buildSliceView(ValueId source, const struct SliceExpr* node,
+                           const ExprNode* locExpr);   // LowerExpr.cpp
+    ValueId wrapSliceInOpsi(ValueId view, const ExprNode* locExpr);  // idem
+    ValueId lowerSliceMulti(const ExprNode* objectExpr,
+                            const struct ArrayLiteralExpr* slices,
+                            const ExprNode* locExpr);   // idem
+    FuncId lowerLambda(const struct LambdaExpr* expr);   // LowerLambda.cpp
+    ValueId lowerSliceWrite(const struct ArrayIndexExpr* target,
+                            const struct SliceExpr* slice,
+                            const ExprNode* valueExpr);  // LowerExpr.cpp
     ValueId lowerArrayLiteral(const struct ArrayLiteralExpr* expr);   // LowerArray.cpp
     ValueId lowerArrayIndexRead(const struct ArrayIndexExpr* expr);   // LowerArray.cpp
     ValueId lowerArrayIndexWrite(const struct ArrayIndexExpr* target,
@@ -215,6 +227,16 @@ struct AstToIrTranslator::Impl {
     // Nilai tersimpan mentah: SSA value biasa, atau ptr Alloc untuk
     // variabel memory-style. Tidak meng-emit instruksi.
     ValueId lookupRaw(const std::string& name) const;
+    // Lookup di env yang diberikan (untuk resolve capture lambda dari
+    // scope pembuat setelah env di-swap).
+    ValueId lookupRawIn(const std::vector<ScopeEnv>& envs,
+                        const std::string& name) const {
+        for (auto it = envs.rbegin(); it != envs.rend(); ++it) {
+            const auto found = it->vars.find(name);
+            if (found != it->vars.end()) return found->second;
+        }
+        return InvalidValue;
+    }
     // Nilai untuk dibaca: variabel memory-style di-Load dulu.
     ValueId lookupLocal(const std::string& name);
     void bindLocal(const std::string& name, ValueId value);
@@ -223,5 +245,12 @@ struct AstToIrTranslator::Impl {
 // true bila tipe mengandung ErrorType di kedalaman (definisi di
 // AstToIrTranslator.cpp) — lihat komentar di sana untuk rasional.
 bool typeContainsError(const Type* type);
+
+// Walker identifier (definisi di CollectAddressTaken.cpp) — untuk
+// deteksi capture lambda.
+void collectIdentifiers(const ExprNode* expr,
+                        std::vector<std::string>& out);
+void collectStmtIdentifiers(const StmtNode* stmt,
+                            std::vector<std::string>& out);
 
 } // namespace rhc

@@ -59,21 +59,26 @@ ARCHIVES_REBUILT=0
 
 ast_sources=(
   src/source/RhAST/AstToIrTranslator.cpp
-  src/source/RhAST/ValidateAst.cpp
   src/source/RhAST/CollectAddressTaken.cpp
-  src/source/RhAST/MapSemanticType.cpp
   src/source/RhAST/EncodeConstant.cpp
-  src/source/RhAST/LowerExpr.cpp
-  src/source/RhAST/LowerMemberAccess.cpp
-  src/source/RhAST/LowerFunction.cpp
-  src/source/RhAST/LowerStmt.cpp
-  src/source/RhAST/LowerIfStatement.cpp
-  src/source/RhAST/LowerWhileStatement.cpp
-  src/source/RhAST/LowerTranslationUnit.cpp
-  src/source/RhAST/InsertPhiAtJoin.cpp
   src/source/RhAST/ExpandDefer.cpp
+  src/source/RhAST/InsertPhiAtJoin.cpp
   src/source/RhAST/IrBuilder.cpp
   src/source/RhAST/IrDump.cpp
+  src/source/RhAST/LowerArray.cpp
+  src/source/RhAST/LowerExpr.cpp
+  src/source/RhAST/LowerFunction.cpp
+  src/source/RhAST/LowerGlobal.cpp
+  src/source/RhAST/LowerIfStatement.cpp
+  src/source/RhAST/LowerLambda.cpp
+  src/source/RhAST/LowerMemberAccess.cpp
+  src/source/RhAST/LowerPilihStatement.cpp
+  src/source/RhAST/LowerStmt.cpp
+  src/source/RhAST/LowerTernaryExpr.cpp
+  src/source/RhAST/LowerTranslationUnit.cpp
+  src/source/RhAST/LowerWhileStatement.cpp
+  src/source/RhAST/MapSemanticType.cpp
+  src/source/RhAST/ValidateAst.cpp
 )
 
 if [[ -f "$FLAGS_STATE" ]] && [[ "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then

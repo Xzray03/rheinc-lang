@@ -53,7 +53,11 @@ void BuiltinRegistry::registerBuiltinTypes(SemanticContext& context) {
             object->typeParams.push_back(context.types().getTypeVariable(paramName));
         }
         for (auto& [methodName, returnType] : methods) {
-            object->members.emplace(methodName, functionType(returnType));
+            // nullptr = self-type (method mengembalikan object itu sendiri,
+            // mis. transpose/adjoin/invers pada matriks).
+            object->members.emplace(methodName,
+                                    functionType(returnType ? returnType
+                                                            : object));
         }
         Symbol* symbol = context.createSymbol(SymbolKind::BuiltinType, object->name, object,
                                               nullptr, SourceRange{}, &context.globalScope());
@@ -70,6 +74,14 @@ void BuiltinRegistry::registerBuiltinTypes(SemanticContext& context) {
         Symbol* opsiSymbol = context.createSymbol(SymbolKind::Enum, "Opsi", opsi,
                                                   nullptr, SourceRange{}, &context.globalScope());
         context.globalScope().insert(opsiSymbol);
+        // Case symbols (preseden: jenis_daftar) — klien dapat resolve
+        // varian dari nama (mis. RhAST untuk subjek pilih).
+        for (const SumType::Case& kase : opsi->cases) {
+            Symbol* caseSymbol = context.createSymbol(
+                SymbolKind::EnumConstant, kase.name, opsi, nullptr,
+                SourceRange{}, &context.globalScope());
+            context.globalScope().insert(caseSymbol);
+        }
         auto* hasil = context.types().createSumType("Hasil", nullptr, false, {t, e});
         hasil->cases.push_back(SumType::Case{"SUKSES", {SumType::Field{"nilai", t}}, nullptr, nullptr});
         hasil->cases.push_back(SumType::Case{"GAGAL", {SumType::Field{"pesan", e}}, nullptr, nullptr});
@@ -95,7 +107,50 @@ void BuiltinRegistry::registerBuiltinTypes(SemanticContext& context) {
     addObject("desimal_tetap", {{"ke_teks", teks}, {"ke_desimal", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}});
     addObject("bilangan_kompleks", {{"ke_teks", teks}, {"magnitudo", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}});
     addObject("bilangan_tanpa_batas", {{"ke_teks", teks}, {"ke_bilangan", bilangan}});
-    addObject("matriks", {{"transpose", error}, {"determinan", error}, {"invers", error}, {"jumlah", error}, {"rata_rata", error}, {"minimum", error}, {"maksimum", error}, {"ke_teks", teks}, {"det", context.types().getGenericInstantiation(dynamic_cast<SumType*>(context.globalScope().lookup("Opsi")->type), {{"T", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}})}, {"trace", context.types().getGenericInstantiation(dynamic_cast<SumType*>(context.globalScope().lookup("Opsi")->type), {{"T", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}})}, {"rank", context.types().getBuiltinType(BuiltinTypeKind::Bilangan)}, {"lu", error}, {"qr", error}, {"iterasi", error}});
+    addObject("matriks", {{"transpose", nullptr}, {"lu", nullptr}, {"qr", nullptr}, {"determinan", context.types().getGenericInstantiation(dynamic_cast<SumType*>(context.globalScope().lookup("Opsi")->type), {{"T", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}})}, {"invers", nullptr}, {"jumlah", context.types().getTypeVariable("T")}, {"rata_rata", context.types().getTypeVariable("T")}, {"minimum", context.types().getTypeVariable("T")}, {"maksimum", context.types().getTypeVariable("T")}, {"ke_teks", teks}, {"det", context.types().getGenericInstantiation(dynamic_cast<SumType*>(context.globalScope().lookup("Opsi")->type), {{"T", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}})}, {"trace", context.types().getGenericInstantiation(dynamic_cast<SumType*>(context.globalScope().lookup("Opsi")->type), {{"T", context.types().getBuiltinType(BuiltinTypeKind::Desimal)}})}, {"rank", context.types().getBuiltinType(BuiltinTypeKind::Bilangan)}, {"lu", error}, {"qr", error}, {"iterasi", error}});
+        // invers mengembalikan Opsi<matriks> (gagal jika singular) — bukan
+        // matriks langsung (corpus: pilih a.invers() kasus KOSONG).
+        {
+            BuiltinObjectType* matriksObj =
+                context.types().getBuiltinObjectType("matriks");
+            Type* opsiSum = nullptr;   // lookup (lokal di registerBuiltinSum)
+            if (Symbol* sym = context.globalScope().lookup("Opsi")) {
+                opsiSum = sym->type;
+            }
+            Type* opsiMatriks =
+                opsiSum
+                    ? context.types().getGenericInstantiation(
+                          static_cast<SumType*>(opsiSum),
+                          {{"T", matriksObj}})
+                    : static_cast<Type*>(matriksObj);  // fallback aman
+            // Iterator matriks (corpus H): a.iterasi() -> it.selesai() /
+            // it.berikutnya() -> posisi_matriks {baris, kolom, nilai}.
+            {
+                BuiltinObjectType* posisi =
+                    context.types().getBuiltinObjectType("posisi_matriks");
+                posisi->members.emplace("baris", bilangan);
+                posisi->members.emplace("kolom", bilangan);
+                posisi->members.emplace(
+                    "nilai", context.types().getTypeVariable("T"));
+                Symbol* posisiSymbol = context.createSymbol(
+                    SymbolKind::BuiltinType, posisi->name, posisi, nullptr,
+                    SourceRange{}, &context.globalScope());
+                context.globalScope().insert(posisiSymbol);
+
+                addObject("iterator_matriks",
+                          {{"selesai", logika}, {"berikutnya", posisi}});
+                BuiltinObjectType* iterMatriks =
+                    context.types().getBuiltinObjectType("iterator_matriks");
+                matriksObj->members["iterasi"] = static_cast<FunctionType*>(
+                    context.types().getFunctionType({}, iterMatriks, true));
+            }
+            matriksObj->members["lu"] = static_cast<FunctionType*>(
+                context.types().getFunctionType({}, opsiMatriks, true));
+            matriksObj->members["qr"] = static_cast<FunctionType*>(
+                context.types().getFunctionType({}, opsiMatriks, true));
+            matriksObj->members["invers"] = static_cast<FunctionType*>(
+                context.types().getFunctionType({}, opsiMatriks, true));
+        }
 }
 
 void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
@@ -187,7 +242,23 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
         for (const char* name : {"kx_modulus", "kx_konjugat", "kx_argumen", "kx_polar",
                                  "kx_akar", "kx_pangkat", "kx_sin", "kx_cos", "kx_tan",
                                  "kx_exp", "kx_log"}) {
-            registerVariadic(name, error);
+            Type* ctorType = lookupType(name);
+        if (!ctorType) {
+            // Alias konstruktor: nama call != nama object terdaftar.
+            const char* alias = nullptr;
+            if (std::string(name) == "btb") alias = "bilangan_tanpa_batas";
+            else if (std::string(name) == "dt") alias = "desimal_tetap";
+            else if (std::string(name) == "kx") alias = "bilangan_kompleks";
+            if (alias) ctorType = lookupType(alias);
+            if (!ctorType && name[0] >= 'a' && name[0] <= 'z') {
+                // Inkonsistensi registry: object terdaftar kapital-first
+                // ("Atomik") vs nama ctor huruf kecil ("atomik").
+                std::string capitalized = name;
+                capitalized[0] = static_cast<char>(name[0] - 'a' + 'A');
+                ctorType = lookupType(capitalized.c_str());
+            }
+        }
+        registerVariadic(name, ctorType ? ctorType : error);
         }
         if (auto* desimalTetap = lookupType("desimal_tetap")) {
             Symbol* dtAlias = context.createSymbol(SymbolKind::BuiltinType, "dt", desimalTetap,
@@ -258,7 +329,7 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
     registerVariadic("pekerja_tutup", hampa);
     registerVariadic("pekerja_status", teks);
     registerVariadic("kondisi_sinyal", logika);
-    registerVariadic("daftar_ke_larik", error);
+    registerVariadic("daftar_ke_larik", context.types().getArrayType(context.types().getTypeVariable("T"), std::nullopt));
     registerVariadic("antrian_ke", error);
     registerVariadic("tumpukan_ke", error);
     for (const char* name : {"kecil ke besar", "besar ke kecil"}) {
@@ -311,7 +382,7 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
         Symbol* larikBtb = context.createSymbol(SymbolKind::BuiltinType, "larik_btb", btbT2,
                                                 nullptr, SourceRange{}, &context.globalScope());
         context.globalScope().insert(larikBtb);
-        registerVariadic("larik_btb_ke_btb", error);
+        registerVariadic("larik_btb_ke_btb", btbT2);
         registerVariadic("btb_dari_larik_btb", error);
     }
     if (auto* matriksT = lookupType("matriks")) {
@@ -319,7 +390,7 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
                                                     matriksT, nullptr, SourceRange{},
                                                     &context.globalScope());
         context.globalScope().insert(larikMatriks);
-        registerVariadic("larik_matriks_ke_matriks", error);
+        registerVariadic("larik_matriks_ke_matriks", matriksT);
     }
 
     // Async & misc API aliases.
@@ -405,7 +476,23 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
         "semaphore_lepas", "barrier_tunggu", "sinyal_tangkap", "sinyal_abaikan",
         "pembangkit_mulai", "pembangkit_berikutnya", "pembangkit_selesai"
     }) {
-        registerVariadic(name, error);
+        Type* ctorType = lookupType(name);
+        if (!ctorType) {
+            // Alias konstruktor: nama call != nama object terdaftar.
+            const char* alias = nullptr;
+            if (std::string(name) == "btb") alias = "bilangan_tanpa_batas";
+            else if (std::string(name) == "dt") alias = "desimal_tetap";
+            else if (std::string(name) == "kx") alias = "bilangan_kompleks";
+            if (alias) ctorType = lookupType(alias);
+            if (!ctorType && name[0] >= 'a' && name[0] <= 'z') {
+                // Inkonsistensi registry: object terdaftar kapital-first
+                // ("Atomik") vs nama ctor huruf kecil ("atomik").
+                std::string capitalized = name;
+                capitalized[0] = static_cast<char>(name[0] - 'a' + 'A');
+                ctorType = lookupType(capitalized.c_str());
+            }
+        }
+        registerVariadic(name, ctorType ? ctorType : error);
     }
 }
 

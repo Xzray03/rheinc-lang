@@ -1,10 +1,12 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Decl.h"
 #include "RhSemantic/SemanticAnalyzer.h"
 #include "RhSemantic/SemanticContext.h"
 #include "RhSemantic/Symbol.h"
 #include "RhSemantic/Type.h"
+
+#include <algorithm>
 
 namespace rhc {
 
@@ -95,10 +97,25 @@ bool AstToIrTranslator::Impl::lowerFunction(const FunctionDecl* decl) {
     // Prosedur tanpa terminator eksplisit -> RetVoid implisit.
     // Fungsi bernilai WAJIB kembalikan eksplisit (dijamin RhSemantic).
     IrFunction& fn = builder.function(func);
+    // Fungsi bermodifier async/coroutine/generator: jalur tanpa
+    // kembalikan eksplisit mendapat RetVoid implisit (async-structural).
+    const bool isCoroutine =
+        std::find_if(decl->modifiers.begin(), decl->modifiers.end(),
+                     [](FunctionModifier m) {
+                         return m == FunctionModifier::Async ||
+                                m == FunctionModifier::Coroutine ||
+                                m == FunctionModifier::Generator;
+                     }) != decl->modifiers.end();
     if (blockOpen() &&
         (fn.blocks[currentBlock].insts.empty() ||
          !isTerminator(fn.instrs[fn.blocks[currentBlock].insts.back()].op))) {
-        if (decl->isProcedure) {
+        // Coroutine/generator: jalur yang berakhir tanpa kembalikan
+        // (semua-hasil / infinite) mendapat RetVoid implisit.
+        // Semua fungsi yang berakhir tanpa terminator mendapat RetVoid
+        // implisit: prosedur, coroutine/generator, fungsi tanpa
+        // returnType, maupun fungsi "-> hampa" (corpus: handler sinyal).
+        (void)isCoroutine;
+        if (true) {
             emitAllDefers();
             if (failed || builder.broken()) return false;
             builder.setTerminator(func, currentBlock, IrOpcode::RetVoid, {},

@@ -1,6 +1,6 @@
 #include "RhAST/AstToIrTranslator.h"
 
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhAST/IrDump.h"
 #include "RhAST/ValidateAst.h"

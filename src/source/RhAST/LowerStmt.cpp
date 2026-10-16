@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Stmt.h"
 #include "RhSemantic/SemanticAnalyzer.h"
@@ -71,7 +71,13 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         } else if (node->type) {
             semanticType = semantic->context().getResolvedType(node->type);
         }
-        const TypeId varType = mapType(semanticType, stmt);
+        // Tipe Error (mis. anotasi hasil "-> tipe" tanpa deklarasi):
+        // tipe diambil dari nilai initializer setelah lowering.
+        const bool deferVarType =
+            node->initializer && semanticType &&
+            typeContainsError(semanticType);
+        const TypeId varType = deferVarType ? InvalidType
+                                            : mapType(semanticType, stmt);
         if (failed) return false;
 
         // Variabel yang di-alamati -> memory-style: Alloc + Store.
@@ -132,6 +138,7 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
             }
         }
         if (builder.broken()) return false;
+        (void)varType;
         bindLocal(node->name, initial);
         return true;
     }
@@ -176,6 +183,16 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         if (!lowerStmt(node->statement)) return false;
         return true;
     }
+    case AstKind::JedaStmt: {
+        // jeda / jeda sampai kondisi: sync-structural (DEVIATIONS D-3) —
+        // kondisi tetap dievaluasi untuk side effects; suspensi sesungguhnya
+        // (state machine korutin) adalah fase berikutnya.
+        const auto* node = static_cast<const JedaStmt*>(stmt);
+        if (node->untilCondition) {
+            if (lowerExpr(node->untilCondition) == InvalidValue) return false;
+        }
+        return true;
+    }
     case AstKind::JaminStmt: {
         const auto* node = static_cast<const JaminStmt*>(stmt);
         if (!node->body || node->body->kind != AstKind::CompoundStmt) {
@@ -187,9 +204,24 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
     }
     case AstKind::PilihStmt:
         return lowerPilihStatement(static_cast<const PilihStmt*>(stmt));
+    case AstKind::KeluarStmt: {
+        // keluar proses [kode]: panggil keluar(kode) lalu Unreachable.
+        const auto* node = static_cast<const KeluarStmt*>(stmt);
+        ValueId code = InvalidValue;
+        if (node->value) {
+            code = lowerExpr(node->value);
+            if (code == InvalidValue) return false;
+        } else {
+            code = builder.emit(IrOpcode::ConstInt, InvalidType,
+                                {IrOperand::imm(0)}, stmt->range.begin);
+        }
+        (void)emitCallByName("keluar", {code}, stmt->range.begin);
+        builder.setTerminator(currentFunc, currentBlock, IrOpcode::Unreachable,
+                              {}, stmt->range.begin);
+        setCurrent(InvalidBlock);
+        return !builder.broken();
+    }
     case AstKind::CaseClause:
-    case AstKind::JedaStmt:
-    case AstKind::KeluarStmt:
     case AstKind::ErrorStmt:
         return error(AstIrErrorCode::UnsupportedNode, stmt,
                      "statement ini tidak lolos validasi fase 1");

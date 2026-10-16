@@ -57,9 +57,19 @@ Type* SemanticAnalyzer::analyzeExpression(ExprNode* expr) {
     case AstKind::BoolLiteralExpr:
         result = context_.types().getBuiltinType(BuiltinTypeKind::Logika);
         break;
-    case AstKind::NullLiteralExpr:
-        result = context_.types().getPointerType(context_.types().getErrorType());
+    case AstKind::NullLiteralExpr: {
+        // Null: pointer ke expected-type (jika konteks memberi pointer),
+        // selain itu pointer ke Hampa. Sebelumnya pointer ke ErrorType —
+        // memproduksi ErrorType bersarang tanpa diagnostic dan merusak
+        // pemakaian seperti "var p: tunjuk ke T = kosong".
+        Type* nullType = expectedType();
+        if (!nullType || nullType->kind() != TypeKind::Pointer) {
+            nullType = context_.types().getPointerType(
+                context_.types().getBuiltinType(BuiltinTypeKind::Hampa));
+        }
+        result = nullType;
         break;
+    }
     case AstKind::IdentifierExpr:
         result = analyzeIdentifier(static_cast<IdentifierExpr*>(expr));
         break;
@@ -560,7 +570,18 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
                 }
             }
         }
-        return substitute(functionType->returnType, substitutions);
+        // Placeholder ErrorType (registerVariadic polimorfik): turunkan
+        // dari expected-type context (mis. tipe deklarasi variabel) atau
+        // jadikan Hampa untuk pemakaian statement. Sebelumnya ErrorType
+        // dipropagasikan mentah tanpa diagnostic.
+        Type* rawResult = substitute(functionType->returnType, substitutions);
+        if (rawResult == context_.types().getErrorType()) {
+            if (Type* expected = expectedType()) return expected;
+            // Tanpa konteks expected: biarkan ErrorType (placeholder) —
+            // menggantinya dengan Hampa mengekspos error tersembunyi di
+            // value-context dan merusak pemakaian yang sebelumnya valid.
+        }
+        return rawResult;
     }
 
     std::vector<Type*> argumentTypes;
@@ -586,7 +607,14 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
         }
     }
 
-    return functionType->returnType;
+    {
+        // Sama untuk jalur variadic (lihat catatan di atas).
+        Type* rawResult = functionType->returnType;
+        if (rawResult == context_.types().getErrorType()) {
+            if (Type* expected = expectedType()) return expected;
+        }
+        return rawResult;
+    }
 }
 
 Type* SemanticAnalyzer::analyzeBinary(BinaryExpr* expr) {
@@ -753,8 +781,13 @@ Type* SemanticAnalyzer::analyzeBinary(BinaryExpr* expr) {
         if (lhsType == rhsType) return lhsType;
         if (numericRank(asBuiltin(lhsType)) >= numericRank(asBuiltin(rhsType))) return lhsType;
         return rhsType;
-    case TokenKind::PlusGreater:
+    case TokenKind::PlusGreater: {
+        // Append buffer teks (a +> b): hasil bertipe teks.
+        Type* teksType = context_.types().getBuiltinType(BuiltinTypeKind::Teks);
+        if (lhsType == teksType && rhsType == teksType) return teksType;
+        error(expr->range, "append (+>) requires teks operands");
         return context_.types().getErrorType();
+    }
     default:
         error(expr->range, "unsupported binary operator in semantic v1");
         return context_.types().getErrorType();

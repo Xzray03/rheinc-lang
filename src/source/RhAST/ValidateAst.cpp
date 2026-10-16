@@ -112,10 +112,16 @@ private:
         case AstKind::ProcedureDecl: {
             const auto* node = static_cast<const FunctionDecl*>(decl);
             if (!requireName(node->name, decl, "FunctionDecl.name")) return false;
-            if (!node->modifiers.empty()) {
-                return fail(decl, AstIrErrorCode::UnsupportedNode,
-                            "fungsi ber-modifier (async/coroutine/generator) "
-                            "belum didukung RhAST");
+            // Modifier async/asinkron/coroutine diabaikan saat lowering
+            // (sync-structural, DEVIATIONS D-3); modifier lain ditolak.
+            for (const FunctionModifier modifier : node->modifiers) {
+                if (modifier != FunctionModifier::Async &&
+                    modifier != FunctionModifier::Coroutine &&
+                    modifier != FunctionModifier::Generator) {
+                    return fail(decl, AstIrErrorCode::UnsupportedNode,
+                                "fungsi ber-modifier selain Async/Coroutine "
+                                "belum didukung RhAST");
+                }
             }
             // Trait constraints ("dimana T: Terbandingkan") diabaikan
             // saat lowering — pengecekan trait adalah tugas RhSemantic;
@@ -217,12 +223,21 @@ private:
             }
             return true;
         }
-        case AstKind::JedaStmt:
-            return fail(stmt, AstIrErrorCode::UnsupportedNode,
-                        "jeda (generator) belum didukung RhAST");
-        case AstKind::KeluarStmt:
-            return fail(stmt, AstIrErrorCode::UnsupportedNode,
-                        "keluar proses belum didukung RhAST");
+        case AstKind::JedaStmt: {
+            const auto* node = static_cast<const JedaStmt*>(stmt);
+            if (node->untilCondition &&
+                !checkExpr(node->untilCondition, "kondisi jeda sampai")) {
+                return false;
+            }
+            return true;
+        }
+        case AstKind::KeluarStmt: {
+            const auto* node = static_cast<const KeluarStmt*>(stmt);
+            if (node->value && !checkExpr(node->value, "kode keluar proses")) {
+                return false;
+            }
+            return true;
+        }
         case AstKind::CompoundStmt: {
             const auto* node = static_cast<const CompoundStmt*>(stmt);
             for (const StmtNode* child : node->statements) {
@@ -378,9 +393,31 @@ private:
         case AstKind::ErrorExpr:
             return fail(expr, AstIrErrorCode::ErrorNode,
                         "ErrorExpr (hasil recovery parser) lolos ke RhAST");
-        case AstKind::LambdaExpr:
-            return fail(expr, AstIrErrorCode::UnsupportedNode,
-                        "lambda belum didukung RhAST");
+        case AstKind::LambdaExpr: {
+            const auto* node = static_cast<const LambdaExpr*>(expr);
+            // Type parameter & trait constraints diabaikan saat lowering
+            // (pengecekan trait adalah tugas RhSemantic; parameter generik
+            // terkonkretisai default DEVIATIONS D-2) — konsisten dengan
+            // penanganan fungsi generik.
+            for (const auto& [paramName, paramType] : node->parameters) {
+                if (paramName.empty()) {
+                    return fail(expr, AstIrErrorCode::MalformedShape,
+                                "lambda dengan parameter tanpa nama");
+                }
+                if (paramType &&
+                    !checkTypeRepr(paramType, expr,
+                                   "tipe parameter lambda")) {
+                    return false;
+                }
+            }
+            if (node->returnType &&
+                !checkTypeRepr(node->returnType, expr,
+                               "return type lambda")) {
+                return false;
+            }
+            if (!require(node->body, expr, "LambdaExpr.body")) return false;
+            return checkStmt(node->body, "body lambda");
+        }
         case AstKind::IdentifierExpr: {
             const auto* node = static_cast<const IdentifierExpr*>(expr);
             return requireName(node->name, expr, "IdentifierExpr.name");
@@ -437,10 +474,8 @@ private:
         }
         case AstKind::UnaryExpr: {
             const auto* node = static_cast<const UnaryExpr*>(expr);
-            if (node->op == UnaryOp::Await) {
-                return fail(expr, AstIrErrorCode::UnsupportedNode,
-                            "await belum didukung RhAST");
-            }
+            // Await: diizinkan — lowering passthrough (sync-structural,
+            // DEVIATIONS D-3).
             if (!require(node->operand, expr, "UnaryExpr.operand")) return false;
             return checkExpr(node->operand, "operand unary");
         }

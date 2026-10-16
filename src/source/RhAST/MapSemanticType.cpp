@@ -1,4 +1,4 @@
-#include "AstToIrTranslatorImpl.h"
+#include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Decl.h"
 #include "RhSemantic/Symbol.h"
@@ -30,6 +30,10 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
             const TypeId id = builder.internType(t);
             module.typeMapping.map(type, id);
             for (const auto& [memberName, memberType] : object->members) {
+                // Member bertipe ErrorType = placeholder registry untuk
+                // "tipe polimorfik tak diketahui" — di-skip (sama seperti
+                // TypeVariable tak terikat).
+                if (typeContainsError(memberType)) continue;
                 IrField f;
                 f.name = memberName;
                 f.type = mapType(memberType, node, "obj-member");
@@ -280,9 +284,9 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
                 module.typeMapping.map(type, id);
                 for (const auto& [memberName, memberType] : object->members) {
                     const Type* concrete = subst(memberType);
-                    if (!concrete ||
+                    if (!concrete || typeContainsError(concrete) ||
                         concrete->kind() == TypeKind::TypeVariable) {
-                        continue;  // member generik tak terikat: di-skip
+                        continue;  // placeholder registry / tak terikat: skip
                     }
                     IrField f;
                     f.name = memberName;
@@ -302,8 +306,17 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
                 if (fieldType && fieldType->kind() == TypeKind::TypeVariable) {
                     const std::string& varName =
                         static_cast<const TypeVariableType*>(fieldType)->name;
+                    // 1) by name: dengan T = bilangan
                     for (const auto& [argName, argType] : inst->arguments) {
                         if (argName == varName) return argType;
+                    }
+                    // 2) by position: Pembungkus(bilangan) — argumen ke-i
+                    //    sesuai urutan typeParams.
+                    for (std::size_t i = 0; i < struktur->typeParams.size(); ++i) {
+                        if (struktur->typeParams[i]->name == varName &&
+                            i < inst->arguments.size()) {
+                            return inst->arguments[i].second;
+                        }
                     }
                     return fieldType;  // tak terikat -> jujur di mapType
                 }

@@ -1,4 +1,5 @@
 #include "RhSemantic/SemanticAnalyzer.h"
+#include "RhSemantic/Type.h"
 
 #include <string>
 #include <utility>
@@ -130,6 +131,70 @@ bool SemanticAnalyzer::isAssignableTo(Type* source, Type* destination) const {
                                     *sourceArray->size == *destinationArray->size;
         return sizeCompatible && isAssignableTo(sourceArray->elementType,
                                                 destinationArray->elementType);
+    }
+
+    // Object builtin: compare struktural via nama (instance TypeContext
+    // berbeda per representasi sumber).
+    {
+        const auto* sourceObj = dynamic_cast<const BuiltinObjectType*>(source);
+        const auto* destObj = dynamic_cast<const BuiltinObjectType*>(destination);
+        if (sourceObj && destObj) {
+            return sourceObj->name == destObj->name;
+        }
+    }
+
+    // Instantiasi generik: compare struktural (generic + argumen
+    // pairwise). Pointer-compare saja gagal karena TypeContext membuat
+    // instance baru per representasi sumber.
+    const auto* sourceInst = dynamic_cast<const GenericInstantiationType*>(source);
+    const auto* destInst = dynamic_cast<const GenericInstantiationType*>(destination);
+    if (sourceInst && destInst) {
+        if (!sourceInst->generic || !destInst->generic) return false;
+        if (sourceInst->generic != destInst->generic) {
+            auto genericName = [](const Type* g) -> std::string {
+                if (const auto* st = dynamic_cast<const StructType*>(g))
+                    return st->decl ? st->decl->name : std::string();
+                if (const auto* su = dynamic_cast<const SumType*>(g))
+                    return su->name;
+                if (const auto* ob = dynamic_cast<const BuiltinObjectType*>(g))
+                    return ob->name;
+                return {};
+            };
+            if (genericName(sourceInst->generic) != genericName(destInst->generic) ||
+                genericName(sourceInst->generic).empty()) {
+                return false;
+            }
+        }
+        // Kelonggaran generik: instantiation tanpa argumen (konstruktor
+        // seperti KOSONG()) dianggap compatible dengan instantiation
+        // ber-argumen konkret — sejalan dengan aturan TypeVariable di atas.
+        const std::size_t common =
+            sourceInst->arguments.size() < destInst->arguments.size()
+                ? sourceInst->arguments.size()
+                : destInst->arguments.size();
+        for (std::size_t i = 0; i < common; ++i) {
+            if (!isAssignableTo(sourceInst->arguments[i].second,
+                                destInst->arguments[i].second)) {
+                return false;
+            }
+        }
+        return true;  // argumen tambahan di salah sisi diabaikan (generik)
+    }
+
+    // Sum mentah vs instantiasi sum-nya (mis. KOSONG() : Opsi vs
+    // deklarasi -> Opsi(dengan T = bilangan)): compatible bila nama &
+    // jumlah varian sama.
+    {
+        const SumType* rawSum = dynamic_cast<const SumType*>(source);
+        const GenericInstantiationType* inst =
+            dynamic_cast<const GenericInstantiationType*>(destination);
+        if (rawSum && inst && inst->generic) {
+            const SumType* instSum = dynamic_cast<const SumType*>(inst->generic);
+            if (instSum && rawSum->name == instSum->name &&
+                rawSum->cases.size() == instSum->cases.size()) {
+                return true;
+            }
+        }
     }
 
     // Plain enum values are freely interchangeable with numbers.
