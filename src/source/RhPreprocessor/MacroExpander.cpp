@@ -142,7 +142,6 @@ bool Preprocessor::invokeFunctionLikeMacroWithArgs(const MacroDefinition& macro,
                                                    std::unordered_set<std::string> hidden,
                                                    std::vector<std::vector<Token>> args,
                                                    std::vector<Token>& output) {
-    hidden.insert(macro.name);
     if (macro.isVariadic && !macro.parameters.empty()) {
         // The last parameter is __VA_ARGS__: it takes every remaining argument
         // (comma-separated again) and is empty when none were supplied.
@@ -156,9 +155,14 @@ bool Preprocessor::invokeFunctionLikeMacroWithArgs(const MacroDefinition& macro,
         while (args.size() < fixed) args.emplace_back();
         args.push_back(std::move(variadic));
     }
+    // Arguments are fully expanded before substitution, so the macro's own name is
+    // not hidden yet: MAX(MAX(1, 2), 3) must expand the inner MAX as well.
     std::vector<Token> substituted = substituteMacroBody(macro, args, hidden);
     std::vector<Token> pasted = applyTokenPaste(substituted, macroNameLoc);
     std::vector<Token> mapped = remapToExpansion(pasted, macroNameLoc);
+    // While the replacement list is rescanned the macro's own name is hidden, which
+    // is what stops recursive definitions.
+    hidden.insert(macro.name);
     output = expandTokenSequence(std::move(mapped), std::move(hidden));
     return true;
 }
