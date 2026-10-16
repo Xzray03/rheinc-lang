@@ -400,6 +400,9 @@ Token Lexer::scanNumericConstant() {
         std::size_t length = 0;
         const bool valid = cursor_.peek(cp, length);
         if (valid && isIdentifierStart(cp)) {
+            // If the literal body was already diagnosed (e.g. "0x_FF"), the trailing
+            // word is still swallowed into this token but not reported a second time.
+            const bool alreadyReported = invalid;
             const SourceLocation suffixLoc = cursor_.offset();
             while (!cursor_.eof()) {
                 char32_t next = 0;
@@ -423,10 +426,12 @@ Token Lexer::scanNumericConstant() {
                     break;
                 }
             }
-            error(suffixLoc, suffixLength,
-                  separatorOnly
-                      ? "invalid digit separator in numeric literal"
-                      : "invalid suffix or adjacent identifier in numeric literal");
+            if (!alreadyReported) {
+                error(suffixLoc, suffixLength,
+                      separatorOnly
+                          ? "invalid digit separator in numeric literal"
+                          : "invalid suffix or adjacent identifier in numeric literal");
+            }
         }
     }
 
