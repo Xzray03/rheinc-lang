@@ -2,7 +2,7 @@
 
 #include "RhAST/AstToIrOptions.h"
 #include "RhAST/IrDump.h"
-#include "RhAST/IrModule.h"
+#include "RhIR/IrModule.h"
 
 #include <iosfwd>
 #include <memory>
@@ -28,9 +28,9 @@ struct TranslationUnitDecl;
 //   Fase 1 — validasi AST (walk read-only; hard-stop error pertama)
 //   Fase 2 — lowering      (bangun IR;     hard-stop error pertama)
 //
-// Ownership (spesifikasi Bagian 7.3): translator MEMILIKI IrModule dan
-// arena penyimpanan node IR. Caller wajib menjaga translator tetap hidup
-// selama IR dipakai; hasil translate() adalah pointer non-owning.
+// Ownership (spesifikasi Bagian 7.3): translator MEMILIKI IrModule sampai
+// caller meminta releaseModule(). Setelah release, caller memiliki modul dan
+// translator tidak boleh dipakai untuk translate/dump modul tersebut lagi.
 class AstToIrTranslator {
 public:
     AstToIrTranslator(SourceManager& sourceManager,
@@ -45,9 +45,13 @@ public:
     // DiagnosticEngine. Panggilan kedua setelah kegagalan dilarang.
     IrModule* translate(TranslationUnitDecl* unit, SemanticAnalyzer& semantic);
 
-    // Valid hanya setelah translate() sukses.
+    // Valid hanya setelah translate() sukses, dan sebelum releaseModule().
     IrModule& module();
     const IrModule& module() const;
+
+    // Memindahkan ownership IrModule ke caller. Valid hanya setelah translate() sukses.
+    // Panggilan kedua mengembalikan nullptr.
+    std::unique_ptr<IrModule> releaseModule();
 
     const TypeMapping& typeMapping() const;
     const SymbolMapping& symbolMapping() const;

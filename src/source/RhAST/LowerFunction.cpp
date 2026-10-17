@@ -39,6 +39,16 @@ bool AstToIrTranslator::Impl::lowerFunction(const FunctionDecl* decl) {
         functionsByName[decl->name] = func;
     }
     if (builder.broken()) return false;
+
+    IrFunction& irFunction = builder.function(func);
+    if (decl->name == "utama") {
+        irFunction.kind = IrFunctionKind::Entry;
+    } else if (!decl->body) {
+        irFunction.kind = IrFunctionKind::External;
+    } else {
+        irFunction.kind = IrFunctionKind::Normal;
+    }
+
     if (const Symbol* symbol = semantic->context().getDeclSymbol(decl)) {
         module.symbolMapping.mapFunction(symbol, func);
     }

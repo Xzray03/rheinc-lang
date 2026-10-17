@@ -20,7 +20,9 @@ AstToIrTranslator::Impl::Impl(SourceManager& sourceManagerRef,
                               DiagnosticEngine& diagnosticsRef,
                               AstToIrOptions optionsValue)
     : sourceManager(sourceManagerRef), diagnostics(diagnosticsRef),
-      options(optionsValue), builder(module, diagnosticsRef, options) {}
+      options(optionsValue),
+      builder(module, diagnosticsRef,
+              IrBuilderOptions{optionsValue.verifyAfterEachMutation}) {}
 
 bool AstToIrTranslator::Impl::error(AstIrErrorCode code, const AstNode* node,
                                     const std::string& detail) {
@@ -60,7 +62,10 @@ ValueId AstToIrTranslator::Impl::emitCallByName(
     if (found != functionsByName.end()) {
         fn = found->second;
     } else {
-        fn = builder.createFunction(name, InvalidType, loc);
+        fn = builder.createFunction(name, InvalidType, loc, IrFunctionKind::External);
+        // Stub builtin/runtime: di-link ke runtime bahasa, bukan ke
+        // definisi user (lihat IrLinkVerifier).
+        builder.function(fn).isBuiltin = true;
         functionsByName[name] = fn;
         module.globals[name] = fn;
     }
@@ -184,7 +189,7 @@ AstToIrTranslator::~AstToIrTranslator() = default;
 
 IrModule* AstToIrTranslator::translate(TranslationUnitDecl* unit,
                                        SemanticAnalyzer& semantic) {
-    if (impl_->failed) return nullptr;
+    if (impl_->failed || impl_->moduleReleased) return nullptr;
 
     // Prasyarat keras (spesifikasi Bagian 1.2): RhAST tidak pernah
     // berjalan jika SemanticAnalyzer menghasilkan satu pun Error/Fatal.
@@ -219,6 +224,14 @@ IrModule* AstToIrTranslator::translate(TranslationUnitDecl* unit,
 
 IrModule& AstToIrTranslator::module() { return impl_->module; }
 const IrModule& AstToIrTranslator::module() const { return impl_->module; }
+
+std::unique_ptr<IrModule> AstToIrTranslator::releaseModule() {
+    if (!impl_ || impl_->moduleReleased) {
+        return nullptr;
+    }
+    impl_->moduleReleased = true;
+    return std::make_unique<IrModule>(std::move(impl_->module));
+}
 
 const TypeMapping& AstToIrTranslator::typeMapping() const {
     return impl_->module.typeMapping;

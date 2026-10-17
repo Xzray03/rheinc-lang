@@ -135,6 +135,8 @@ ValueId emitDefaultFromIrType(AstToIrTranslator::Impl& self,
         return self.builder.emit(IrOpcode::ConstFloat, typeId, std::move(ops), loc);
     }
     case IrTypeKind::Pointer:
+    case IrTypeKind::FnPtr:
+        // FnPtr default = null pointer (object method table kosong).
         return self.builder.emit(IrOpcode::ConstNull, typeId, {}, loc);
     case IrTypeKind::View: {
         const ConstId empty = self.encodeStringLiteral("", typeId, nullptr);

@@ -13,6 +13,7 @@ fi
 # RhAST bergantung pada seluruh pipeline front-end; bangun dependency
 # (RhSemantic merangkap parser/preprocessor/lexer/core via rekursi).
 if [[ "${RHEINC_SKIP_DEPS:-0}" != "1" ]]; then
+  (cd "$ROOT_DIR" && bash src/build_module/RhIR/build.sh --no-tests)
   (cd "$ROOT_DIR" && bash src/build_module/RhSemantic/build.sh --no-tests)
 fi
 
@@ -37,6 +38,7 @@ compute_include_hash() {
   find "$ROOT_DIR/src/include/RhCore" "$ROOT_DIR/src/include/RhLexer" \
     "$ROOT_DIR/src/include/RhPreprocessor" "$ROOT_DIR/src/include/RhParser" \
     "$ROOT_DIR/src/include/RhSemantic" "$ROOT_DIR/src/include/RhAST" \
+    "$ROOT_DIR/src/include/RhIR" \
     -type f -name '*.h' -print0 |
     sort -z |
     xargs -0 cksum |
@@ -63,8 +65,6 @@ ast_sources=(
   src/source/RhAST/EncodeConstant.cpp
   src/source/RhAST/ExpandDefer.cpp
   src/source/RhAST/InsertPhiAtJoin.cpp
-  src/source/RhAST/IrBuilder.cpp
-  src/source/RhAST/IrDump.cpp
   src/source/RhAST/LowerArray.cpp
   src/source/RhAST/LowerExpr.cpp
   src/source/RhAST/LowerFunction.cpp
@@ -178,6 +178,7 @@ done
 ensure_archive "$AST_ARCHIVE" "$AST_ARCHIVE_STATE" "${ast_objects[@]}"
 
 if [[ "$BUILD_TESTS" == "1" ]]; then
+  IR_ARCHIVE="$LIB_DIR/rheinc_ir.a"
   SEMANTIC_ARCHIVE="$LIB_DIR/rheinc_semantic.a"
   PARSER_ARCHIVE="$LIB_DIR/rheinc_parser.a"
   PREPROCESSOR_ARCHIVE="$LIB_DIR/rheinc_preprocessor.a"
@@ -186,6 +187,7 @@ if [[ "$BUILD_TESTS" == "1" ]]; then
 
   current_test_source_hash="$(hash_file "$TEST_SOURCE")"
   current_ast_archive_hash="$(hash_file "$AST_ARCHIVE")"
+  current_ir_archive_hash="$(hash_file "$IR_ARCHIVE")"
   current_semantic_archive_hash="$(hash_file "$SEMANTIC_ARCHIVE")"
   current_parser_archive_hash="$(hash_file "$PARSER_ARCHIVE")"
   current_preprocessor_archive_hash="$(hash_file "$PREPROCESSOR_ARCHIVE")"
@@ -197,12 +199,30 @@ if [[ "$BUILD_TESTS" == "1" ]]; then
   if [[ -f "$TEST_BINARY" ]]; then
     current_test_binary_hash="$(hash_file "$TEST_BINARY")"
   fi
+  # Freshness WAJIB membandingkan hash test source juga: perubahan hanya
+  # pada *DumpTool.cpp (main test) harus memicu relink meski semua
+  # archive dan binary lama terlihat "fresh" (bug sebelumnya: source
+  # hash dihitung tapi tidak pernah dipakai -> binary stale diam-diam).
+  stored_test_binary_hash=""
+  stored_test_source_hash=""
+  stored_ir_archive_hash=""
+  stored_semantic_archive_hash=""
+  stored_parser_archive_hash=""
+  stored_preprocessor_archive_hash=""
+  stored_lexer_archive_hash=""
+  stored_core_archive_hash=""
   if [[ -f "$TEST_STATE" ]]; then
-    stored_test_binary_hash="$(cat "$TEST_STATE")"
+    read -r stored_test_binary_hash stored_test_source_hash stored_ir_archive_hash       stored_semantic_archive_hash stored_parser_archive_hash       stored_preprocessor_archive_hash stored_lexer_archive_hash       stored_core_archive_hash < "$TEST_STATE" || true
   fi
-
   if [[ "$ARCHIVES_REBUILT" == "0" && -n "$current_test_binary_hash" && \
-        "$current_test_binary_hash" == "$stored_test_binary_hash" ]]; then
+        "$current_test_binary_hash" == "$stored_test_binary_hash" && \
+        "$current_test_source_hash" == "$stored_test_source_hash" && \
+        "$current_ir_archive_hash" == "$stored_ir_archive_hash" && \
+        "$current_semantic_archive_hash" == "$stored_semantic_archive_hash" && \
+        "$current_parser_archive_hash" == "$stored_parser_archive_hash" && \
+        "$current_preprocessor_archive_hash" == "$stored_preprocessor_archive_hash" && \
+        "$current_lexer_archive_hash" == "$stored_lexer_archive_hash" && \
+        "$current_core_archive_hash" == "$stored_core_archive_hash" ]]; then
     echo "[SKIP] test binary fresh: $(basename "$TEST_BINARY")"
   else
     tmp_binary="$BIN_TEST_DIR/.rheinc_ast_test.$$"
@@ -211,6 +231,7 @@ if [[ "$BUILD_TESTS" == "1" ]]; then
     "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
       "$TEST_SOURCE" \
       "$AST_ARCHIVE" \
+      "$IR_ARCHIVE" \
       "$SEMANTIC_ARCHIVE" \
       "$PARSER_ARCHIVE" \
       "$PREPROCESSOR_ARCHIVE" \
@@ -218,7 +239,11 @@ if [[ "$BUILD_TESTS" == "1" ]]; then
       "$CORE_ARCHIVE" \
       -o "$tmp_binary"
     mv -f "$tmp_binary" "$TEST_BINARY"
-    hash_file "$TEST_BINARY" > "$TEST_STATE"
+    printf '%s %s %s %s %s %s %s %s\n' \
+      "$(hash_file "$TEST_BINARY")" "$current_test_source_hash" \
+      "$current_ir_archive_hash" "$current_semantic_archive_hash" \
+      "$current_parser_archive_hash" "$current_preprocessor_archive_hash" \
+      "$current_lexer_archive_hash" "$current_core_archive_hash" > "$TEST_STATE"
     DID_WORK=1
   fi
 

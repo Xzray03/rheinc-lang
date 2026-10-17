@@ -275,7 +275,9 @@ FuncId AstToIrTranslator::Impl::resolveCallee(const ExprNode* callee) {
     // Fungsi eksternal/builtin yang tidak dideklarasikan di modul:
     // stub eksternal dibuat otomatis (variadik, tanpa signature IR).
     const FuncId stub = builder.createFunction(identifier->name, InvalidType,
-                                               callee->range.begin);
+                                                 callee->range.begin,
+                                                 IrFunctionKind::External);
+    builder.function(stub).isBuiltin = true;  // stub runtime, bukan user
     functionsByName[identifier->name] = stub;
     module.globals[identifier->name] = stub;
     return stub;
@@ -848,7 +850,9 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                 fn = found->second;
             } else {
                 fn = builder.createFunction(method->memberName, InvalidType,
-                                            method->range.begin);
+                                             method->range.begin,
+                                             IrFunctionKind::External);
+                builder.function(fn).isBuiltin = true;  // stub runtime
                 functionsByName[method->memberName] = fn;
                 module.globals[method->memberName] = fn;
             }

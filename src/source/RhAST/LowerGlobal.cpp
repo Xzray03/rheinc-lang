@@ -141,7 +141,17 @@ bool AstToIrTranslator::Impl::lowerGlobalMutable(const GlobalVarDecl* decl) {
 bool AstToIrTranslator::Impl::lowerGlobalInitFunction() {
     if (globalInitDecls.empty()) return true;
 
-    const FuncId func = builder.createFunction(".__global_init", InvalidType);
+    const FuncId func = builder.createFunction(".__global_init", InvalidType, 0,
+                                                 IrFunctionKind::GlobalInit);
+
+    IrType voidType;
+    voidType.kind = IrTypeKind::Void;
+    const TypeId voidTypeId = builder.internType(voidType);
+    IrType initFnType;
+    initFnType.kind = IrTypeKind::FnPtr;
+    initFnType.returnType = voidTypeId;
+    builder.function(func).fnType = builder.internType(initFnType);
+
     const FuncId previousFunc = currentFunc;
     currentFunc = func;
     env.clear();

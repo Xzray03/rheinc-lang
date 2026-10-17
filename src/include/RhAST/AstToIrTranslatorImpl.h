@@ -43,6 +43,7 @@ struct AstToIrTranslator::Impl {
     SemanticAnalyzer* semantic = nullptr;   // non-owning; prasyarat hidup
     const TranslationUnitDecl* unit = nullptr;
     bool failed = false;                    // hard-stop: error pertama
+    bool moduleReleased = false;            // ownership IrModule sudah pindah
 
     // ===== Utilitas diagnostic =====
     // Error fase 2 (katalog); node boleh null (kembalikan false).

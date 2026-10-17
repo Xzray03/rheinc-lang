@@ -52,6 +52,8 @@ FuncId AstToIrTranslator::Impl::lowerLambda(const LambdaExpr* expr) {
     currentBlock = InvalidBlock;
     pushEnv();
 
+    std::vector<TypeId> paramTypeIds;
+
     // Capture -> parameter implisit (paling awal), terikat ke nama asli.
     for (const std::string& capture : freeVars) {
         const ValueId raw = lookupRawIn(previousEnv, capture);
@@ -61,6 +63,7 @@ FuncId AstToIrTranslator::Impl::lowerLambda(const LambdaExpr* expr) {
                 builder.function(previousFunc).values[raw].type;
         }
         const ValueId param = builder.addParam(func, captureType, capture);
+        paramTypeIds.push_back(captureType);
         bindLocal(capture, param);
     }
 
@@ -75,19 +78,28 @@ FuncId AstToIrTranslator::Impl::lowerLambda(const LambdaExpr* expr) {
             if (failed) return InvalidFunc;
         }
         const ValueId param = builder.addParam(func, ptypeId, pname);
+        paramTypeIds.push_back(ptypeId);
         bindLocal(pname, param);
     }
 
-    // Return type (untuk auto-terminator: prosedur-style).
+    // Bentuk signature lambda: (capture..., param...) -> returnType.
+    // Tanpa returnType eksplisit, pakai void untuk auto-terminator prosedur-style.
+    IrType voidType;
+    voidType.kind = IrTypeKind::Void;
+    TypeId returnTypeId = builder.internType(voidType);
     if (expr->returnType) {
-        const TypeId rt = mapType(
+        returnTypeId = mapType(
             semantic->context().getResolvedType(
                 const_cast<TypeReprNode*>(expr->returnType)),
             expr);
-        if (!failed && rt != InvalidType) {
-            builder.function(func).fnType = rt;
-        }
+        if (failed) return InvalidFunc;
     }
+
+    IrType fnType;
+    fnType.kind = IrTypeKind::FnPtr;
+    fnType.returnType = returnTypeId;
+    fnType.paramTypes = std::move(paramTypeIds);
+    builder.function(func).fnType = builder.internType(std::move(fnType));
 
     const BlockId entry = builder.createBlock(func, "entry",
                                               expr->body->range.begin);

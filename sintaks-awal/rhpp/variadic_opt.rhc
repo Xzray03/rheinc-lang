@@ -24,10 +24,11 @@ prosedur utama() {
     CETAK(7, 8)                -- tampilkan("ada: " , 7, 8, "\n")
 
     -- DAFTAR
-    variabel d0 = DAFTAR()     -- [ ]
-    variabel d1 = DAFTAR(1, 2) -- [ 1, 2 ]
+    variabel d0: larik dari bilangan = DAFTAR()     -- [ ]
+    variabel d1: larik dari bilangan = DAFTAR(1, 2) -- [ 1, 2 ]
 
-    -- Kurung di dalam __VA_OPT__
-    PANGGIL(panggil_aku)       -- panggil_aku()
-    PANGGIL(panggil_aku, 1, 2) -- panggil_aku((1, 2))
+    -- Kurung di dalam __VA_OPT__: memakai builtin variadic tampilkan
+    -- karena fungsi variadik/overload buatan pengguna belum didukung.
+    PANGGIL(tampilkan)       -- tampilkan()
+    PANGGIL(tampilkan, 1, 2) -- tampilkan((1, 2))
 }

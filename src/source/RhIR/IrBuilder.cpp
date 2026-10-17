@@ -1,4 +1,4 @@
-#include "RhAST/IrBuilder.h"
+#include "RhIR/IrBuilder.h"
 
 #include "RhCore/DiagnosticEngine.h"
 
@@ -68,14 +68,14 @@ bool sameConstant(const IrConstant& a, const IrConstant& b) {
 
 struct IrBuilder::Impl {
     Impl(IrModule& moduleRef, DiagnosticEngine& diagnosticsRef,
-         const AstToIrOptions& optionsRef)
+         const IrBuilderOptions& optionsRef)
         : module(moduleRef), diagnostics(diagnosticsRef), options(optionsRef) {}
 
     IrModule& module;
     DiagnosticEngine& diagnostics;
     // BY VALUE: struct kecil (size_t + bool) — referensi ke temporary
     // di call-site tidak boleh menjadi dangling (robustness API).
-    AstToIrOptions options;
+    IrBuilderOptions options;
     bool broken = false;
 
     FuncId insertFunc = InvalidFunc;
@@ -190,12 +190,12 @@ struct IrBuilder::Impl {
 };
 
 IrBuilder::IrBuilder(IrModule& module, DiagnosticEngine& diagnostics,
-                     const AstToIrOptions& options)
+                     const IrBuilderOptions& options)
     : impl_(new Impl(module, diagnostics, options)) {}
 
 IrBuilder::~IrBuilder() { delete impl_; }
 
-const AstToIrOptions& IrBuilder::options() const { return impl_->options; }
+const IrBuilderOptions& IrBuilder::options() const { return impl_->options; }
 
 bool IrBuilder::broken() const { return impl_->broken; }
 
@@ -227,11 +227,12 @@ ConstId IrBuilder::internConstant(const IrConstant& constant) {
 }
 
 FuncId IrBuilder::createFunction(std::string name, TypeId fnType,
-                                 SourceLocation loc) {
+                                   SourceLocation loc, IrFunctionKind kind) {
     if (impl_->broken) return InvalidFunc;
     IrFunction fn;
     fn.name = std::move(name);
     fn.fnType = fnType;
+    fn.kind = kind;
     fn.loc = loc;
     impl_->module.functions.push_back(std::move(fn));
     return static_cast<FuncId>(impl_->module.functions.size() - 1);

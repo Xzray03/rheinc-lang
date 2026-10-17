@@ -96,8 +96,25 @@ ValueId AstToIrTranslator::Impl::lowerArrayIndexWriteValue(
                                  IrOperand::value(value)},
                                 target->range.begin);
         }
+        // Extract level perantara HARUS punya resultType valid agar SSA
+        // value teralokasi (IrBuilder::emit hanya mendaftarkan value bila
+        // resultType != InvalidType). Operand InvalidValue/%v? yang lolos
+        // ke adopt ditolak RhIR (operand id di luar tabel terkait).
+        const TypeId currentType =
+            builder.function(currentFunc).values[current].type;
+        TypeId elemType = InvalidType;
+        if (currentType != InvalidType &&
+            module.types[currentType].kind == IrTypeKind::Array) {
+            elemType = module.types[currentType].elementType;
+        }
+        if (elemType == InvalidType) {
+            error(AstIrErrorCode::MalformedShape, target,
+                  "assignment elemen larik bersarang: tipe elemen perantara "
+                  "tidak dapat ditentukan");
+            return InvalidValue;
+        }
         const ValueId inner = builder.emit(
-            IrOpcode::Extract, InvalidType,
+            IrOpcode::Extract, elemType,
             {IrOperand::value(current), IrOperand::value(idx)},
             target->range.begin);
         const ValueId newInner = writeAt(inner, level + 1);

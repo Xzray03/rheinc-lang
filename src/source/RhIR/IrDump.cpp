@@ -1,8 +1,8 @@
-#include "RhAST/IrDump.h"
+#include "RhIR/IrDump.h"
 
-#include "RhAST/IrInstr.h"
-#include "RhAST/IrModule.h"
-#include "RhAST/IrVersion.h"
+#include "RhIR/IrInstr.h"
+#include "RhIR/IrModule.h"
+#include "RhIR/IrVersion.h"
 
 #include <cctype>
 #include <ostream>
@@ -392,7 +392,6 @@ void dumpIrModule(std::ostream& out, const IrModule& module,
                   const IrDumpOptions& options) {
     IrDumper dumper(out, module, options);
     dumper.run();
-    (void)IrFormatVersion;
 }
 
 } // namespace rhc

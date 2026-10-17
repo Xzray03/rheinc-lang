@@ -175,6 +175,20 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
         // TypeVariable — belum diimplementasi (error jujur di bawah).
         const auto* inst = static_cast<const GenericInstantiationType*>(type);
         const Type* generic = inst->generic;
+        // BuiltinObjectType melapor TypeKind::Builtin tapi BUKAN BuiltinType;
+        // didahulukan sebelum cabang basis-builtin agar tidak salah-cast
+        // (membaca bits/isSigned dari layout BuiltinObjectType = garbage).
+        if (generic && generic->kind() == TypeKind::Builtin &&
+            dynamic_cast<const BuiltinObjectType*>(generic) != nullptr) {
+            // Argumen generik object (T, dsb) dipakai semantic saat type
+            // check; di level layout object dipetakan ke Struct yang sama
+            // seperti BuiltinObjectType tanpa argumen (kasus Builtin di
+            // atas). Member polimorfik (ErrorType/TypeVariable) memakai
+            // default ABI internal (DEVIATIONS.md D-2).
+            const TypeId id = mapType(generic, node);
+            module.typeMapping.map(type, id);
+            return id;
+        }
         if (generic && generic->kind() == TypeKind::Builtin) {
             const auto* gb = static_cast<const BuiltinType*>(generic);
             std::uint32_t bits = gb->bits;

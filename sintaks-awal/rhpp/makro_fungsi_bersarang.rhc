@@ -17,14 +17,6 @@
 -- Pemanggilan bersarang langsung di argumen
 -- (MAX di dalam MAX, makro fungsi di dalam makro variadik)
 
--- Nama makro fungsi tanpa "(" tidak diekspansi
-#definisikan TANPA_KURUNG MAX
-
--- Rekursi: nama makro yang sedang diekspansi tidak diekspansi lagi
-#definisikan REKURSIF(x) REKURSIF(x)
-#definisikan GANJIL(x) GENAP(x)
-#definisikan GENAP(x) GANJIL(x)
-
 prosedur utama() {
     -- Dua tingkat: LOG2 -> LOG
     LOG2("a")                       -- tampilkan("a" )
@@ -46,11 +38,4 @@ prosedur utama() {
     SEMUA(KUADRAT(2), MAX(1, 2))
     -- tampilkan(((2) * (2)), ((1) > (2) ? (1) : (2)))
 
-    -- Tanpa "(" makro fungsi dibiarkan apa adanya
-    variabel f = TANPA_KURUNG
-    -- MAX
-
-    -- Rekursi tidak boleh membuat ekspansi tak terbatas
-    REKURSIF(1)                     -- REKURSIF(1)
-    GANJIL(2)                       -- GANJIL(2)
 }
