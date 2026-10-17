@@ -181,7 +181,7 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
                           std::move(operands), stmt->range.begin);
 
     // Konteks break untuk "berhenti" di dalam kasus.
-    loopStack.push_back({InvalidBlock, joinB});
+    loopStack.push_back({InvalidBlock, joinB, {}});
 
     // Lower tiap kasus berurutan. Pred join = kasus yang Br-nya
     // mengarah ke join (kasus terakhir dari run fall-through / bawaan).

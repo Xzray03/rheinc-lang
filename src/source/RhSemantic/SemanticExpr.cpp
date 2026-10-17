@@ -554,7 +554,7 @@ Type* SemanticAnalyzer::analyzeCall(CallExpr* expr) {
                 error(valueArguments[i]->range, "argument type mismatch");
             }
         }
-        if (getenv("RHC_DEBUG_TRAIT")) {
+        if (getenv("RHEINC_DEBUG_TRAIT")) {
             fprintf(stderr, "[trait] fn constraints=%zu subs=%zu typeParams=%zu\n",
                     functionType->constraints.size(), substitutions.size(),
                     functionType->typeParams.size());

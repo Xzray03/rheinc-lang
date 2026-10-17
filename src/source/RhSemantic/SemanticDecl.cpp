@@ -298,7 +298,7 @@ void SemanticAnalyzer::collectGeneric(GenericDecl* decl) {
     } else if (auto* e = dynamic_cast<EnumDecl*>(decl->declaration)) {
         constraintClauses = &e->constraints;
     }
-    if (getenv("RHC_DEBUG_TRAIT")) {
+    if (getenv("RHEINC_DEBUG_TRAIT")) {
         fprintf(stderr, "[generic] nested constraints=%zu typeParams=%zu\n",
                 constraintClauses ? constraintClauses->size() : 99,
                 decl->typeParameters.size());

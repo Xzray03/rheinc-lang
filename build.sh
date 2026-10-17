@@ -53,6 +53,7 @@ mkdir -p "$BUILD_DIR/bin"
 # --with-tests is passed explicitly.
 modules=(
   RhIR
+  RhOptimizer
   RhLexer
   RhPreprocessor
   RhParser
@@ -76,6 +77,7 @@ if [[ -f "$final_source" ]]; then
   "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
     "$final_source" \
     "$BUILD_DIR/libs/rheinc_ast.a" \
+    "$BUILD_DIR/libs/rheinc_optimizer.a" \
     "$BUILD_DIR/libs/rheinc_ir.a" \
     "$BUILD_DIR/libs/rheinc_semantic.a" \
     "$BUILD_DIR/libs/rheinc_parser.a" \

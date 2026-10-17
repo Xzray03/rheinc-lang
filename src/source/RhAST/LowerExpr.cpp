@@ -29,15 +29,14 @@ std::vector<IrOperand> intOperands(std::uint64_t value) {
 
 // Parser tidak membedakan literal desimal: keduanya IntegerLiteralExpr
 // dengan teks mentah. Deteksi float lewat '.' / exponent, lalu decode
-// ke bit pattern sesuai lebar tipe hasil (f32/f64).
+// ke bit pattern double 64-bit (desimal = double selalu).
 bool looksLikeFloat(const std::string& text) {
     return text.find('.') != std::string::npos ||
            text.find('e') != std::string::npos ||
            text.find('E') != std::string::npos;
 }
 
-bool parseFloatText(const std::string& text, std::uint64_t& bitsOut,
-                    bool isDouble) {
+bool parseFloatText(const std::string& text, std::uint64_t& bitsOut) {
     std::string cleaned;
     cleaned.reserve(text.size());
     for (char ch : text) {
@@ -45,17 +44,12 @@ bool parseFloatText(const std::string& text, std::uint64_t& bitsOut,
     }
     try {
         std::size_t pos = 0;
-        if (isDouble) {
+        {
+            // desimal = double 64-bit SELALU; float 32-bit tidak ada.
             const double value = std::stod(cleaned, &pos);
             if (pos != cleaned.size()) return false;
             std::uint64_t bits = 0;
             static_assert(sizeof(bits) >= sizeof(value), "");
-            std::memcpy(&bits, &value, sizeof(value));
-            bitsOut = bits;
-        } else {
-            const float value = std::stof(cleaned, &pos);
-            if (pos != cleaned.size()) return false;
-            std::uint32_t bits = 0;
             std::memcpy(&bits, &value, sizeof(value));
             bitsOut = bits;
         }
@@ -504,23 +498,19 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
             const_cast<TypeId&>(resultType) = builder.internType(defInt);
         }
         if (looksLikeFloat(node->text)) {
-            const bool isDouble =
-                resultType != InvalidType &&
-                module.types[resultType].sizeBytes == 8;
             std::uint64_t bits = 0;
-            if (!parseFloatText(node->text, bits, isDouble)) {
+            if (!parseFloatText(node->text, bits)) {
                 error(AstIrErrorCode::ConstEncodeFailed, expr,
                       "literal desimal tidak dapat di-parse: '" +
                       node->text + "'");
                 return InvalidValue;
             }
+            // desimal = double 64-bit SELALU: 2 ImmV (lo, hi).
             std::vector<IrOperand> operands;
             operands.push_back(IrOperand::imm(
                 static_cast<std::uint32_t>(bits & 0xFFFFFFFFu)));
-            if (isDouble) {
-                operands.push_back(IrOperand::imm(
-                    static_cast<std::uint32_t>(bits >> 32)));
-            }
+            operands.push_back(IrOperand::imm(
+                static_cast<std::uint32_t>(bits >> 32)));
             return builder.emit(IrOpcode::ConstFloat, resultType,
                                 std::move(operands), expr->range.begin);
         }

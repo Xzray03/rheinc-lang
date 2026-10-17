@@ -117,17 +117,47 @@ public:
     // pernah dihapus meski SSA value-nya tak terpakai.
     IrEditorReport removeDeadInstrs(FuncId func, std::uint32_t& removedCount);
 
-    // Menghapus block yang TIDAK TERJANGKAU dari block entry (blocks[0])
-    // lewat rantai succs, beserta seluruh instruksi yang hanya ter-urut
-    // di block-block itu, lalu memadatkan tabel blocks/instrs/values dan
-    // me-remap SEMUA referensi function-lokal: preds/succs, operand
-    // BlockV (target cabang), payload fn.values, operand ValueV,
-    // fn.params, dan fn.locals.
-    //
+    // UnreachableBlockElim LENGKAP, iterasi internal sampai stabil:
+    //   1) Fold CondBr ber-kondisi-konstan (ConstBool/ImmV) menjadi Br
+    //      ke target terambil; edge ke target terbuang dihapus dari
+    //      succs/preds DAN incoming phi-nya (operand phi dipetakan per
+    //      posisi preds).
+    //   2) Jangkauan dari block entry (blocks[0]) lewat succs; block
+    //      tak terjangkau beserta instruksinya dibuang.
+    //   3) Orphan rescue: def instruksi yang dirujuk operand instruksi
+    //      HIDUP tidak dibuang (tetap di tabel, tak ter-urut) agar tak
+    //      ada ValueV menggantung.
+    //   4) Padatkan blocks/instrs/values; remap preds/succs, operand
+    //      BlockV, payload fn.values, operand ValueV, params, locals.
     // Aman tanpa renumber antar-fungsi: BlockId/InstrId/ValueId lokal
     // per fungsi. Block entry sendiri selamat oleh definisi.
+    // foldedCondBr menerima jumlah CondBr konstan yang ter-fold menjadi
+    // Br (mutasi IR nyata walau tanpa block terhapus) — pass wajib
+    // melaporkan changed bila removedBlocks > 0 ATAU foldedCondBr > 0.
     IrEditorReport removeUnreachableBlocks(FuncId func,
-                                           std::uint32_t& removedBlocks);
+                                           std::uint32_t& removedBlocks,
+                                           std::uint32_t& foldedCondBr);
+
+    // Menyisipkan instruksi baru tepat SEBELUM posIndex dalam urutan
+    // block. Instruksi ditambahkan di UJUNG tabel instruksi (InstrId
+    // baru; tak ada id lama yang berubah) dan SSA value terdaftar bila
+    // resultType valid. Index-preserving penuh: tak ada instruksi/value
+    // lama yang berpindah, hanya APPEND + sisip urutan block (lokal).
+    IrEditorReport insertInstrBefore(FuncId func, BlockId block,
+                                     std::size_t posIndex,
+                                     const IrInstr& instr, ValueId& outValue);
+
+    // Menambah block kosong di ujung tabel block fungsi (BlockId baru;
+    // index-preserving karena BlockId function-lokal). Dipakai pass yang
+    // butuh CFG surgery: clone block (loop unroll), guard, remainder.
+    IrEditorReport appendBlock(FuncId func, BlockId& outBlock);
+
+    // Menambah operand di ujung instruksi (index-preserving: hanya
+    // push_back ke operands; panjang operands instruksi lain tak berubah).
+    // Dipakai pass yang perlu menambah pasangan incoming phi [BlockV,
+    // ValueV] tanpa membuat instruksi baru.
+    IrEditorReport appendOperandAt(FuncId func, BlockId block,
+                                   std::size_t posIndex, IrOperand operand);
 
     // --- utilitas ---
 

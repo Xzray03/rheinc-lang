@@ -5,6 +5,11 @@
 
 namespace rhc {
 
+namespace {
+// Bump counter epoch module — sinyal mutasi untuk OptimizerManager.
+void touchModuleEpoch(IrModule& m) { m.epoch += 1; }
+} // namespace
+
 bool irOpIsPureForDce(IrOpcode op) {
     switch (op) {
     case IrOpcode::ConstInt:
@@ -117,6 +122,7 @@ IrEditorReport IrEditor::replaceInstr(FuncId func, BlockId block,
     const std::uint32_t oldEpoch = target->epoch;
     *target = instr;
     target->epoch = oldEpoch + 1;
+    touchModuleEpoch(*module_);
     return afterMutation("replaceInstr");
 }
 
@@ -133,6 +139,7 @@ IrEditorReport IrEditor::replaceOperandAt(FuncId func, BlockId block,
     }
     target->operands[operandIndex] = operand;
     target->epoch += 1;
+    touchModuleEpoch(*module_);
     return afterMutation("replaceOperandAt");
 }
 
@@ -155,6 +162,7 @@ IrEditorReport IrEditor::setInstrResultType(FuncId func, BlockId block,
     }
     target->resultType = type;
     target->epoch += 1;
+    touchModuleEpoch(*module_);
     return afterMutation("setInstrResultType");
 }
 
@@ -173,6 +181,7 @@ IrEditorReport IrEditor::replaceConst(ConstId id,
                         "replaceConst menuntut kind dan type yang sama"}};
     }
     target = constant;
+    touchModuleEpoch(*module_);
     return afterMutation("replaceConst");
 }
 
@@ -188,6 +197,7 @@ IrEditorReport IrEditor::appendConst(const IrConstant& constant,
     }
     outId = static_cast<ConstId>(module_->constants.size());
     module_->constants.push_back(constant);
+    touchModuleEpoch(*module_);
     return afterMutation("appendConst");
 }
 
@@ -257,6 +267,7 @@ IrEditorReport IrEditor::compactFunctionTables(
         }
     }
     fn.epoch += 1;
+    touchModuleEpoch(*module_);
     return {true, {IrEditorErrorCode::None, {}}};
 }
 
@@ -315,12 +326,14 @@ IrEditorReport IrEditor::removeDeadInstrs(FuncId func,
         return {true, {IrEditorErrorCode::None, {}}};
     }
     compactFunctionTables(fn, dead);
+    touchModuleEpoch(*module_);
     return afterMutation("removeDeadInstrs");
 }
 
 IrEditorReport IrEditor::removeUnreachableBlocks(
-    FuncId func, std::uint32_t& removedBlocks) {
+    FuncId func, std::uint32_t& removedBlocks, std::uint32_t& foldedCondBr) {
     removedBlocks = 0;
+    foldedCondBr = 0;
     IrEditorReport report;
     if (module_ == nullptr) {
         return {false, {IrEditorErrorCode::NullModule, "modul null"}};
@@ -334,79 +347,313 @@ IrEditorReport IrEditor::removeUnreachableBlocks(
         return {true, {IrEditorErrorCode::None, {}}};
     }
 
-    // 1) Jangkauan dari block entry (blocks[0]) lewat rantai succs.
-    std::vector<bool> reachable(fn.blocks.size(), false);
-    std::vector<BlockId> stack{0};
-    reachable[0] = true;
-    while (!stack.empty()) {
-        const BlockId cur = stack.back();
-        stack.pop_back();
-        if (cur >= fn.blocks.size()) continue;
-        for (const BlockId nxt : fn.blocks[cur].succs) {
-            if (nxt < reachable.size() && !reachable[nxt]) {
-                reachable[nxt] = true;
-                stack.push_back(nxt);
+    // Resolusi kondisi konstanta (ConstBool def atau ImmV) untuk
+    // CondBr-fold; mengembalikan true + nilai bila konstan.
+    const auto constBoolOf = [&fn](const IrOperand& op, bool& out) -> bool {
+        if (op.kind == IrOperandKind::ImmV) {
+            out = op.id != 0;
+            return true;
+        }
+        if (op.kind != IrOperandKind::ValueV ||
+            op.id >= fn.values.size()) {
+            return false;
+        }
+        const IrValue& v = fn.values[op.id];
+        if (v.kind != IrValue::Kind::Instr ||
+            v.payload >= fn.instrs.size()) {
+            return false;
+        }
+        const IrInstr& def = fn.instrs[v.payload];
+        if (def.op != IrOpcode::ConstBool || def.operands.size() != 1 ||
+            def.operands[0].kind != IrOperandKind::ImmV) {
+            return false;
+        }
+        out = def.operands[0].id != 0;
+        return true;
+    };
+
+    // 1) Iterasi internal sampai stabil: fold CondBr konstan (+ perbaikan
+    //    preds & incoming phi target yang kehilangan edge), lalu hitung
+    //    jangkauan dan buang block tak terjangkau.
+    bool progress = true;
+    while (progress) {
+        progress = false;
+
+        // 1a) CondBr dengan kondisi konstan -> Br ke target terambil.
+        for (BlockId cur = 0; cur < fn.blocks.size(); ++cur) {
+            IrBlock& blk = fn.blocks[cur];
+            if (blk.insts.empty()) continue;
+            const InstrId termId = blk.insts.back();
+            if (termId >= fn.instrs.size()) continue;
+            IrInstr& term = fn.instrs[termId];
+            if (term.op != IrOpcode::CondBr ||
+                term.operands.size() != 3 ||
+                term.operands[1].kind != IrOperandKind::BlockV ||
+                term.operands[2].kind != IrOperandKind::BlockV) {
+                continue;
+            }
+            bool cond = false;
+            if (!constBoolOf(term.operands[0], cond)) continue;
+            const BlockId taken =
+                cond ? term.operands[1].id : term.operands[2].id;
+            const BlockId untaken =
+                cond ? term.operands[2].id : term.operands[1].id;
+            // Instruksi terminator menjadi Br target terambil.
+            term.op = IrOpcode::Br;
+            term.operands = {IrOperand::block(taken)};
+            term.epoch += 1;
+            foldedCondBr += 1;
+            // Succs block ini hanya target terambil.
+            blk.succs.clear();
+            blk.succs.push_back(taken);
+            blk.epoch += 1;
+            // Target terambil: pastikan preds memuat cur (sudah ada edge).
+            // Target terbuang: hapus edge cur -> perbaiki preds DAN
+            // incoming phi (operand phi dipetakan per posisi preds).
+            if (untaken < fn.blocks.size() && untaken != taken) {
+                IrBlock& ub = fn.blocks[untaken];
+                bool hadEdge = false;
+                for (std::size_t i = 0; i < ub.preds.size(); ++i) {
+                    if (ub.preds[i] == cur) {
+                        ub.preds.erase(ub.preds.begin() + i);
+                        hadEdge = true;
+                        break;
+                    }
+                }
+                if (hadEdge) {
+                    // Incoming phi dikodekan sebagai PASANGAN
+                    // [BlockV sumber, ValueV]: buang setiap pasangan yang
+                    // BlockV-nya == cur.
+                    for (const InstrId piid : ub.insts) {
+                        if (piid >= fn.instrs.size()) continue;
+                        IrInstr& pinstr = fn.instrs[piid];
+                        if (pinstr.op != IrOpcode::Phi) continue;
+                        std::vector<IrOperand> keptOps;
+                        keptOps.reserve(pinstr.operands.size());
+                        for (std::size_t i = 0; i + 1 < pinstr.operands.size();
+                             i += 2) {
+                            const bool drop =
+                                pinstr.operands[i].kind ==
+                                    IrOperandKind::BlockV &&
+                                pinstr.operands[i].id == cur;
+                            if (!drop) {
+                                keptOps.push_back(pinstr.operands[i]);
+                                keptOps.push_back(pinstr.operands[i + 1]);
+                            }
+                        }
+                        pinstr.operands = std::move(keptOps);
+                        pinstr.epoch += 1;
+                    }
+                    ub.epoch += 1;
+                }
+            }
+            progress = true;
+        }
+
+        // 1b) Jangkauan dari block entry (blocks[0]) lewat succs.
+        std::vector<bool> reachable(fn.blocks.size(), false);
+        std::vector<BlockId> stack{0};
+        reachable[0] = true;
+        while (!stack.empty()) {
+            const BlockId cur = stack.back();
+            stack.pop_back();
+            if (cur >= fn.blocks.size()) continue;
+            for (const BlockId nxt : fn.blocks[cur].succs) {
+                if (nxt < reachable.size() && !reachable[nxt]) {
+                    reachable[nxt] = true;
+                    stack.push_back(nxt);
+                }
             }
         }
-    }
-    for (std::uint32_t i = 0; i < fn.blocks.size(); ++i) {
-        if (!reachable[i]) removedBlocks += 1;
-    }
-    if (removedBlocks == 0) {
-        return {true, {IrEditorErrorCode::None, {}}};
-    }
-
-    // 2) Tandai instruksi mati: ter-urut di block yang tak terjangkau.
-    std::vector<bool> dead(fn.instrs.size(), false);
-    for (std::uint32_t bi = 0; bi < fn.blocks.size(); ++bi) {
-        if (reachable[bi]) continue;
-        for (const InstrId iid : fn.blocks[bi].insts) {
-            if (iid < dead.size()) dead[iid] = true;
+        std::uint32_t roundRemoved = 0;
+        for (std::uint32_t i = 0; i < fn.blocks.size(); ++i) {
+            if (!reachable[i]) roundRemoved += 1;
         }
-    }
+        if (roundRemoved == 0) continue;  // stabil pada putaran ini
+        progress = true;
+        removedBlocks += roundRemoved;
 
-    // 3) Padatkan tabel block; bangun peta BlockId lama -> baru.
-    std::vector<BlockId> bmap(fn.blocks.size(), InvalidBlock);
-    std::vector<IrBlock> keptBlocks;
-    keptBlocks.reserve(fn.blocks.size() - removedBlocks);
-    for (std::uint32_t i = 0; i < fn.blocks.size(); ++i) {
-        if (!reachable[i]) continue;
-        bmap[i] = static_cast<BlockId>(keptBlocks.size());
-        keptBlocks.push_back(std::move(fn.blocks[i]));
-    }
-    fn.blocks = std::move(keptBlocks);
-    for (IrBlock& blk : fn.blocks) {
-        std::vector<BlockId> kept;
-        for (const BlockId p : blk.preds) {
-            if (p < bmap.size() && bmap[p] != InvalidBlock) {
-                kept.push_back(bmap[p]);
+        // 1c) Tandai instruksi mati: ter-urut di block tak terjangkau.
+        std::vector<bool> dead(fn.instrs.size(), false);
+        for (std::uint32_t bi = 0; bi < fn.blocks.size(); ++bi) {
+            if (reachable[bi]) continue;
+            for (const InstrId iid : fn.blocks[bi].insts) {
+                if (iid < dead.size()) dead[iid] = true;
             }
         }
-        blk.preds = std::move(kept);
-        kept.clear();
-        for (const BlockId s : blk.succs) {
-            if (s < bmap.size() && bmap[s] != InvalidBlock) {
-                kept.push_back(bmap[s]);
+
+        // 1c-2) Trim incoming phi pada block SELAMAT sebelum orphan
+        // rescue: operand phi dipetakan per posisi preds; indeks yang
+        // preds-nya tak terjangkau dibuang (urutan predSurvived dipakai
+        // ulang oleh pemadatan di 1e).
+        for (std::uint32_t bi = 0; bi < fn.blocks.size(); ++bi) {
+            if (!reachable[bi]) continue;
+            IrBlock& blk = fn.blocks[bi];
+            std::vector<std::uint8_t> survived(blk.preds.size(), 0);
+            std::size_t nSurvived = 0;
+            for (std::size_t i = 0; i < blk.preds.size(); ++i) {
+                if (blk.preds[i] < reachable.size() &&
+                    reachable[blk.preds[i]]) {
+                    survived[i] = 1;
+                    ++nSurvived;
+                }
+            }
+            if (nSurvived == blk.preds.size()) continue;
+            for (const InstrId piid : blk.insts) {
+                if (piid >= fn.instrs.size()) continue;
+                IrInstr& pinstr = fn.instrs[piid];
+                if (pinstr.op != IrOpcode::Phi ||
+                    pinstr.operands.size() % 2 != 0) {
+                    continue;
+                }
+                std::vector<IrOperand> keptOps;
+                keptOps.reserve(pinstr.operands.size());
+                for (std::size_t i = 0; i + 1 < pinstr.operands.size();
+                     i += 2) {
+                    const IrOperand& src = pinstr.operands[i];
+                    const bool keep =
+                        src.kind == IrOperandKind::BlockV &&
+                        src.id < reachable.size() && reachable[src.id];
+                    if (keep) {
+                        keptOps.push_back(pinstr.operands[i]);
+                        keptOps.push_back(pinstr.operands[i + 1]);
+                    }
+                }
+                pinstr.operands = std::move(keptOps);
+                pinstr.epoch += 1;
             }
         }
-        blk.succs = std::move(kept);
-        blk.epoch += 1;
-    }
 
-    // 4) Remap operand BlockV (target cabang / incoming phi) pada
-    //    instruksi yang selamat — instruksi di block mati ikut terbuang
-    //    oleh compactFunctionTables.
-    for (IrInstr& instr : fn.instrs) {
-        for (IrOperand& op : instr.operands) {
-            if (op.kind == IrOperandKind::BlockV &&
-                op.id < bmap.size() && bmap[op.id] != InvalidBlock) {
-                op.id = bmap[op.id];
+        // 1d) Catatan invariant: IR mewajibkan SEMUA instruksi ter-urut
+        // di sebuah block (structural verify). Setelah trim pasangan phi
+        // yang benar, tidak ada instruksi hidup yang boleh merujuk value
+        // dari block tak terjangkau (SSA: use terdominasi def; satu-satunya
+        // pengecualian, phi, sudah ditangani di 1a/1c-2).
+
+        // 1e) Padatkan tabel block; remap BlockId + operand BlockV.
+        std::vector<BlockId> bmap(fn.blocks.size(), InvalidBlock);
+        std::vector<IrBlock> keptBlocks;
+        keptBlocks.reserve(fn.blocks.size() - roundRemoved);
+        for (std::uint32_t i = 0; i < fn.blocks.size(); ++i) {
+            if (!reachable[i]) continue;
+            bmap[i] = static_cast<BlockId>(keptBlocks.size());
+            keptBlocks.push_back(std::move(fn.blocks[i]));
+        }
+        fn.blocks = std::move(keptBlocks);
+        for (IrBlock& blk : fn.blocks) {
+            std::vector<BlockId> kept;
+            for (const BlockId p : blk.preds) {
+                if (p < bmap.size() && bmap[p] != InvalidBlock) {
+                    kept.push_back(bmap[p]);
+                }
+            }
+            blk.preds = std::move(kept);
+            kept.clear();
+            for (const BlockId sx : blk.succs) {
+                if (sx < bmap.size() && bmap[sx] != InvalidBlock) {
+                    kept.push_back(bmap[sx]);
+                }
+            }
+            blk.succs = std::move(kept);
+            blk.epoch += 1;
+        }
+        for (IrInstr& instr : fn.instrs) {
+            for (IrOperand& op : instr.operands) {
+                if (op.kind == IrOperandKind::BlockV &&
+                    op.id < bmap.size() && bmap[op.id] != InvalidBlock) {
+                    op.id = bmap[op.id];
+                }
             }
         }
+
+        compactFunctionTables(fn, dead);
+        // Lanjut putaran berikutnya: fold CondBr baru bisa membuka
+        // ketak-terjangkauan baru.
     }
 
-    compactFunctionTables(fn, dead);
+    // Epoch bump HANYA bila benar-benar ada mutasi: fold CondBr atau
+    // penghapusan block (change-detection net OptimizerManager bergantung
+    // pada invariant: epochDelta > 0 <-> ada mutasi nyata).
+    if (foldedCondBr > 0 || removedBlocks > 0) {
+        touchModuleEpoch(*module_);
+    }
     return afterMutation("removeUnreachableBlocks");
+}
+
+IrEditorReport IrEditor::insertInstrBefore(FuncId func, BlockId block,
+                                           std::size_t posIndex,
+                                           const IrInstr& instr,
+                                           ValueId& outValue) {
+    outValue = InvalidValue;
+    IrEditorReport report;
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    if (func == InvalidFunc || func >= module_->functions.size()) {
+        return {false, {IrEditorErrorCode::InvalidFunction,
+                        "FuncId di luar tabel fungsi"}};
+    }
+    IrFunction& fn = module_->functions[func];
+    if (block == InvalidBlock || block >= fn.blocks.size()) {
+        return {false, {IrEditorErrorCode::InvalidBlock,
+                        "BlockId di luar tabel block fungsi"}};
+    }
+    IrBlock& blk = fn.blocks[block];
+    if (posIndex > blk.insts.size()) {
+        return {false, {IrEditorErrorCode::InvalidInstrPosition,
+                        "posIndex di luar urutan instruksi block"}};
+    }
+    if (instr.resultType != InvalidType &&
+        instr.resultType >= module_->types.size()) {
+        return {false, {IrEditorErrorCode::InvalidTypeRef,
+                        "resultType merujuk di luar tabel tipe"}};
+    }
+    // Append tabel instruksi: InstrId baru di ujung.
+    const InstrId newId = static_cast<InstrId>(fn.instrs.size());
+    fn.instrs.push_back(instr);
+    blk.insts.insert(blk.insts.begin() + posIndex, newId);
+    blk.epoch += 1;
+    // Daftarkan SSA value bila instruksi menghasilkan nilai.
+    if (instr.resultType != InvalidType) {
+        IrValue v;
+        v.kind = IrValue::Kind::Instr;
+        v.payload = newId;
+        v.type = instr.resultType;
+        outValue = static_cast<ValueId>(fn.values.size());
+        fn.values.push_back(std::move(v));
+    }
+    fn.epoch += 1;
+    return afterMutation("insertInstrBefore");
+}
+
+IrEditorReport IrEditor::appendBlock(FuncId func, BlockId& outBlock) {
+    outBlock = InvalidBlock;
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    if (func == InvalidFunc || func >= module_->functions.size()) {
+        return {false, {IrEditorErrorCode::InvalidFunction,
+                        "FuncId di luar tabel fungsi"}};
+    }
+    IrFunction& fn = module_->functions[func];
+    IrBlock blk;
+    outBlock = static_cast<BlockId>(fn.blocks.size());
+    fn.blocks.push_back(std::move(blk));
+    fn.epoch += 1;
+    touchModuleEpoch(*module_);
+    return afterMutation("appendBlock");
+}
+
+IrEditorReport IrEditor::appendOperandAt(FuncId func, BlockId block,
+                                         std::size_t posIndex,
+                                         IrOperand operand) {
+    IrEditorReport report;
+    IrInstr* target = locateInstr(func, block, posIndex, report);
+    if (target == nullptr) return report;
+    target->operands.push_back(operand);
+    target->epoch += 1;
+    touchModuleEpoch(*module_);
+    return afterMutation("appendOperandAt");
 }
 
 IrEditorReport IrEditor::validate(IrVerifyLevel level,

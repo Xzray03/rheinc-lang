@@ -129,9 +129,10 @@ ValueId emitDefaultFromIrType(AstToIrTranslator::Impl& self,
         return self.builder.emit(IrOpcode::ConstInt, typeId, std::move(ops), loc);
     }
     case IrTypeKind::Float: {
+        // desimal = double 64-bit SELALU: 2 ImmV (lo, hi).
         std::vector<IrOperand> ops;
         ops.push_back(IrOperand::imm(0));
-        if (t.sizeBytes == 8) ops.push_back(IrOperand::imm(0));
+        ops.push_back(IrOperand::imm(0));
         return self.builder.emit(IrOpcode::ConstFloat, typeId, std::move(ops), loc);
     }
     case IrTypeKind::Pointer:
@@ -203,8 +204,9 @@ ValueId AstToIrTranslator::Impl::emitDefaultValue(TypeId typeId,
             return builder.emit(IrOpcode::ConstBool, typeId,
                                 {IrOperand::imm(0)}, loc);
         case BuiltinTypeKind::Desimal:
+            // desimal = double 64-bit SELALU: 2 ImmV (lo, hi).
             return builder.emit(IrOpcode::ConstFloat, typeId,
-                                {IrOperand::imm(0)}, loc);
+                                {IrOperand::imm(0), IrOperand::imm(0)}, loc);
         case BuiltinTypeKind::Teks: {
             const ConstId empty = encodeStringLiteral("", typeId, nullptr);
             return builder.emit(IrOpcode::ConstString, typeId,

@@ -15,11 +15,11 @@
 // Sementara sederhana; driver RhMain resmi akan mengambil alih dengan
 // opsi lengkap (linking antar modul, output binary, dsb).
 //
-// usage: rheinc [--dump] [--opt|-O] [--target <target-id>]
+// usage: rheinc [--dump] [-opt] [--target <target-id>]
 //               [-o <out.txt>] <file.rhc|.rhh> [...]
 //   --dump            cetak IR final (stdout, atau ke -o bila ada)
-//   --opt / -O        jalankan pipeline optimizer sebelum finalize
-//   -O2               seperti -O, iterasi pass sampai konvergen
+//   -opt              jalankan optimizer (rantai 5 pass sampai
+//                     konvergen) sebelum finalize
 //   --target <id>     override target ABI (default x86_64-linux-sysv;
 //                     target tak dikenal -> error)
 //   -o <out.txt>      tulis output --dump ke file (wajib bareng --dump)
@@ -32,14 +32,19 @@
 #include "RhCore/LangOptions.h"
 #include "RhCore/ModuleKind.h"
 #include "RhCore/SourceManager.h"
-#include "RhIR/DeadCodeElim.h"
+#include "RhOptimizer/DeadCodeElim.h"
+#include "RhOptimizer/Licm.h"
+#include "RhOptimizer/LoopUnroll.h"
 #include "RhIR/FinalIr.h"
 #include "RhIR/IrLinker.h"
 #include "RhIR/IrManager.h"
 #include "RhIR/IrModule.h"
-#include "RhIR/OptimizerManager.h"
-#include "RhIR/PeepholeConstFold.h"
-#include "RhIR/UnreachableBlockElim.h"
+#include "RhOptimizer/ConstantPropagation.h"
+#include "RhOptimizer/Cse.h"
+#include "RhOptimizer/OptimizerManager.h"
+#include "RhOptimizer/PeepholeConstFold.h"
+#include "RhOptimizer/StrengthReduction.h"
+#include "RhOptimizer/UnreachableBlockElim.h"
 #include "RhIR/IrVerifier.h"
 #include "RhLexer/IdentifierTable.h"
 #include "RhParser/Parser.h"
@@ -61,7 +66,6 @@ namespace {
 struct DriverOptions {
     bool dump = false;
     bool opt = false;
-    bool optFixpoint = false;
     std::optional<std::string> target;
     std::optional<std::string> output;
     std::vector<std::string> inputs;
@@ -156,9 +160,20 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
     if (opts.opt) {
         OptimizerOptions optimizerOptions;
         optimizerOptions.verifyEachPass = true;
-        optimizerOptions.iterateToFixpoint = opts.optFixpoint;
+        optimizerOptions.iterateToFixpoint = true;
         OptimizerManager optimizer(std::move(optimizerOptions));
+        // const-prop dulu: propagasi konstanta ke operand membuka
+        // peluang fold; iterasi fixpoint mengulang rantai sampai stabil.
+        optimizer.registerPass(std::make_unique<ConstantPropagation>());
         optimizer.registerPass(std::make_unique<PeepholeConstFold>());
+        optimizer.registerPass(std::make_unique<StrengthReduction>());
+        optimizer.registerPass(std::make_unique<CommonSubexpressionElimination>());
+        // LICM diaktifkan kembali: dua "bug" yang dulu memicu penonaktifan
+        // ((A) dominance violation, (B) segfault) terbukti artefak binary
+        // stale saat build paralel — corpus build penuh selalu lulus 76/10
+        // x 3 mode dengan LICM terdaftar. Debug: RHEINC_DEBUG_LICM=1.
+        optimizer.registerPass(std::make_unique<LoopInvariantCodeMotion>());
+        optimizer.registerPass(std::make_unique<LoopUnroll>());
         optimizer.registerPass(std::make_unique<DeadCodeElim>());
         optimizer.registerPass(std::make_unique<UnreachableBlockElim>());
         OptimizerReport optimizerReport = optimizer.runAll(irManager.module());
@@ -236,11 +251,8 @@ int main(int argc, char** argv) {
         const std::string arg = argv[i];
         if (arg == "--dump") {
             opts.dump = true;
-        } else if (arg == "--opt" || arg == "-O") {
+        } else if (arg == "-opt") {
             opts.opt = true;
-        } else if (arg == "-O2") {
-            opts.opt = true;
-            opts.optFixpoint = true;
         } else if (arg == "--target") {
             if (++i >= argc) {
                 std::cerr << "rheinc: --target butuh nilai\n";
@@ -254,7 +266,7 @@ int main(int argc, char** argv) {
             }
             opts.output = argv[i];
         } else if (!arg.empty() && arg[0] == '-') {
-            std::cerr << "usage: rheinc [--dump] [--opt|-O] "
+            std::cerr << "usage: rheinc [--dump] [-opt] "
                       << "[--target <id>] [-o <out.txt>] "
                       << "<file.rhc|.rhh> [...]\n";
             return 2;
@@ -264,7 +276,7 @@ int main(int argc, char** argv) {
     }
     if (opts.inputs.empty() ||
         (opts.output.has_value() && !opts.dump)) {
-        std::cerr << "usage: rheinc [--dump] [--opt|-O] "
+        std::cerr << "usage: rheinc [--dump] [-opt] "
                   << "[--target <id>] [-o <out.txt>] "
                   << "<file.rhc|.rhh> [...]\n";
         std::cerr << "rheinc: -o hanya valid bersama --dump\n";

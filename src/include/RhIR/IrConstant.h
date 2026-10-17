@@ -16,7 +16,7 @@ enum class IrConstantKind : std::uint8_t {
     String,     // bytes UTF-8 + length eksplisit; null-terminator
                 // opsional/terpisah (keputusan backend)
     BigInt,     // byte array, little-endian, two's complement
-    FloatBits,  // bit pattern canonical (f32/f64, lebar dari type);
+    FloatBits,  // bit pattern canonical IEEE-754 double 64-bit (desimal);
                 // teks desimal asli disimpan opsional sebagai metadata
                 // debug di luar struktur ini
     ArrayBlob,  // data rata (blob) array literal homogen konstan;

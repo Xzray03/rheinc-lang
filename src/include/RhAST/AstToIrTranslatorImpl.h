@@ -71,6 +71,10 @@ struct AstToIrTranslator::Impl {
     struct LoopContext {
         BlockId header;   // lanjut -> br header
         BlockId exit;     // berhenti -> br exit
+        // Situs lanjut: (block sumber, env vars saat lanjut) — dipakai
+        // untuk melengkapi incoming phi loop-carried agar invariant
+        // dominasi SSA terpenuhi (edge continue melewati rebind).
+        std::vector<std::pair<BlockId, std::unordered_map<std::string, ValueId>>> continues;
     };
     std::vector<LoopContext> loopStack;
 

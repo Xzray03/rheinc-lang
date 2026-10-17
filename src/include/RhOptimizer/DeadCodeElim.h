@@ -1,6 +1,6 @@
 #pragma once
 
-#include "RhIR/OptimizerManager.h"
+#include "RhOptimizer/OptimizerManager.h"
 
 namespace rhc {
 

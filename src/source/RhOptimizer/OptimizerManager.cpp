@@ -1,4 +1,4 @@
-#include "RhIR/OptimizerManager.h"
+#include "RhOptimizer/OptimizerManager.h"
 
 #include "RhIR/IrEditor.h"
 #include "RhIR/IrModule.h"
@@ -53,7 +53,26 @@ OptimizerReport OptimizerManager::runPass(std::string_view name,
         report.errorMessage = "pass tidak terdaftar: " + std::string(name);
         return report;
     }
+    const std::uint64_t epochBefore = module.epoch;
     IrPassResult result = it->second->run(module);
+    result.epochDelta = module.epoch - epochBefore;
+    // Change-detection net: IrModule::epoch bumped oleh setiap mutasi
+    // IrEditor — klaim `changed` pass harus konsisten dengan kenyataan.
+    if (result.changed && result.epochDelta == 0) {
+        report.results.emplace_back(std::string(name), result);
+        report.errorMessage = "pass '" + std::string(name) +
+            "' melaporkan changed=true tetapi tidak ada mutasi IR "
+            "(epoch delta 0) — klaim changed tidak jujur";
+        return report;
+    }
+    if (!result.changed && result.epochDelta != 0) {
+        report.results.emplace_back(std::string(name), result);
+        report.errorMessage = "pass '" + std::string(name) +
+            "' mengubah IR (epoch delta " +
+            std::to_string(result.epochDelta) +
+            ") tanpa melaporkan changed=true";
+        return report;
+    }
     if (!result.ok) {
         report.results.emplace_back(std::string(name), result);
         report.errorMessage = "pass gagal: " + std::string(name);

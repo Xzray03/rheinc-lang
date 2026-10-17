@@ -28,6 +28,9 @@ struct IrPassResult {
     bool changed = false;
     // Statistik bebas bentuk untuk pass (jumlah fold, dsb).
     std::uint32_t folded = 0;
+    // Delta epoch modul selama pass berjalan; diisi OptimizerManager
+    // (bukan pass) lewat change-detection net -> lihat runPass.
+    std::uint64_t epochDelta = 0;
 };
 
 class IrPass {

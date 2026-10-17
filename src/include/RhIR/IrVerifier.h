@@ -31,6 +31,7 @@ enum class IrVerifyErrorCode : std::uint8_t {
     InvalidFunctionKind,
     MissingEntryFunction,
     DuplicateEntryFunction,
+    DefDoesNotDominateUse,   // operand ValueV: def tak mendominasi use
     InvalidEntryFunction,
     ExternalFunctionWithBody,
     FunctionMissingBody,

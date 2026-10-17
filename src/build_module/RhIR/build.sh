@@ -40,10 +40,6 @@ sources=(
   src/source/RhIR/FinalIr.cpp
   src/source/RhIR/IrManager.cpp
   src/source/RhIR/IrLinker.cpp
-  src/source/RhIR/DeadCodeElim.cpp
-  src/source/RhIR/OptimizerManager.cpp
-  src/source/RhIR/PeepholeConstFold.cpp
-  src/source/RhIR/UnreachableBlockElim.cpp
 )
 
 objects=()

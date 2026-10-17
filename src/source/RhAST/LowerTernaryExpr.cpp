@@ -34,11 +34,15 @@ ValueId AstToIrTranslator::Impl::lowerTernaryExpr(const TernaryExpr* expr) {
                            IrOperand::block(elseB)},
                           expr->range.begin);
 
-    // Cabang then.
+    // Cabang then. Catat block AKHIR cabang (currentBlock setelah
+    // lowerExpr — bisa berbeda dari thenB bila cabang berisi kontrol
+    // aliran bersarang): itu pred SESUNGGUHNYA dari joinB, dan satu-
+    // satunya label yang sah untuk incoming phi.
     setCurrent(thenB);
     const ValueId trueValue = lowerExpr(expr->trueValue);
     if (trueValue == InvalidValue) return InvalidValue;
     const NameValueMap thenEnv = env.back().vars;
+    const BlockId thenEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(joinB)}, expr->range.begin);
@@ -54,6 +58,7 @@ ValueId AstToIrTranslator::Impl::lowerTernaryExpr(const TernaryExpr* expr) {
     const ValueId falseValue = lowerExpr(expr->falseValue);
     if (falseValue == InvalidValue) return InvalidValue;
     const NameValueMap elseEnv = env.back().vars;
+    const BlockId elseEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(joinB)}, expr->range.begin);
@@ -63,15 +68,17 @@ ValueId AstToIrTranslator::Impl::lowerTernaryExpr(const TernaryExpr* expr) {
                      "(kembalikan) belum didukung");
     }
 
-    // Hasil: phi [ then, trueValue ], [ else, falseValue ].
+    // Hasil: phi [ thenEnd, trueValue ], [ elseEnd, falseValue ] —
+    // incoming phi HARUS merujuk pred sesungguhnya dari joinB agar
+    // invariant dominasi SSA (verifier DefDoesNotDominateUse) terpenuhi.
     const ValueId result = builder.createPhi(resultType, currentFunc, joinB,
                                              expr->range.begin);
-    builder.addPhiIncoming(currentFunc, result, thenB, trueValue);
-    builder.addPhiIncoming(currentFunc, result, elseB, falseValue);
+    builder.addPhiIncoming(currentFunc, result, thenEnd, trueValue);
+    builder.addPhiIncoming(currentFunc, result, elseEnd, falseValue);
 
     std::vector<std::pair<BlockId, const NameValueMap*>> preds;
-    preds.emplace_back(thenB, &thenEnv);
-    preds.emplace_back(elseB, &elseEnv);
+    preds.emplace_back(thenEnd, &thenEnv);
+    preds.emplace_back(elseEnd, &elseEnv);
     env.back().vars = mergeAtJoin(joinB, preds, preEnv);
     setCurrent(joinB);
     return result;

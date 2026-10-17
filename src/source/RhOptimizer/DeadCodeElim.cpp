@@ -1,4 +1,4 @@
-#include "RhIR/DeadCodeElim.h"
+#include "RhOptimizer/DeadCodeElim.h"
 
 #include "RhIR/IrEditor.h"
 #include "RhIR/IrModule.h"

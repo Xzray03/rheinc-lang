@@ -90,10 +90,11 @@ RawLayout layoutType(TypeId id,
     }
 
     case IrTypeKind::Float: {
+        // desimal = double 64-bit; float 32-bit TIDAK ADA di bahasa.
         const std::uint64_t size = types[id].sizeBytes;
-        if (size != 4 && size != 8) {
+        if (size != 8) {
             addError(errors, IrLayoutErrorCode::InvalidFloatSize, id,
-                     "float sizeBytes harus 4 atau 8");
+                     "float sizeBytes harus 8 (desimal = double 64-bit)");
             ok = false;
             break;
         }

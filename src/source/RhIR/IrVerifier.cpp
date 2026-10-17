@@ -3,6 +3,10 @@
 #include "RhIR/IrFunction.h"
 #include "RhIR/IrLayoutEngine.h"
 #include "RhIR/IrInstr.h"
+#include "RhIR/IrDomAnalysis.h"
+
+#include <cstdlib>
+#include <cstring>
 #include "RhIR/IrModule.h"
 
 #include <algorithm>
@@ -301,10 +305,11 @@ void verifyTypeModule(const IrModule& module, IrVerifyReport& report) {
             }
             break;
         case IrTypeKind::Float:
-            if (type.sizeBytes != 4 && type.sizeBytes != 8) {
+            // desimal = double 64-bit; float 32-bit TIDAK ADA di bahasa.
+            if (type.sizeBytes != 8) {
                 addError(report, IrVerifyErrorCode::InvalidTypeShape,
-                         "float sizeBytes harus 4 atau 8", InvalidFunc,
-                         InvalidBlock, InvalidInstr, typeId);
+                         "float sizeBytes harus 8 (desimal = double 64-bit)",
+                         InvalidFunc, InvalidBlock, InvalidInstr, typeId);
             }
             break;
         case IrTypeKind::Pointer:
@@ -529,6 +534,99 @@ void verifyStructuralModule(const IrModule& module, IrVerifyReport& report) {
     std::map<std::string, FuncId> functionNames;
     for (FuncId funcId = 0; funcId < module.functions.size(); ++funcId) {
         verifyFunction(module, funcId, functionNames, report);
+    }
+
+    // Hardening: setiap operand ValueV harus di-definisikan oleh
+    // instruksi yang MENDOMINASI titik pemakaiannya (SSA dominance).
+    // RHEINC_SKIP_DOMCHECK=1 melewati cek ini (diagnosis semata).
+    // Incoming phi menormalkan pemakaian di EDGE: value harus mendominasi
+    // BLOCK SUMBER pair [BlockV, ValueV], bukan block phi itu sendiri.
+    // Hanya nilai "1"/"true" yang melewati cek; "0" atau nilai lain tak
+    // berpengaruh (kehadiran saja tidak cukup -- menghindari kekeliruan
+    // membaca RHEINC_SKIP_DOMCHECK=0 sebagai "cek aktif").
+    const char* domSkipEnv = getenv("RHEINC_SKIP_DOMCHECK");
+    const bool skipDom = domSkipEnv != nullptr &&
+                         (std::strcmp(domSkipEnv, "1") == 0 ||
+                          std::strcmp(domSkipEnv, "true") == 0);
+    for (FuncId funcId = 0; funcId < module.functions.size() && !skipDom;
+         ++funcId) {
+        const IrFunction& fn = module.functions[funcId];
+        if (fn.blocks.empty()) continue;
+        std::vector<std::int32_t> defBlock(fn.instrs.size(), -1);
+        for (BlockId b = 0; b < fn.blocks.size(); ++b) {
+            for (const InstrId id : fn.blocks[b].insts) {
+                if (id < fn.instrs.size()) defBlock[id] = b;
+            }
+        }
+        const DomInfo dom = computeDom(fn);
+        for (BlockId b = 0; b < fn.blocks.size(); ++b) {
+            const IrBlock& blk = fn.blocks[b];
+            for (const InstrId iid : blk.insts) {
+                if (iid >= fn.instrs.size()) continue;
+                const IrInstr& instr = fn.instrs[iid];
+                for (std::size_t oi = 0; oi < instr.operands.size(); ++oi) {
+                    const IrOperand& op = instr.operands[oi];
+                    if (op.kind != IrOperandKind::ValueV ||
+                        op.id >= fn.values.size()) {
+                        continue;
+                    }
+                    const IrValue& v = fn.values[op.id];
+                    if (v.kind != IrValue::Kind::Instr) continue;  // Param ok
+                    if (v.payload >= fn.instrs.size()) {
+                        addError(report, IrVerifyErrorCode::DefDoesNotDominateUse,
+                                 "operand ValueV merujuk instruksi invalid",
+                                 funcId, b, iid, InvalidType);
+                        continue;
+                    }
+                    const std::int32_t db = defBlock[v.payload];
+                    if (db < 0) {
+                        // def tak ter-urut. Dua kemungkinan:
+                        // (a) Instruksi ini sendiri juga tak ter-urut (sudah
+                        //     disapu removeDeadInstrs) -> operand hanya
+                        //     muncul pada instruksi mati -> SKIP.
+                        // (b) Instruksi ini ter-urut tapi def tak ter-urut
+                        //     -> SSA rusak (value hidup merujuk def mati)
+                        //     -> ERROR.
+                        bool selfUnordered = true;
+                        for (BlockId b2 = 0; b2 < fn.blocks.size(); ++b2) {
+                            for (const InstrId id2 : fn.blocks[b2].insts) {
+                                if (id2 == iid) { selfUnordered = false; break; }
+                            }
+                            if (!selfUnordered) break;
+                        }
+                        if (selfUnordered) continue;  // (a) mati -> skip
+                        addError(report, IrVerifyErrorCode::DefDoesNotDominateUse,
+                                 "def operand tidak ter-urut di block manapun",
+                                 funcId, b, iid, InvalidType);
+                        continue;
+                    }
+                    std::uint32_t useAt = b;
+                    if (instr.op == IrOpcode::Phi && oi % 2 == 1 && oi >= 1 &&
+                        instr.operands[oi - 1].kind == IrOperandKind::BlockV) {
+                        // Semantik edge: incoming value harus mendominasi
+                        // BLOCK SUMBER pair [BlockV, ValueV].
+                        useAt = instr.operands[oi - 1].id;
+                        if (useAt >= fn.blocks.size()) continue;
+                    }
+                    // Cascade phi: def berupa phi di BLOCK YANG SAMA dengan
+                    // phi pemakai adalah konvensi translator yang sah
+                    // (nilai efektif mengalir lewat incoming edge phi
+                    // dalam) — terima tanpa uji dominasi lintas-block.
+                    if (static_cast<std::int32_t>(b) == db) continue;
+                    // dominates(useAt, db) == "db mendominasi useAt".
+                    if (!dom.dominates(useAt, static_cast<std::uint32_t>(db))) {
+                        addError(report, IrVerifyErrorCode::DefDoesNotDominateUse,
+                                 "def tidak mendominasi use (operand ValueV): "
+                                 "use F" + std::to_string(funcId) + " B" +
+                                 std::to_string(b) + " I" +
+                                 std::to_string(iid) + ", def di B" +
+                                 std::to_string(db) + ", dipakai di B" +
+                                 std::to_string(useAt),
+                                 funcId, b, iid, InvalidType);
+                    }
+                }
+            }
+        }
     }
 }
 

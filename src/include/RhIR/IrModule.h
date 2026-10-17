@@ -84,6 +84,11 @@ struct IrGlobal {
 // IR self-contained: pass lain dapat memproses IR tanpa membawa object
 // semantic; TypeMapping/SymbolMapping hanyalah metadata translasi.
 struct IrModule {
+    // Counter monotonik: bertambah pada SETIAP mutasi IR (bumped oleh
+    // IrEditor). Dipakai OptimizerManager sebagai change-detection net
+    // independen dari klaim pass -> lihat OptimizerManager::runPass.
+    std::uint64_t epoch = 0;
+
     std::uint32_t irVersion = IrFormatVersion;  // sumber tunggal: IrVersion.h
     std::string sourcePath;
     std::vector<IrFunction> functions;

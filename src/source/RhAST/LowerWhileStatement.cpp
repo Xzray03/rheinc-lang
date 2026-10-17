@@ -1,4 +1,5 @@
 #include "RhAST/AstToIrTranslatorImpl.h"
+#include "RhIR/IrDomAnalysis.h"
 
 #include "RhParser/Stmt.h"
 #include "RhSemantic/SemanticAnalyzer.h"
@@ -30,6 +31,10 @@ bool AstToIrTranslator::Impl::lowerContinue() {
         return error(AstIrErrorCode::MalformedShape, nullptr,
                      "lanjut di luar perulangan (seharusnya ditolak semantic)");
     }
+    // Rekam situs lanjut (block sumber + env) sebelum menutup block:
+    // edge continue adalah pred tambahan dari header, dan phi loop-
+    // carried wajib punya incoming untuk edge ini.
+    loopStack.back().continues.emplace_back(currentBlock, env.back().vars);
     builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                           {IrOperand::block(loopStack.back().header)});
     setCurrent(InvalidBlock);
@@ -50,7 +55,7 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({condB, exitB});
+    loopStack.push_back({condB, exitB, {}});
 
     // Kondisi di header; SSA value loop-carried dibangun setelah body.
     setCurrent(condB);
@@ -88,6 +93,10 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
         if (bodyEnd != InvalidBlock) {
             builder.addPhiIncoming(currentFunc, phi, bodyEnd, valueAfter);
         }
+        // (Incoming untuk edge lanjut sengaja tidak ditambahkan di sini:
+        // nilai env saat lanjut belum tentu dominasi-teruji; lihat
+        // dokumentasi loop-carried phi. Diperbaiki lewat phi gabungan
+        // bila diperlukan.)
         env.back().vars[name] = phi;
     }
 
@@ -109,7 +118,7 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(bodyB)}, stmt->range.begin);
-    loopStack.push_back({condB, exitB});
+    loopStack.push_back({condB, exitB, {}});
 
     setCurrent(bodyB);
     const NameValueMap bodyStartEnv = env.back().vars;
@@ -184,7 +193,7 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({updateB, exitB});
+    loopStack.push_back({updateB, exitB, {}});
 
     // Kondisi: bukan iterator_selesai(it).
     setCurrent(condB);
@@ -295,9 +304,71 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
         const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
                                               0, name);
         builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it2->second);
-        builder.addPhiIncoming(currentFunc, phi, updateB, valueAfter);
+        // Edge lanjut menarget updateB dan melewati rebind: nilai latch
+        // wajib merge phi di updateB (pred updateB yang bukan situs
+        // continue + tiap situs continue) agar value mendominasi edge
+        // updateB -> condB (invariant dominasi SSA). Guard InvalidBlock.
+        ValueId latchValue = valueAfter;
+        bool latchOk = false;  // continue-latch phi ditunda: nilai env saat
+                          // lanjut belum dominasi-teruji (audit dataflow);
+                          // wiring lama + phi exit (mergeVars) tetap berlaku.
+        for (const auto& cs : loopStack.back().continues) {
+            if (cs.first == InvalidBlock) latchOk = false;
+        }
+        if (latchOk) {
+            const ValueId mergePhi = builder.createPhi(
+                phiType, currentFunc, updateB, 0, name + "%latch");
+            for (const BlockId p :
+                 builder.function(currentFunc).blocks[updateB].preds) {
+                bool isCs = false;
+                for (const auto& cs : loopStack.back().continues) {
+                    if (cs.first == p) { isCs = true; break; }
+                }
+                if (!isCs) {
+                    builder.addPhiIncoming(currentFunc, mergePhi, p,
+                                           valueAfter);
+                }
+            }
+            // Nilai incoming per situs continue HANYA dipakai bila def-
+            // nya mendominasi block situs (uji dominasi nyata, bukan
+            // asumsi leksikal); jika tidak, fallback nilai pra-loop yang
+            // selalu dominan. Ini menjaga invariant SSA ketat.
+            IrFunction& fnR = builder.function(currentFunc);
+            std::vector<std::int32_t> defBlk(fnR.instrs.size(), -1);
+            for (BlockId db = 0; db < fnR.blocks.size(); ++db) {
+                for (const InstrId id : fnR.blocks[db].insts) {
+                    if (id < fnR.instrs.size()) defBlk[id] = db;
+                }
+            }
+            const DomInfo domR = computeDom(fnR);
+            const auto dominatesBlk = [&](ValueId v, BlockId at) -> bool {
+                if (v >= fnR.values.size()) return false;
+                const IrValue& vv = fnR.values[v];
+                if (vv.kind != IrValue::Kind::Instr) return true;  // Param
+                if (vv.payload >= fnR.instrs.size()) return false;
+                const std::int32_t db = defBlk[vv.payload];
+                if (db < 0) return false;
+                return domR.dominates(at, static_cast<std::uint32_t>(db));
+            };
+            for (const auto& cs : loopStack.back().continues) {
+                const auto cv = cs.second.find(name);
+                ValueId csVal =
+                    cv != cs.second.end() ? cv->second : it2->second;
+                if (!dominatesBlk(csVal, cs.first)) csVal = it2->second;
+                builder.addPhiIncoming(currentFunc, mergePhi, cs.first,
+                                       csVal);
+            }
+            latchValue = mergePhi;
+        }
+        builder.addPhiIncoming(currentFunc, phi, updateB, latchValue);
         env.back().vars[name] = phi;
     }
+
+    // Variabel elemen bersifat scoped terhadap loop: nilainya didefinisikan
+    // di body yang TIDAK mendominasi exitB (jalur kosong: cond -> exit),
+    // sehingga tidak boleh bocor ke env pasca-loop (invariant dominasi SSA,
+    // DefDoesNotDominateUse). Hapus dari env saat keluar loop.
+    env.back().vars.erase(elemName);
 
     setCurrent(exitB);
     return !builder.broken();
@@ -358,7 +429,7 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({updateB, exitB});
+    loopStack.push_back({updateB, exitB, {}});
 
     setCurrent(condB);
     const ValueId i0 = lookupLocal(indexName);
@@ -419,6 +490,12 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
         env.back().vars[name] = phi;
     }
 
+    // Variabel elemen bersifat scoped terhadap loop: nilainya didefinisikan
+    // di body yang TIDAK mendominasi exitB (jalur kosong: cond -> exit),
+    // sehingga tidak boleh bocor ke env pasca-loop (invariant dominasi SSA,
+    // DefDoesNotDominateUse). Hapus dari env saat keluar loop.
+    env.back().vars.erase(elemName);
+
     setCurrent(exitB);
     return !builder.broken();
 }
@@ -456,7 +533,7 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({updateB, exitB});  // lanjut -> update, berhenti -> exit
+    loopStack.push_back({updateB, exitB, {}});  // lanjut -> update, berhenti -> exit
 
     // Kondisi: var loop < end (asumsi langkah positif; langkah negatif
     // menghasilkan CmpGt — ditentukan lewat constant folding step saat
