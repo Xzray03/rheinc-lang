@@ -656,6 +656,207 @@ IrEditorReport IrEditor::appendOperandAt(FuncId func, BlockId block,
     return afterMutation("appendOperandAt");
 }
 
+IrEditorReport IrEditor::eliminateInstrs(FuncId func,
+                                         const std::vector<bool>& dead) {
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    if (func == InvalidFunc || func >= module_->functions.size()) {
+        return {false, {IrEditorErrorCode::InvalidFunction,
+                        "FuncId di luar tabel fungsi"}};
+    }
+    IrFunction& fn = module_->functions[func];
+    compactFunctionTables(fn, dead);
+    touchModuleEpoch(*module_);
+    return afterMutation("eliminateInstrs");
+}
+
+IrEditorReport IrEditor::removeDeadGlobals(
+    const std::vector<bool>& dead) {
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    IrModule& m = *module_;
+    // Invariant: tidak boleh ada instruksi yang merujuk slot yang dihapus.
+    for (const IrFunction& fn : m.functions) {
+        for (const IrBlock& blk : fn.blocks) {
+            for (const InstrId iid : blk.insts) {
+                if (iid >= fn.instrs.size()) continue;
+                for (const IrOperand& op : fn.instrs[iid].operands) {
+                    if (op.kind == IrOperandKind::GlobalV &&
+                        op.id < dead.size() && dead[op.id]) {
+                        return {false,
+                                {IrEditorErrorCode::None,
+                                 "removeDeadGlobals: masih ada operand "
+                                 "GlobalV merujuk slot yang dihapus"}};
+                    }
+                }
+            }
+        }
+    }
+    // Kompaksi globalVars + bangun peta indeks.
+    std::vector<std::uint32_t> gmap(m.globalVars.size(), ~0u);
+    std::vector<IrGlobal> kept;
+    kept.reserve(m.globalVars.size());
+    for (std::uint32_t i = 0; i < m.globalVars.size(); ++i) {
+        if (i < dead.size() && dead[i]) continue;
+        gmap[i] = static_cast<std::uint32_t>(kept.size());
+        kept.push_back(m.globalVars[i]);
+    }
+    m.globalVars = std::move(kept);
+    for (IrFunction& fn : m.functions) {
+        for (IrBlock& blk : fn.blocks) {
+            for (const InstrId iid : blk.insts) {
+                if (iid >= fn.instrs.size()) continue;
+                for (IrOperand& op : fn.instrs[iid].operands) {
+                    if (op.kind == IrOperandKind::GlobalV &&
+                        op.id < gmap.size()) {
+                        op.id = gmap[op.id];
+                    }
+                }
+            }
+        }
+    }
+    touchModuleEpoch(*module_);
+    return afterMutation("removeDeadGlobals");
+}
+
+IrEditorReport IrEditor::mergeBlocks(FuncId func, BlockId pred,
+                                     BlockId succ) {
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    if (func == InvalidFunc || func >= module_->functions.size()) {
+        return {false, {IrEditorErrorCode::InvalidFunction,
+                        "FuncId di luar tabel fungsi"}};
+    }
+    IrFunction& fn = module_->functions[func];
+    if (pred == InvalidBlock || pred >= fn.blocks.size() ||
+        succ == InvalidBlock || succ >= fn.blocks.size() || succ == 0) {
+        return {false, {IrEditorErrorCode::InvalidBlock,
+                        "BlockId tidak valid / succ adalah entry"}};
+    }
+    IrBlock& P = fn.blocks[pred];
+    IrBlock& S = fn.blocks[succ];
+    if (P.succs.size() != 1 || P.succs[0] != succ ||
+        S.preds.size() != 1 || S.preds[0] != pred) {
+        return {false, {IrEditorErrorCode::None,
+                        "mergeBlocks: syarat single-succ/single-pred "
+                        "tidak terpenuhi"}};
+    }
+    // Buang terminator pred, pindahkan instruksi succ, lalu SAPU
+    // terminator yatim sekaligus (compactFunctionTables: instruksi tak
+    // ter-urut tidak akan disapu removeUnreachableBlocks karena block
+    // pred tetap reachable).
+    InstrId deadTerm = InvalidInstr;
+    if (!P.insts.empty()) {
+        deadTerm = P.insts.back();
+        P.insts.pop_back();
+    }
+    for (const InstrId iid : S.insts) {
+        P.insts.push_back(iid);
+    }
+    if (deadTerm != InvalidInstr && deadTerm < fn.instrs.size()) {
+        std::vector<bool> dead(fn.instrs.size(), false);
+        dead[deadTerm] = true;
+        compactFunctionTables(fn, dead);
+    }
+    // P.succs = S.succs; tiap successor S': ganti pred-entry succ -> pred.
+    P.succs = S.succs;
+    for (const BlockId sp : S.succs) {
+        if (sp >= fn.blocks.size()) continue;
+        for (BlockId& pp : fn.blocks[sp].preds) {
+            if (pp == succ) pp = pred;
+        }
+    }
+    // Remap operand BlockV yang menunjuk succ -> pred (semua instruksi,
+    // termasuk phi incoming).
+    for (BlockId b = 0; b < fn.blocks.size(); ++b) {
+        IrBlock& blk = fn.blocks[b];
+        for (const InstrId iid : blk.insts) {
+            if (iid >= fn.instrs.size()) continue;
+            IrInstr& ins = fn.instrs[iid];
+            for (IrOperand& op : ins.operands) {
+                if (op.kind == IrOperandKind::BlockV && op.id == succ) {
+                    op.id = pred;
+                }
+            }
+        }
+    }
+    // Orphan-kan succ: kosong, tak terjangkau -> disapu pass pemanggil.
+    S.insts.clear();
+    S.preds.clear();
+    S.succs.clear();
+    P.epoch += 1;
+    fn.epoch += 1;
+    touchModuleEpoch(*module_);
+    return afterMutation("mergeBlocks");
+}
+
+IrEditorReport IrEditor::removeDeadFunctions(
+    const std::vector<bool>& dead) {
+    if (module_ == nullptr) {
+        return {false, {IrEditorErrorCode::NullModule, "modul null"}};
+    }
+    IrModule& m = *module_;
+    for (std::uint32_t i = 0; i < m.functions.size() && i < dead.size();
+         ++i) {
+        if (dead[i] &&
+            (m.functions[i].kind == IrFunctionKind::Entry ||
+             m.functions[i].kind == IrFunctionKind::GlobalInit)) {
+            return {false,
+                    {IrEditorErrorCode::None,
+                     "removeDeadFunctions: Entry/GlobalInit tidak boleh "
+                     "dihapus"}};
+        }
+    }
+    // Invariant: tak ada operand FuncV merujuk fungsi terhapus.
+    for (const IrFunction& fn : m.functions) {
+        for (const IrBlock& blk : fn.blocks) {
+            for (const InstrId iid : blk.insts) {
+                if (iid >= fn.instrs.size()) continue;
+                for (const IrOperand& op : fn.instrs[iid].operands) {
+                    if (op.kind == IrOperandKind::FuncV &&
+                        op.id < dead.size() && dead[op.id]) {
+                        return {false,
+                                {IrEditorErrorCode::None,
+                                 "removeDeadFunctions: masih ada operand "
+                                 "FuncV merujuk fungsi yang dihapus"}};
+                    }
+                }
+            }
+        }
+    }
+    std::vector<std::uint32_t> fmap(m.functions.size(), ~0u);
+    std::vector<IrFunction> kept;
+    kept.reserve(m.functions.size());
+    for (std::uint32_t i = 0; i < m.functions.size(); ++i) {
+        if (i < dead.size() && dead[i]) continue;
+        fmap[i] = static_cast<std::uint32_t>(kept.size());
+        kept.push_back(std::move(m.functions[i]));
+    }
+    m.functions = std::move(kept);
+    for (IrFunction& fn : m.functions) {
+        for (IrBlock& blk : fn.blocks) {
+            for (const InstrId iid : blk.insts) {
+                if (iid >= fn.instrs.size()) continue;
+                for (IrOperand& op : fn.instrs[iid].operands) {
+                    if (op.kind == IrOperandKind::FuncV &&
+                        op.id < fmap.size()) {
+                        op.id = fmap[op.id];
+                    }
+                }
+            }
+        }
+    }
+    // module.globals (symbol table nama -> FuncId) ikut di-remap.
+    for (auto& kv : m.globals) {
+        if (kv.second < fmap.size()) kv.second = fmap[kv.second];
+    }
+    touchModuleEpoch(*module_);
+    return afterMutation("removeDeadFunctions");
+}
+
 IrEditorReport IrEditor::validate(IrVerifyLevel level,
                                   const IrTargetProvider* targetProvider) const {
     if (module_ == nullptr) {

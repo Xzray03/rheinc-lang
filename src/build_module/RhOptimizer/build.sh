@@ -30,12 +30,24 @@ fi
 
 sources=(
   src/source/RhOptimizer/ConstantPropagation.cpp
+  src/source/RhOptimizer/CopyPropagation.cpp
   src/source/RhOptimizer/Cse.cpp
   src/source/RhOptimizer/OptimizerManager.cpp
   src/source/RhOptimizer/PeepholeConstFold.cpp
+  src/source/RhOptimizer/ScalarReplacement.cpp
+  src/source/RhOptimizer/SimplifyCfg.cpp
+  src/source/RhOptimizer/StaticVariableUnification.cpp
+  src/source/RhOptimizer/StructLayout.cpp
+  src/source/RhOptimizer/StoreForwarding.cpp
   src/source/RhOptimizer/StrengthReduction.cpp
   src/source/RhOptimizer/DeadCodeElim.cpp
+  src/source/RhOptimizer/DeadFunctionElimination.cpp
+  src/source/RhOptimizer/DeadStoreElimination.cpp
+  src/source/RhOptimizer/EscapeAnalysis.cpp
+  src/source/RhOptimizer/Devirtualization.cpp
+  src/source/RhOptimizer/InlineFunctions.cpp
   src/source/RhOptimizer/Licm.cpp
+  src/source/RhOptimizer/LoadElimination.cpp
   src/source/RhOptimizer/LoopUnroll.cpp
   src/source/RhOptimizer/UnreachableBlockElim.cpp
 )

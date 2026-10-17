@@ -64,6 +64,15 @@ public:
     }
 
     std::size_t functionCount() const { return functions_.size(); }
+    // Menandai semua fungsi yang terdaftar sebagai symbol global (used).
+    // Dipakai DeadFunctionElimination: symbol table adalah antarmuka
+    // eksternal modul -- fungsi yang tercatat di sini tidak boleh dihapus
+    // meski tak ada operand FuncV yang merujuknya.
+    void markMappedFunctions(std::vector<std::uint8_t>& used) const {
+        for (const auto& kv : functions_) {
+            if (kv.second < used.size()) used[kv.second] = 1;
+        }
+    }
     std::size_t globalCount() const { return globals_.size(); }
 
 private:

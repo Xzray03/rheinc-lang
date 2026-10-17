@@ -159,6 +159,37 @@ public:
     IrEditorReport appendOperandAt(FuncId func, BlockId block,
                                    std::size_t posIndex, IrOperand operand);
 
+    // Menghapus SEKELompok instruksi dari fungsi: `dead[iid]==true` dibuang
+    // dari urutan block + tabel dipadatkan + SEMUA referensi function-lokal
+    // di-remap (via compactFunctionTables). Untuk instruksi NON-MURNI yang
+    // terbukti mati secara semantik (mis. Alloc/Store non-escaping hasil
+    // escape analysis) -- DCE whitelist hanya op murni.
+    IrEditorReport eliminateInstrs(FuncId func, const std::vector<bool>& dead);
+
+    // Menghapus SEKELompok slot global dari modul: `dead[i]==true` dibuang
+    // dari IrModule::globalVars; SEMUA operand GlobalV di semua fungsi
+    // di-remap ke indeks baru. Instruksi yang masih merujuk slot yang
+    // dihapus = kesalahan pemakaian -> report error (Invariant broken).
+    // Dipakai pass StaticVariableUnification setelah semua Load/Store
+    // global terkait dihapus.
+    IrEditorReport removeDeadGlobals(const std::vector<bool>& dead);
+
+    // Menggabungkan block `succ` ke `pred`: syarat pred.succs == {succ}
+    // dan succ.preds == {pred} (caller memeriksa) dan succ bukan entry.
+    // Instruksi succ dipindahkan ke pred (terminator pred dibuang), SSA
+    // value tetap (InstrId tidak berubah); semua operand BlockV yang
+    // menunjuk succ di-remap ke pred (termasuk phi incoming di block
+    // lain); succ menjadi orphan kosong -> disapu removeUnreachableBlocks
+    // oleh pass pemanggil. Satu touch epoch.
+    IrEditorReport mergeBlocks(FuncId func, BlockId pred, BlockId succ);
+
+    // Menghapus SEKELompok fungsi dari modul: `dead[i]==true` dibuang
+    // dari IrModule::functions; SEMUA operand FuncV (Call [0], AddrOf
+    // [0]) di semua fungsi di-remap ke indeks baru. Entry & GlobalInit
+    // tidak boleh ditandai (caller menjamin). Dipakai pass
+    // DeadFunctionElimination.
+    IrEditorReport removeDeadFunctions(const std::vector<bool>& dead);
+
     // --- utilitas ---
 
     IrEditorReport validate(IrVerifyLevel level,

@@ -33,13 +33,25 @@
 #include "RhCore/ModuleKind.h"
 #include "RhCore/SourceManager.h"
 #include "RhOptimizer/DeadCodeElim.h"
+#include "RhOptimizer/DeadFunctionElimination.h"
+#include "RhOptimizer/DeadStoreElimination.h"
+#include "RhOptimizer/Devirtualization.h"
+#include "RhOptimizer/EscapeAnalysis.h"
+#include "RhOptimizer/ScalarReplacement.h"
+#include "RhOptimizer/SimplifyCfg.h"
+#include "RhOptimizer/StoreForwarding.h"
+#include "RhOptimizer/StaticVariableUnification.h"
+#include "RhOptimizer/StructLayout.h"
+#include "RhOptimizer/InlineFunctions.h"
 #include "RhOptimizer/Licm.h"
+#include "RhOptimizer/LoadElimination.h"
 #include "RhOptimizer/LoopUnroll.h"
 #include "RhIR/FinalIr.h"
 #include "RhIR/IrLinker.h"
 #include "RhIR/IrManager.h"
 #include "RhIR/IrModule.h"
 #include "RhOptimizer/ConstantPropagation.h"
+#include "RhOptimizer/CopyPropagation.h"
 #include "RhOptimizer/Cse.h"
 #include "RhOptimizer/OptimizerManager.h"
 #include "RhOptimizer/PeepholeConstFold.h"
@@ -166,8 +178,18 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
         // peluang fold; iterasi fixpoint mengulang rantai sampai stabil.
         optimizer.registerPass(std::make_unique<ConstantPropagation>());
         optimizer.registerPass(std::make_unique<PeepholeConstFold>());
+        optimizer.registerPass(std::make_unique<StaticVariableUnification>());
+        optimizer.registerPass(std::make_unique<StructLayoutOptimize>());
         optimizer.registerPass(std::make_unique<StrengthReduction>());
+        optimizer.registerPass(std::make_unique<CopyPropagation>());
         optimizer.registerPass(std::make_unique<CommonSubexpressionElimination>());
+        optimizer.registerPass(std::make_unique<Devirtualization>());
+        optimizer.registerPass(std::make_unique<EscapeAnalysis>());
+        optimizer.registerPass(std::make_unique<ScalarReplacement>());
+        optimizer.registerPass(std::make_unique<StoreForwarding>());
+        optimizer.registerPass(std::make_unique<DeadStoreElimination>());
+        optimizer.registerPass(std::make_unique<LoadElimination>());
+        optimizer.registerPass(std::make_unique<SimplifyCfg>());
         // LICM diaktifkan kembali: dua "bug" yang dulu memicu penonaktifan
         // ((A) dominance violation, (B) segfault) terbukti artefak binary
         // stale saat build paralel — corpus build penuh selalu lulus 76/10
@@ -175,6 +197,8 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
         optimizer.registerPass(std::make_unique<LoopInvariantCodeMotion>());
         optimizer.registerPass(std::make_unique<LoopUnroll>());
         optimizer.registerPass(std::make_unique<DeadCodeElim>());
+        optimizer.registerPass(std::make_unique<DeadFunctionElimination>());
+        optimizer.registerPass(std::make_unique<InlineFunctions>());
         optimizer.registerPass(std::make_unique<UnreachableBlockElim>());
         OptimizerReport optimizerReport = optimizer.runAll(irManager.module());
         if (!optimizerReport.ok) {
