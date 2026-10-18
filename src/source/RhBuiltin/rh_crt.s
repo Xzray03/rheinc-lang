@@ -5,6 +5,7 @@
     .text
     .globl _start
 _start:
+    call __global_init
     call utama
     movq %rax, %rdi     # status = nilai kembalian utama
     movq $60, %rax      # SYS_exit

@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Stmt.h"
@@ -66,10 +67,18 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
     case AstKind::VarDeclStmt: {
         const auto* node = static_cast<const VarDeclStmt*>(stmt);
         const Type* semanticType = nullptr;
-        if (node->initializer) {
-            semanticType = exprTypeOr(node->initializer, node->type);
-        } else if (node->type) {
+        // Anotasi tipe deklarasi DIPAKAI bila ada (konversi implisit ke
+        // tipe yang dinyatakan); inference dari initializer hanya fallback
+        // saat tak ada anotasi. Sebelumnya initializer selalu menang, sehingga
+        // `variabel r: bilangan = 5.7` bertipe Float dan konversi tak pernah
+        // terjadi.
+        if (node->type) {
             semanticType = semantic->context().getResolvedType(node->type);
+            if (!semanticType && node->initializer) {
+                semanticType = exprTypeOr(node->initializer, node->type);
+            }
+        } else if (node->initializer) {
+            semanticType = exprTypeOr(node->initializer, node->type);
         }
         // Tipe Error (mis. anotasi hasil "-> tipe" tanpa deklarasi):
         // tipe diambil dari nilai initializer setelah lowering.
@@ -138,7 +147,26 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
             }
         }
         if (builder.broken()) return false;
-        (void)varType;
+        // Konversi implisit numerik (spesifikasi: assignment ke variabel
+        // ber-tipe menyisipkan cast bila tipe nilai berbeda — sebelumnya
+        // nilai mengalir mentah, baru ketahuan saat RhBackend mengeksekusi).
+        if (!failed && initial != InvalidValue && varType != InvalidType) {
+            const TypeId initT =
+                builder.function(currentFunc).values[initial].type;
+            const bool numA = initT != InvalidType &&
+                              module.types.size() > initT &&
+                              (module.types[initT].kind == IrTypeKind::Int ||
+                               module.types[initT].kind == IrTypeKind::Float);
+            const bool numB = module.types.size() > varType &&
+                              (module.types[varType].kind == IrTypeKind::Int ||
+                               module.types[varType].kind == IrTypeKind::Float);
+            if (initT != InvalidType && initT != varType && numA && numB) {
+                initial = builder.emit(IrOpcode::Cast, varType,
+                                       {IrOperand::value(initial)},
+                                       stmt->range.begin, node->name);
+                if (builder.broken()) return false;
+            }
+        }
         bindLocal(node->name, initial);
         return true;
     }

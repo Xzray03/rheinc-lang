@@ -31,6 +31,9 @@ public:
     void asciiZ(const std::string& bytes);          // .asciz "..." (escaped)
 
     // --- instruksi (teks mentah, sudah diformat pemanggil) ---
+    void globl_label(const std::string& name);   // .globl name
+    void zero_bytes(std::uint32_t n);            // .zero n
+    void quad(std::uint64_t v);                  // .quad v (bits f64)
     void gnuStackNote();       // .section .note.GNU-stack,"",@progbits
 
     void ins(const std::string& text);              // satu baris instruksi

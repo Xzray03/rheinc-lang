@@ -1082,8 +1082,35 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                              expr->range.begin);
                 return builder.broken() ? InvalidValue : value;
             }
-            assignLocal(target->name, value);  // update-through, bukan shadow
-            return value;
+            // Konversi implisit numerik saat assignment (lihat VarDecl).
+            ValueId assigned = value;
+            {
+                const ValueId cur = lookupRaw(target->name);
+                if (cur != InvalidValue && value != InvalidValue &&
+                    cur < builder.function(currentFunc).values.size() &&
+                    value < builder.function(currentFunc).values.size()) {
+                    const TypeId curT =
+                        builder.function(currentFunc).values[cur].type;
+                    const TypeId valT =
+                        builder.function(currentFunc).values[value].type;
+                    const bool nA = curT != InvalidType &&
+                                    curT < module.types.size() &&
+                                    (module.types[curT].kind == IrTypeKind::Int ||
+                                     module.types[curT].kind == IrTypeKind::Float);
+                    const bool nB = valT != InvalidType &&
+                                    valT < module.types.size() &&
+                                    (module.types[valT].kind == IrTypeKind::Int ||
+                                     module.types[valT].kind == IrTypeKind::Float);
+                    if (curT != InvalidType && curT != valT && nA && nB) {
+                        assigned = builder.emit(IrOpcode::Cast, curT,
+                                                {IrOperand::value(value)},
+                                                expr->range.begin, target->name);
+                        if (builder.broken()) return InvalidValue;
+                    }
+                }
+            }
+            assignLocal(target->name, assigned);  // update-through
+            return assigned;
         }
 
         // Operator -> : "simpan ke". lhs -> nama:

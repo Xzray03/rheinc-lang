@@ -17,6 +17,10 @@ inline std::optional<std::string> runtimeSymbolFor(std::string_view builtinName)
     if (builtinName == "tampilkan") return std::string{"rh_print"};
     if (builtinName == "panjang")   return std::string{"rh_len"};
     if (builtinName == "sistem")    return std::string{"rh_system"};
+    if (builtinName == "pangkat")   return std::string{"rh_pow"};
+    if (builtinName == "alokasikan") return std::string{"rh_alloc"};
+    if (builtinName == "bebaskan")  return std::string{"rh_free"};
+    if (builtinName == "realokasi") return std::string{"rh_realloc"};
     return std::nullopt;
 }
 
