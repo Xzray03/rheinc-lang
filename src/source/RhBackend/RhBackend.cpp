@@ -28,7 +28,8 @@ RhBackendReport RhBackend::emitAssembly(const FinalIr& finalIr,
 
     AsmBuilder builder;
     X86_64SysVEmitter emitter;
-    if (!emitter.emitModule(finalIr, builder, report.errors)) {
+    if (!emitter.emitModule(finalIr, builder, report.errors,
+                            options.emitCrtGlue)) {
         return report;
     }
 

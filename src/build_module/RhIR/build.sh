@@ -14,6 +14,7 @@ STATE_DIR="$BUILD_DIR/state/RhIR"
 ARCHIVE="$LIB_DIR/rheinc_ir.a"
 FLAGS_STATE="$STATE_DIR/flags"
 
+source "$ROOT_DIR/src/build_module/build_common.sh"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$STATE_DIR"
 
 hash_file() {
@@ -24,7 +25,7 @@ FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | hash_file)"
 if [[ -f "$FLAGS_STATE" ]] && [[ "$(cat "$FLAGS_STATE")" == "$FLAGS_ID" ]]; then
   :
 else
-  rm -f "$OBJ_DIR"/*.o
+  rm -f "$OBJ_DIR"/*.o "$OBJ_DIR"/*.d
   printf '%s' "$FLAGS_ID" > "$FLAGS_STATE"
 fi
 
@@ -48,46 +49,20 @@ for relsrc in "${sources[@]}"; do
   obj="$OBJ_DIR/$(basename "${relsrc%.cpp}").o"
   objects+=("$obj")
 
-  need_build=0
-  if [[ ! -f "$obj" ]]; then
-    need_build=1
-  elif [[ "$ROOT_DIR/$relsrc" -nt "$obj" ]]; then
-    need_build=1
-  else
-    while IFS= read -r -d '' header; do
-      if [[ "$header" -nt "$obj" ]]; then
-        need_build=1
-        break
-      fi
-    done < <(find "$ROOT_DIR/src/include/RhIR" -name '*.h' -print0)
-  fi
-
-  if [[ "$need_build" == "1" ]]; then
+  if rh_needs_rebuild "$obj" "$obj.d" "$ROOT_DIR/$relsrc"; then
     echo "[CXX] $relsrc"
-    "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" -c "$ROOT_DIR/$relsrc" -o "$obj"
+    rh_compile_cxx "$ROOT_DIR/$relsrc" "$obj" -I"$ROOT_DIR/src/include"
     rebuilt=1
   else
     echo "[SKIP] object fresh: $(basename "$obj")"
   fi
 done
 
-archive_state="$STATE_DIR/rheinc_ir.a.cksum"
-archive_hash=""
-stored_archive_hash=""
-if [[ -f "$ARCHIVE" ]]; then
-  archive_hash="$(hash_file < "$ARCHIVE")"
-fi
-if [[ -f "$archive_state" ]]; then
-  stored_archive_hash="$(cat "$archive_state")"
-fi
-
-if [[ "$rebuilt" == "0" && -n "$archive_hash" && "$archive_hash" == "$stored_archive_hash" ]] && "$AR" t "$ARCHIVE" >/dev/null 2>&1; then
-  echo "[SKIP] archive fresh: rheinc_ir.a"
+archive_state="$STATE_DIR/$(basename "$ARCHIVE").members"
+if rh_archive_fresh "$ARCHIVE" "$archive_state" "${objects[@]}"; then
+  echo "[SKIP] archive fresh: $(basename "$ARCHIVE")"
 else
-  echo "[AR] $ARCHIVE"
-  rm -f "$ARCHIVE"
-  "$AR" rcs "$ARCHIVE" "${objects[@]}"
-  hash_file < "$ARCHIVE" > "$archive_state"
+  rh_update_archive "$ARCHIVE" "$archive_state" "${objects[@]}"
 fi
 
 echo "[OK] RhIR build selesai"

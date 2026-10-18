@@ -46,6 +46,8 @@ struct IrManagerReport {
 struct IrManagerOptions {
     // Jika nullopt, provider manager memakai default x86_64-linux-sysv.
     std::optional<std::string> explicitTarget;
+    // Dibawa ke verifier Final; RhMain mengatur per status file.
+    IrVerifyOptions verifyOptions;
 };
 
 // Lifecycle manager IR:

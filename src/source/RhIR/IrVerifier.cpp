@@ -457,7 +457,8 @@ bool isVoidFnPtr(const IrModule& module, TypeId fnType, bool requireNoParams) {
     return !requireNoParams || type.paramTypes.empty();
 }
 
-void verifyFinalModule(const IrModule& module, IrVerifyReport& report) {
+void verifyFinalModule(const IrModule& module, IrVerifyReport& report,
+                       IrEntryPolicy entryPolicy) {
     std::uint32_t entryCount = 0;
     std::uint32_t globalInitCount = 0;
 
@@ -510,12 +511,17 @@ void verifyFinalModule(const IrModule& module, IrVerifyReport& report) {
         }
     }
 
-    if (entryCount == 0) {
-        addError(report, IrVerifyErrorCode::MissingEntryFunction,
-                 "entry function tidak ditemukan");
-    } else if (entryCount > 1) {
-        addError(report, IrVerifyErrorCode::DuplicateEntryFunction,
-                 "entry function lebih dari satu");
+    if (entryPolicy == IrEntryPolicy::ExactlyOne) {
+        if (entryCount == 0) {
+            addError(report, IrVerifyErrorCode::MissingEntryFunction,
+                     "entry function tidak ditemukan");
+        } else if (entryCount > 1) {
+            addError(report, IrVerifyErrorCode::DuplicateEntryFunction,
+                     "entry function lebih dari satu");
+        }
+    } else if (entryCount != 0) {
+        addError(report, IrVerifyErrorCode::UnexpectedEntryFunction,
+                 "entry function tidak diperbolehkan untuk target/object ini");
     }
     if (globalInitCount > 1) {
         addError(report, IrVerifyErrorCode::DuplicateGlobalInit,
@@ -632,7 +638,8 @@ void verifyStructuralModule(const IrModule& module, IrVerifyReport& report) {
 
 IrVerifyReport IrVerifier::verify(const IrModule& module,
                                   IrVerifyLevel level,
-                                  const IrTargetProvider* targetProvider) const {
+                                  const IrTargetProvider* targetProvider,
+                                  const IrVerifyOptions& options) const {
     IrVerifyReport report;
 
     switch (level) {
@@ -661,7 +668,7 @@ IrVerifyReport IrVerifier::verify(const IrModule& module,
                      "final verify memerlukan IrTargetProvider");
         } else {
             verifyLayoutModule(module, *targetProvider, report);
-            verifyFinalModule(module, report);
+            verifyFinalModule(module, report, options.entryPolicy);
         }
         break;
     }

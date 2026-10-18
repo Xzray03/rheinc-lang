@@ -17,6 +17,7 @@ LIB_DIR="$BUILD_DIR/libs"
 BIN_TEST_DIR="$BUILD_DIR/bin-test"
 STATE_DIR="$BUILD_DIR/state/RhSemantic"
 OBJ_STATE_DIR="$STATE_DIR/objects"
+source "$ROOT_DIR/src/build_module/build_common.sh"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$BIN_TEST_DIR" "$OBJ_STATE_DIR"
 
 # Dependencies: RhCore + RhLexer + RhPreprocessor + RhParser production archives.
@@ -30,7 +31,7 @@ compute_include_hash() {
     -type f -name '*.h' -print0 | sort -z | xargs -0 cksum | cksum | awk '{print $1}'
 }
 FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | cksum | awk '{print $1}')"
-INCLUDE_HASH="$(compute_include_hash)"
+INCLUDE_HASH=""
 FLAGS_STATE="$STATE_DIR/flags.id"
 SEMANTIC_ARCHIVE="$LIB_DIR/rheinc_semantic.a"
 SEMANTIC_ARCHIVE_STATE="$STATE_DIR/rheinc_semantic.a.sum"
@@ -69,23 +70,18 @@ printf '%s\n' "$FLAGS_ID" > "$FLAGS_STATE"
 
 key() { printf '%s' "$1" | tr '/.' '__'; }
 process_object() {
-  local source_file="$1" object_file="$2" source_path="$ROOT_DIR/$source_file"
-  local state_file="$OBJ_STATE_DIR/$(key "$source_file").sum"
-  local objh="" srch="" so="" ss="" si="" sf=""
-  [[ -f "$object_file" ]] && objh="$(hash_file "$object_file")"
-  srch="$(hash_file "$source_path")"
-  [[ -f "$state_file" ]] && read -r so ss si sf < "$state_file" || true
-  if [[ -n "$objh" && "$objh" == "$so" && "$srch" == "$ss" && "$INCLUDE_HASH" == "$si" && "$FLAGS_ID" == "$sf" ]]; then
+  local source_file="$1"
+  local object_file="$2"
+  local source_path="$ROOT_DIR/$source_file"
+
+  if rh_needs_rebuild "$object_file" "$object_file.d" "$source_path"; then
+    echo "[CXX] $source_file"
+    rh_compile_cxx "$source_path" "$object_file" -I"$ROOT_DIR/src/include"
+    OBJECTS_REBUILT=1
+    DID_WORK=1
+  else
     echo "[SKIP] object fresh: $source_file"
-    return 0
   fi
-  echo "[CXX] $source_file"
-  rm -f "$object_file"
-  "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" -c "$source_path" -o "$object_file"
-  objh="$(hash_file "$object_file")"
-  printf '%s %s %s %s\n' "$objh" "$srch" "$INCLUDE_HASH" "$FLAGS_ID" > "$state_file"
-  OBJECTS_REBUILT=1
-  DID_WORK=1
 }
 
 objects=()

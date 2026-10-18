@@ -116,7 +116,8 @@ IrManagerReport IrManager::finalize() {
 
     IrVerifier verifier;
     report.verifyReport = verifier.verify(*module_, IrVerifyLevel::Final,
-                                          targetProvider_);
+                                          targetProvider_,
+                                          options_.verifyOptions);
     if (!report.verifyReport.ok()) {
         report.ok = false;
         report.error = IrManagerError{

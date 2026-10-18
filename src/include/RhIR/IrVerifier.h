@@ -17,6 +17,18 @@ enum class IrVerifyLevel : std::uint8_t {
     Final,
 };
 
+// Kebijakan entry function saat verify Final. Default ExactlyOne menjaga
+// perilaku lama; RhMain mengirim status file (target executable/object dan
+// file utama/bukan) lalu memilih policy ini tanpa mengubah IR.
+enum class IrEntryPolicy : std::uint8_t {
+    ExactlyOne,  // file utama executable: entry wajib tepat satu
+    None,        // object / file non-utama executable: entry dilarang
+};
+
+struct IrVerifyOptions {
+    IrEntryPolicy entryPolicy = IrEntryPolicy::ExactlyOne;
+};
+
 enum class IrVerifyErrorCode : std::uint8_t {
     None,
     UnsupportedVerifyLevel,
@@ -33,6 +45,7 @@ enum class IrVerifyErrorCode : std::uint8_t {
     DuplicateEntryFunction,
     DefDoesNotDominateUse,   // operand ValueV: def tak mendominasi use
     InvalidEntryFunction,
+    UnexpectedEntryFunction,
     ExternalFunctionWithBody,
     FunctionMissingBody,
     DuplicateGlobalInit,
@@ -85,7 +98,8 @@ public:
     // Type = Structural + type check; Layout = Structural + Type + layout check.
     IrVerifyReport verify(const IrModule& module,
                           IrVerifyLevel level,
-                          const IrTargetProvider* targetProvider = nullptr) const;
+                          const IrTargetProvider* targetProvider = nullptr,
+                          const IrVerifyOptions& options = {}) const;
 };
 
 }  // namespace rhc

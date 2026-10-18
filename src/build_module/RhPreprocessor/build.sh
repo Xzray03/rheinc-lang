@@ -20,6 +20,7 @@ BIN_TEST_DIR="$BUILD_DIR/bin-test"
 STATE_DIR="$BUILD_DIR/state/RhPreprocessor"
 OBJ_STATE_DIR="$STATE_DIR/objects"
 
+source "$ROOT_DIR/src/build_module/build_common.sh"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$BIN_TEST_DIR" "$OBJ_STATE_DIR"
 
 # RhPreprocessor depends on RhCore and RhLexer production archives.
@@ -40,7 +41,7 @@ compute_include_hash() {
 }
 
 FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | cksum | awk '{print $1}')"
-INCLUDE_HASH="$(compute_include_hash)"
+INCLUDE_HASH=""
 TEST_SOURCE="$ROOT_DIR/src/source/RhPreprocessor/PreprocessorDumpTool.cpp"
 TEST_BINARY="$BIN_TEST_DIR/rheinc_preprocessor_test"
 PREPROCESSOR_ARCHIVE="$LIB_DIR/rheinc_preprocessor.a"
@@ -81,46 +82,15 @@ process_object() {
   local source_file="$1"
   local object_file="$2"
   local source_path="$ROOT_DIR/$source_file"
-  local state_file="$OBJ_STATE_DIR/$(state_key_for_source "$source_file").sum"
 
-  local current_object_hash=""
-  local current_source_hash=""
-  local stored_object_hash=""
-  local stored_source_hash=""
-  local stored_include_hash=""
-  local stored_flags_id=""
-
-  if [[ -f "$object_file" ]]; then
-    current_object_hash="$(hash_file "$object_file")"
-  fi
-  current_source_hash="$(hash_file "$source_path")"
-
-  if [[ -f "$state_file" ]]; then
-    read -r stored_object_hash stored_source_hash stored_include_hash stored_flags_id < "$state_file" || true
-  fi
-
-  if [[ -n "$current_object_hash" && \
-        "$current_object_hash" == "$stored_object_hash" && \
-        "$current_source_hash" == "$stored_source_hash" && \
-        "$INCLUDE_HASH" == "$stored_include_hash" && \
-        "$FLAGS_ID" == "$stored_flags_id" ]]; then
+  if rh_needs_rebuild "$object_file" "$object_file.d" "$source_path"; then
+    echo "[CXX] $source_file"
+    rh_compile_cxx "$source_path" "$object_file" -I"$ROOT_DIR/src/include"
+    OBJECTS_REBUILT=1
+    DID_WORK=1
+  else
     echo "[SKIP] object fresh: $source_file"
-    return 0
   fi
-
-  echo "[CXX] $source_file"
-  rm -f "$object_file"
-  "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
-    -c "$source_path" \
-    -o "$object_file"
-
-  current_object_hash="$(hash_file "$object_file")"
-  printf '%s %s %s %s\n' \
-    "$current_object_hash" "$current_source_hash" "$INCLUDE_HASH" "$FLAGS_ID" \
-    > "$state_file"
-
-  OBJECTS_REBUILT=1
-  DID_WORK=1
 }
 
 objects=()

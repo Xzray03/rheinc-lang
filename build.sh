@@ -5,6 +5,8 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
 CXX="${CXX:-g++}"
 CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic -Werror}"
+mkdir -p "$BUILD_DIR/bin" "$BUILD_DIR/obj-cache/RheincMain" "$BUILD_DIR/state/RheincMain"
+source "$ROOT_DIR/src/build_module/build_common.sh"
 
 WITH_TESTS=0
 MODULE=""
@@ -15,7 +17,7 @@ while [[ $# -gt 0 ]]; do
       WITH_TESTS=1
       shift
       ;;
-    RhIR|RhLexer|RhPreprocessor|RhParser|RhSemantic|RhAST|RhBackend|RhLinker)
+    RhIR|RhLexer|RhPreprocessor|RhParser|RhSemantic|RhAST|RhOptimizer|RhBackend|RhBuiltin|RhLinker)
       MODULE="$1"
       shift
       ;;
@@ -25,7 +27,9 @@ Usage:
   ./build.sh                 Build root production artifacts (no tests)
   ./build.sh --with-tests    Build root artifacts and module test binaries
   ./build.sh RhLexer         Run module-specific build (includes test binary)
-                             Modules: RhIR, RhLexer, RhPreprocessor, RhParser, RhSemantic, RhAST
+                             Modules: RhIR, RhOptimizer, RhLexer, RhPreprocessor,
+                                       RhParser, RhSemantic, RhAST, RhBackend,
+                                       RhBuiltin, RhLinker
 
 Environment:
   CXX=g++
@@ -46,8 +50,6 @@ if [[ -n "$MODULE" ]]; then
   export RHEINC_BUILD_TESTS=1
   exec bash "$ROOT_DIR/src/build_module/$MODULE/build.sh"
 fi
-
-mkdir -p "$BUILD_DIR/bin"
 
 # Build production modules. Test binaries are intentionally not built here unless
 # --with-tests is passed explicitly.
@@ -73,24 +75,54 @@ for module in "${modules[@]}"; do
 done
 
 final_source="$ROOT_DIR/src/source/RheincMain.cpp"
+final_obj="$BUILD_DIR/obj-cache/RheincMain/RheincMain.o"
 final_binary="$BUILD_DIR/bin/rheinc"
+final_flags_state="$BUILD_DIR/state/RheincMain/flags"
+final_flags_id="$(rh_flags_id "$CXX $CXXFLAGS -I$ROOT_DIR/src/include -DRHEINC_LIBRARY_DIR=$BUILD_DIR/libs/RhBuiltin")"
+if [[ ! -f "$final_flags_state" || "$(cat "$final_flags_state")" != "$final_flags_id" ]]; then
+  rm -f "$final_obj" "$final_obj.d" "$final_binary"
+  echo "$final_flags_id" > "$final_flags_state"
+fi
+
+libs=(
+  "$BUILD_DIR/libs/rheinc_linker.a"
+  "$BUILD_DIR/libs/rheinc_backend.a"
+  "$BUILD_DIR/libs/rheinc_ast.a"
+  "$BUILD_DIR/libs/rheinc_optimizer.a"
+  "$BUILD_DIR/libs/rheinc_ir.a"
+  "$BUILD_DIR/libs/rheinc_semantic.a"
+  "$BUILD_DIR/libs/rheinc_parser.a"
+  "$BUILD_DIR/libs/rheinc_preprocessor.a"
+  "$BUILD_DIR/libs/rheinc_lexer.a"
+  "$BUILD_DIR/libs/rheinc_core.a"
+)
 
 if [[ -f "$final_source" ]]; then
-  echo "[CXX-LD] $final_binary"
-  "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
-    -DRHEINC_LIBRARY_DIR=\"$BUILD_DIR/libs/RhBuiltin\" \
-    "$final_source" \
-    "$BUILD_DIR/libs/rheinc_linker.a" \
-    "$BUILD_DIR/libs/rheinc_backend.a" \
-    "$BUILD_DIR/libs/rheinc_ast.a" \
-    "$BUILD_DIR/libs/rheinc_optimizer.a" \
-    "$BUILD_DIR/libs/rheinc_ir.a" \
-    "$BUILD_DIR/libs/rheinc_semantic.a" \
-    "$BUILD_DIR/libs/rheinc_parser.a" \
-    "$BUILD_DIR/libs/rheinc_preprocessor.a" \
-    "$BUILD_DIR/libs/rheinc_lexer.a" \
-    "$BUILD_DIR/libs/rheinc_core.a" \
-    -o "$final_binary"
+  if rh_needs_rebuild "$final_obj" "$final_obj.d" "$final_source"; then
+    echo "[CXX] RheincMain.o"
+    rh_compile_cxx "$final_source" "$final_obj" \
+      -I"$ROOT_DIR/src/include" \
+      -DRHEINC_LIBRARY_DIR=\"$BUILD_DIR/libs/RhBuiltin\"
+  else
+    echo "[SKIP] object fresh: RheincMain.o"
+  fi
+
+  relink=0
+  [[ -f "$final_binary" ]] || relink=1
+  [[ "$final_obj" -nt "$final_binary" ]] && relink=1
+  for lib in "${libs[@]}"; do
+    [[ "$lib" -nt "$final_binary" ]] && relink=1
+  done
+
+  if [[ "$relink" == "1" ]]; then
+    echo "[CXX-LD] $final_binary"
+    "$CXX" $CXXFLAGS \
+      "$final_obj" \
+      "${libs[@]}" \
+      -o "$final_binary"
+  else
+    echo "[SKIP] final fresh: rheinc"
+  fi
   echo "[OK] root build selesai: $final_binary"
 else
   echo "[OK] root production libraries selesai"

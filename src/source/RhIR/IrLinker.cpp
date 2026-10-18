@@ -9,6 +9,12 @@ namespace rhc {
 
 IrLinkReport IrLinkVerifier::verify(
     const std::vector<const IrModule*>& modules) const {
+    return verify(modules, {});
+}
+
+IrLinkReport IrLinkVerifier::verify(
+    const std::vector<const IrModule*>& modules,
+    const std::unordered_set<std::string>& externalDefinedSymbols) const {
     IrLinkReport report;
     report.ok = true;
 
@@ -56,7 +62,8 @@ IrLinkReport IrLinkVerifier::verify(
         for (const IrFunction& fn : module->functions) {
             if (fn.kind != IrFunctionKind::External) continue;
             if (fn.isBuiltin) continue;  // di-link ke runtime bahasa
-            if (definitions.count(fn.name) == 0) {
+            if (definitions.count(fn.name) == 0 &&
+                externalDefinedSymbols.count(fn.name) == 0) {
                 report.ok = false;
                 report.errors.push_back(
                     {IrLinkErrorCode::UnresolvedExternal,

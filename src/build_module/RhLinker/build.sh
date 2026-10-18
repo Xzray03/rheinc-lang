@@ -6,11 +6,21 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
 OBJ_DIR="$BUILD_DIR/obj-cache/RhLinker"
 LIB_DIR="$BUILD_DIR/libs"
-STATE_DIR="$BUILD_DIR/state"
+STATE_DIR="$BUILD_DIR/state/RhLinker"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$STATE_DIR"
+source "$ROOT_DIR/src/build_module/build_common.sh"
+
 CXX="${CXX:-g++}"
+AR="${AR:-ar}"
 CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic}"
 ARCHIVE="$LIB_DIR/rheinc_linker.a"
+FLAGS_STATE="$STATE_DIR/flags"
+FLAGS_ID="$(rh_flags_id "$CXX $CXXFLAGS")"
+if [[ ! -f "$FLAGS_STATE" || "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then
+  rm -f "$OBJ_DIR"/*.o "$OBJ_DIR"/*.d
+  echo "$FLAGS_ID" > "$FLAGS_STATE"
+fi
+
 sources=(
   src/source/RhLinker/RhLinker.cpp
 )
@@ -18,18 +28,18 @@ objs=()
 for src in "${sources[@]}"; do
   name="$(basename "$src")"; name="${name%.cpp}"
   obj="$OBJ_DIR/$name.o"
-  if [[ ! -f "$obj" || "$ROOT_DIR/$src" -nt "$obj" ]]; then
+  if rh_needs_rebuild "$obj" "$obj.d" "$ROOT_DIR/$src"; then
     echo "[CXX] $name.o"
-    "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" -c "$ROOT_DIR/$src" -o "$obj"
+    rh_compile_cxx "$ROOT_DIR/$src" "$obj" -I"$ROOT_DIR/src/include"
+  else
+    echo "[SKIP] object fresh: $name.o"
   fi
   objs+=("$obj")
 done
-archive_state="$STATE_DIR/rheinc_linker.a.cksum"
-new_cksum="$(cat "${objs[@]}" | cksum)"
-if [[ ! -f "$ARCHIVE" || ! -f "$archive_state" || "$(cat "$archive_state")" != "$new_cksum" ]]; then
-  echo "[AR] rheinc_linker.a"
-  ar rcs "$ARCHIVE" "${objs[@]}"
-  echo "$new_cksum" > "$archive_state"
-else
+
+archive_state="$STATE_DIR/rheinc_linker.a.members"
+if rh_archive_fresh "$ARCHIVE" "$archive_state" "${objs[@]}"; then
   echo "[SKIP] archive fresh: rheinc_linker.a"
+else
+  rh_update_archive "$ARCHIVE" "$archive_state" "${objs[@]}"
 fi

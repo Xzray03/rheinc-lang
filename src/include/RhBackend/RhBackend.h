@@ -18,6 +18,9 @@ struct RhBackendOptions {
     std::string outputPath;      // path .s yang ditulis
     bool runAssembler = true;    // invoke 'as' -> .o (path sama, ekstensi .o)
     std::string assembler = "as";
+    // true untuk object utama executable: emit __rheinc_stub + __global_init.
+    // false untuk object dependency agar simbol CRT tidak duplikat saat link.
+    bool emitCrtGlue = true;
 };
 
 class RhBackend {

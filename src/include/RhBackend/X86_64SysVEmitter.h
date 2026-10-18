@@ -10,7 +10,8 @@ namespace rhc {
 class X86_64SysVEmitter final : public AsmEmitter {
 public:
     bool emitModule(const FinalIr& finalIr, AsmBuilder& out,
-                    std::vector<RhBackendError>& errors) override;
+                    std::vector<RhBackendError>& errors,
+                    bool emitCrtGlue) override;
 };
 
 }  // namespace rhc

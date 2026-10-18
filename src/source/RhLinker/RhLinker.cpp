@@ -13,6 +13,7 @@
 #include "RhLinker/RhLinker.h"
 
 #include <cstdio>
+#include <dirent.h>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -73,15 +74,42 @@ bool fileExists(const std::string& path) {
     return std::fopen(path.c_str(), "rb") != nullptr;
 }
 
+// Cari dynamic linker x86-64 SysV di /usr (bukan hardcode full path):
+// contoh: /usr/lib/ld-linux-x86-64.so.2 atau /usr/lib64/ld-linux-x86-64.so.2
+std::string findDynamicLinkerX86_64() {
+    const char* dirs[] = {"/usr/lib", "/usr/lib64"};
+    for (const char* dir : dirs) {
+        DIR* d = opendir(dir);
+        if (d == nullptr) continue;
+        while (struct dirent* ent = readdir(d)) {
+            const std::string name = ent->d_name;
+            if (name.rfind("ld-linux-x86-64.", 0) == 0) {
+                const std::string full = std::string(dir) + "/" + name;
+                closedir(d);
+                return full;
+            }
+        }
+        closedir(d);
+    }
+    return "";
+}
+
 }  // namespace
 
 RhLinkerReport RhLinker::link(const RhLinkerOptions& options) const {
     RhLinkerReport report;
 
-    if (!fileExists(options.inputObject)) {
+    if (options.inputObjects.empty()) {
         fail(report.errors, RhLinkerErrorCode::MissingInput,
-             "object input tak ditemukan: " + options.inputObject);
+             "object input kosong");
         return report;
+    }
+    for (const std::string& obj : options.inputObjects) {
+        if (!fileExists(obj)) {
+            fail(report.errors, RhLinkerErrorCode::MissingInput,
+                 "object input tak ditemukan: " + obj);
+            return report;
+        }
     }
 
     // Daftar object library (*.o di libraryDir).
@@ -128,12 +156,11 @@ RhLinkerReport RhLinker::link(const RhLinkerOptions& options) const {
         undefOf[obj] = parseNmSymbols(undOut);
     }
 
-    // Kebutuhan awal: simbol undefined object user.
+    // Kebutuhan awal: simbol undefined dari SELURUH object user.
     std::set<std::string> needed;
-    {
+    for (const std::string& obj : options.inputObjects) {
         const std::string undOut =
-            runCapture("nm -u " + options.inputObject + " 2>/dev/null",
-                       nullptr);
+            runCapture("nm -u " + obj + " 2>/dev/null", nullptr);
         for (const std::string& s : parseNmSymbols(undOut)) needed.insert(s);
     }
 
@@ -158,14 +185,16 @@ RhLinkerReport RhLinker::link(const RhLinkerOptions& options) const {
         }
     }
 
-    // rh_crt.o selalu dipakai (_start); pastikan terpilih walau tak
-    // direferensikan simbol (user.o mereferensikan _start lewat ELF entry).
-    for (const std::string& obj : libObjects) {
-        if (obj.size() >= 8 &&
-            obj.compare(obj.size() - 8, 8, "rh_crt.o") == 0 &&
-            !selected.count(obj)) {
-            selected.insert(obj);
-            report.selectedObjects.push_back(obj);
+    // rh_crt.o selalu dipakai untuk executable (_start). Dynamic library
+    // tidak boleh membawa CRT startup.
+    if (!options.sharedLibrary) {
+        for (const std::string& obj : libObjects) {
+            if (obj.size() >= 8 &&
+                obj.compare(obj.size() - 8, 8, "rh_crt.o") == 0 &&
+                !selected.count(obj)) {
+                selected.insert(obj);
+                report.selectedObjects.push_back(obj);
+            }
         }
     }
 
@@ -178,9 +207,23 @@ RhLinkerReport RhLinker::link(const RhLinkerOptions& options) const {
     }
     if (!report.errors.empty()) return report;
 
-    // Invoke ld.
-    std::string cmd = options.linker + " -o " + options.outputPath + " " +
-                      options.inputObject;
+    // Invoke ld dengan seluruh object user. Executable x86_64 SysV perlu
+    // dynamic linker eksplisit; default ld bisa berubah saat input campuran
+    // object/static/dynamic library.
+    std::string cmd = options.linker;
+    if (options.sharedLibrary) {
+        cmd += " -shared";
+    } else {
+        const std::string dynamicLinker = findDynamicLinkerX86_64();
+        if (dynamicLinker.empty()) {
+            fail(report.errors, RhLinkerErrorCode::LdFailed,
+                 "dynamic linker ld-linux-x86-64.* tidak ditemukan di /usr/lib atau /usr/lib64");
+            return report;
+        }
+        cmd += " -dynamic-linker " + dynamicLinker;
+    }
+    cmd += " -o " + options.outputPath;
+    for (const std::string& obj : options.inputObjects) cmd += " " + obj;
     // Urutan: object terpilih (crt dulu agar _start di awal, bukan wajib).
     for (const std::string& obj : report.selectedObjects) cmd += " " + obj;
     bool ldOk = false;

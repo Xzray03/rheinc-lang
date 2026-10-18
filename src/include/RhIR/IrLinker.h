@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace rhc {
@@ -48,6 +49,13 @@ class IrLinkVerifier {
 public:
     // Setiap pointer modul harus valid dan outlive pemanggilan.
     IrLinkReport verify(const std::vector<const IrModule*>& modules) const;
+
+    // Sama, tetapi simbol yang didefinisikan oleh object prebuilt (.o)
+    // ikut dianggap sebagai definisi eksternal. Dipakai RhMain saat
+    // --link mencampur file .rhc dan object .o.
+    IrLinkReport verify(
+        const std::vector<const IrModule*>& modules,
+        const std::unordered_set<std::string>& externalDefinedSymbols) const;
 };
 
 } // namespace rhc

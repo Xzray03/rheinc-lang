@@ -1815,7 +1815,8 @@ private:
 }  // namespace
 
 bool X86_64SysVEmitter::emitModule(const FinalIr& finalIr, AsmBuilder& out,
-                                   std::vector<RhBackendError>& errors) {
+                                   std::vector<RhBackendError>& errors,
+                                   bool emitCrtGlue) {
     const IrModule& module = finalIr.module();
     // RegAlloc: graph coloring (Chaitin) — satu-satunya mode.
     const bool useGraphAlloc = true;
@@ -1850,6 +1851,9 @@ bool X86_64SysVEmitter::emitModule(const FinalIr& finalIr, AsmBuilder& out,
         if (fn.kind == IrFunctionKind::External) {
             continue;  // stub: simbol didefinisikan di luar (runtime)
         }
+        if (fn.kind == IrFunctionKind::GlobalInit && !emitCrtGlue) {
+            continue;  // object dependency: init global dipegang object utama
+        }
         if (fn.kind == IrFunctionKind::GlobalInit) emittedGlobalInit = true;
         FnEmitter fe(module, fn, out, errors);
         const RegAllocResult* allocPtr = nullptr;
@@ -1873,7 +1877,7 @@ bool X86_64SysVEmitter::emitModule(const FinalIr& finalIr, AsmBuilder& out,
     // exit code DETERMINISTIK — stub tahu tipe return entry: void -> 0,
     // nilai -> rax. (Tanpa stub, exit code = sisa rax terakhir = garbage
     // yang berbeda antar mode optimisasi.)
-    {
+    if (emitCrtGlue) {
         const FuncId entry = finalIr.entryFunction();
         // Void atau tidak: infer dari terminator entry (Ret vs RetVoid) —
         // IrFunction tak menyimpan returnType langsung.
@@ -1910,7 +1914,7 @@ bool X86_64SysVEmitter::emitModule(const FinalIr& finalIr, AsmBuilder& out,
 
     // __global_init selalu ada (crt memanggilnya); kosong bila modul tak
     // punya inisialisasi global.
-    if (!emittedGlobalInit) {
+    if (emitCrtGlue && !emittedGlobalInit) {
         out.globl("__global_init");
         out.typeFunction("__global_init");
         out.label("__global_init");

@@ -1,49 +1,54 @@
 #!/usr/bin/env bash
 # build.sh - Modul RhBuiltin: runtime bahasa (per-runtime object).
-#
-# Tiap sumber runtime dikompilasi menjadi object file TERSENDIRI di
-# "$BUILD_DIR/libs/RhBuiltin/" — ini "library RhBuiltin" yang nanti
-# diseleksi RhLinker (hanya object yang benar-benar dipakai program).
-#
-# Pemakaian: RHEINC_BUILD_DIR=<dir> bash build.sh [--no-tests]
 set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
 OBJ_DIR="$BUILD_DIR/obj-cache/RhBuiltin"
 LIB_DIR="$BUILD_DIR/libs/RhBuiltin"
-
-mkdir -p "$OBJ_DIR" "$LIB_DIR"
+STATE_DIR="$BUILD_DIR/state/RhBuiltin"
+mkdir -p "$OBJ_DIR" "$LIB_DIR" "$STATE_DIR"
+source "$ROOT_DIR/src/build_module/build_common.sh"
 
 CXX="${CXX:-g++}"
 CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic}"
+FLAGS_STATE="$STATE_DIR/flags"
+FLAGS_ID="$(rh_flags_id "$CXX $CXXFLAGS")"
+if [[ ! -f "$FLAGS_STATE" || "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then
+  rm -f "$OBJ_DIR"/*.o "$OBJ_DIR"/*.d
+  echo "$FLAGS_ID" > "$FLAGS_STATE"
+fi
+
+members=()
 
 build_cpp() {
   local src="$1" name obj
   name="$(basename "$src")"; name="${name%.cpp}"
   obj="$OBJ_DIR/$name.o"
-  if [[ ! -f "$obj" || "$src" -nt "$obj" ]]; then
+  if rh_needs_rebuild "$obj" "$obj.d" "$ROOT_DIR/$src"; then
     echo "[CXX] $name.o"
-    "$CXX" $CXXFLAGS -c "$ROOT_DIR/$src" -o "$obj"
+    rh_compile_cxx "$ROOT_DIR/$src" "$obj" -I"$ROOT_DIR/src/include"
+  else
+    echo "[SKIP] object fresh: $name.o"
   fi
-  # Object per-runtime masuk library RhBuiltin (salinan, mtime preserv).
   if [[ ! -f "$LIB_DIR/$name.o" || "$obj" -nt "$LIB_DIR/$name.o" ]]; then
     cp -p "$obj" "$LIB_DIR/$name.o"
   fi
+  members+=("$name.o")
 }
 
 build_s() {
   local src="$1" name obj
   name="$(basename "$src")"; name="${name%.s}"
   obj="$OBJ_DIR/$name.o"
-  if [[ ! -f "$obj" || "$src" -nt "$obj" ]]; then
+  if [[ ! -f "$obj" || "$ROOT_DIR/$src" -nt "$obj" ]]; then
     echo "[AS] $name.o"
     as "$ROOT_DIR/$src" -o "$obj"
   fi
   if [[ ! -f "$LIB_DIR/$name.o" || "$obj" -nt "$LIB_DIR/$name.o" ]]; then
     cp -p "$obj" "$LIB_DIR/$name.o"
   fi
+  members+=("$name.o")
 }
 
 for src in "$ROOT_DIR"/src/source/RhBuiltin/*.cpp; do
@@ -51,6 +56,16 @@ for src in "$ROOT_DIR"/src/source/RhBuiltin/*.cpp; do
 done
 for src in "$ROOT_DIR"/src/source/RhBuiltin/*.s; do
   [[ -e "$src" ]] && build_s "${src#"$ROOT_DIR"/}"
+done
+
+# Bersihkan object runtime yang sumbernya sudah dihapus.
+printf '%s\n' "${members[@]}" > "$STATE_DIR/members"
+for obj in "$LIB_DIR"/*.o; do
+  [[ -e "$obj" ]] || continue
+  if ! grep -qxF "$(basename "$obj")" "$STATE_DIR/members"; then
+    echo "[RM] stale runtime: $(basename "$obj")"
+    rm -f "$obj" "$OBJ_DIR/$(basename "$obj")"
+  fi
 done
 
 echo "[OK] RhBuiltin build selesai (library: $LIB_DIR)"

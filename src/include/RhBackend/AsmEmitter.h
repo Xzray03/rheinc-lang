@@ -22,7 +22,8 @@ public:
     // Mengisi errors dan mengembalikan false bila ada opcode/tipe
     // yang belum didukung.
     virtual bool emitModule(const FinalIr& finalIr, AsmBuilder& out,
-                            std::vector<RhBackendError>& errors) = 0;
+                            std::vector<RhBackendError>& errors,
+                            bool emitCrtGlue) = 0;
 };
 
 }  // namespace rhc
