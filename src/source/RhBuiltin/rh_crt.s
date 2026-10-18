@@ -6,8 +6,6 @@
     .globl _start
 _start:
     call __global_init
-    call utama
-    movq %rax, %rdi     # status = nilai kembalian utama
-    movq $60, %rax      # SYS_exit
-    syscall
+    call __rheinc_stub  # stub: exit code deterministik (void->0, nilai->rax)
+    hlt                 # tak tercapai (stub exit sendiri)
     .section .note.GNU-stack,"",@progbits

@@ -24,6 +24,28 @@ IrPassResult SimplifyCfg::run(IrModule& module) {
                 const BlockId s = blk.succs[0];
                 if (s == b || s == 0 || s >= fn.blocks.size()) continue;
                 if (fn.blocks[s].preds.size() != 1) continue;
+                // [FIX] Jangan merge blok yang memuat instruksi Phi: merge
+                // membawa phi mentah dengan BlockV pred usang (mergeBlocks
+                // tak memperbaiki phi) — merusak loop: phi self-incoming,
+                // nilai tak pernah ter-update -> loop tak berujung.
+                bool mergeHasPhi = false;
+                for (const InstrId id : fn.blocks[b].insts) {
+                    if (id < fn.instrs.size() &&
+                        fn.instrs[id].op == IrOpcode::Phi) {
+                        mergeHasPhi = true;
+                        break;
+                    }
+                }
+                if (!mergeHasPhi) {
+                    for (const InstrId id : fn.blocks[s].insts) {
+                        if (id < fn.instrs.size() &&
+                            fn.instrs[id].op == IrOpcode::Phi) {
+                            mergeHasPhi = true;
+                            break;
+                        }
+                    }
+                }
+                if (mergeHasPhi) continue;
                 if (!editor.mergeBlocks(f, b, s).ok) {
                     result.ok = false;
                     return result;

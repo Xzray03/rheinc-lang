@@ -29,6 +29,7 @@
 #include "RhAST/AstToIrTranslator.h"
 #include "RhAST/IrDump.h"
 #include "RhBackend/RhBackend.h"
+#include "RhLinker/RhLinker.h"
 #include "RhCore/DiagnosticEngine.h"
 #include "RhCore/LangOptions.h"
 #include "RhCore/ModuleKind.h"
@@ -79,7 +80,8 @@ namespace {
 struct DriverOptions {
     bool dump = false;
     bool opt = false;
-    bool emitAsm = false;   // RhBackend: FinalIr -> .s -> .o (tanpa link)
+    bool emitAsm = false;   // RhBackend: FinalIr -> .s -> .o
+    bool doLink = false;    // RhLinker: object + library runtime -> exe
     std::optional<std::string> target;
     std::optional<std::string> output;
     std::vector<std::string> inputs;
@@ -283,6 +285,39 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
             return 1;
         }
         std::cout << "rheinc: asm " << asmPath << "\n";
+
+        if (opts.doLink) {
+            // RhLinker: <input>.o + library RhBuiltin (seleksi yang dipakai)
+            // -> executable <input> (tanpa ekstensi).
+            RhLinkerOptions linkOpts;
+            linkOpts.inputObject = asmPath;
+            const std::string::size_type dot2 = linkOpts.inputObject.rfind('.');
+            if (dot2 != std::string::npos) {
+                linkOpts.inputObject.resize(dot2);
+            }
+            linkOpts.inputObject += ".o";
+            linkOpts.libraryDir = RHEINC_LIBRARY_DIR;
+            std::string exePath = asmPath;
+            const std::string::size_type dot3 = exePath.rfind('.');
+            if (dot3 != std::string::npos) {
+                exePath.resize(dot3);
+            }
+            linkOpts.outputPath = exePath;
+            const RhLinkerReport linkReport = RhLinker{}.link(linkOpts);
+            if (!linkReport.ok) {
+                for (const RhLinkerError& err : linkReport.errors) {
+                    std::cerr << "rheinc: linker: " << err.message << "\n";
+                }
+                return 1;
+            }
+            std::cout << "rheinc: link " << exePath << " (runtime: ";
+            for (std::size_t i = 0; i < linkReport.selectedObjects.size(); ++i) {
+                if (i) std::cout << ", ";
+                const std::string& o = linkReport.selectedObjects[i];
+                std::cout << o.substr(o.find_last_of('/') + 1);
+            }
+            std::cout << ")\n";
+        }
     }
 
     if (dumpStream != nullptr) {
@@ -304,6 +339,9 @@ int main(int argc, char** argv) {
             opts.dump = true;
         } else if (arg == "--emit-asm") {
             opts.emitAsm = true;
+        } else if (arg == "--link") {
+            opts.emitAsm = true;
+            opts.doLink = true;
         } else if (arg == "-opt") {
             opts.opt = true;
         } else if (arg == "--target") {

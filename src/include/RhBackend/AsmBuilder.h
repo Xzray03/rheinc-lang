@@ -32,6 +32,8 @@ public:
 
     // --- instruksi (teks mentah, sudah diformat pemanggil) ---
     void globl_label(const std::string& name);   // .globl name
+    void size_sym(const std::string& name, const std::string& expr);  // .size
+    void align_text();                           // .align 16 (fungsi)
     void zero_bytes(std::uint32_t n);            // .zero n
     void quad(std::uint64_t v);                  // .quad v (bits f64)
     void gnuStackNote();       // .section .note.GNU-stack,"",@progbits

@@ -52,6 +52,8 @@ void AsmBuilder::asciiZ(const std::string& bytes) {
     out_ << "  .asciz \"" << escapeAsciz(bytes) << "\"\n";
 }
 void AsmBuilder::globl_label(const std::string& name) { out_ << "  .globl " << name << "\n"; }
+void AsmBuilder::size_sym(const std::string& name, const std::string& expr) { out_ << "  .size " << name << ", " << expr << "\n"; }
+void AsmBuilder::align_text() { out_ << "  .align 16\n"; }
 void AsmBuilder::zero_bytes(std::uint32_t n) { out_ << "  .zero " << n << "\n"; }
 void AsmBuilder::quad(std::uint64_t v) { out_ << "  .quad " << v << "\n"; }
 void AsmBuilder::gnuStackNote() {

@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
       WITH_TESTS=1
       shift
       ;;
-    RhIR|RhLexer|RhPreprocessor|RhParser|RhSemantic|RhAST|RhBackend)
+    RhIR|RhLexer|RhPreprocessor|RhParser|RhSemantic|RhAST|RhBackend|RhLinker)
       MODULE="$1"
       shift
       ;;
@@ -61,6 +61,7 @@ modules=(
   RhAST
   RhBackend
   RhBuiltin
+  RhLinker
 )
 
 for module in "${modules[@]}"; do
@@ -77,7 +78,9 @@ final_binary="$BUILD_DIR/bin/rheinc"
 if [[ -f "$final_source" ]]; then
   echo "[CXX-LD] $final_binary"
   "$CXX" $CXXFLAGS -I"$ROOT_DIR/src/include" \
+    -DRHEINC_LIBRARY_DIR=\"$BUILD_DIR/libs/RhBuiltin\" \
     "$final_source" \
+    "$BUILD_DIR/libs/rheinc_linker.a" \
     "$BUILD_DIR/libs/rheinc_backend.a" \
     "$BUILD_DIR/libs/rheinc_ast.a" \
     "$BUILD_DIR/libs/rheinc_optimizer.a" \

@@ -32,6 +32,7 @@ sources=(
   src/source/RhBackend/AsmBuilder.cpp
   src/source/RhBackend/X86_64SysVEmitter.cpp
   src/source/RhBackend/RhBackend.cpp
+  src/source/RhBackend/GraphColoringRegAlloc.cpp
 )
 
 objects=()

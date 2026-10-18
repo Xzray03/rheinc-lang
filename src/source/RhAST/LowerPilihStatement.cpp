@@ -233,9 +233,16 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
             return false;
         }
         if (blockOpen()) {
-            const BlockId next = (i + 1 < stmt->clauses.size())
-                ? clauseBlocks[stmt->clauses[i + 1]]
-                : joinB;
+            // Badan KOSONG -> fallthrough ke kasus berikutnya (makna
+            // `kasus 10: kasus 9:`). Badan BERISI -> setelah statement
+            // lompat ke join (semantik pilih Rheinc: hanya kasus cocok
+            // yang dieksekusi). Sebelumnya badan berisi juga fallthrough,
+            // sehingga semua kasus setelah yang cocok ikut tereksekusi.
+            const bool emptyBody = (clause->body == nullptr);
+            const BlockId next =
+                (emptyBody && i + 1 < stmt->clauses.size())
+                    ? clauseBlocks[stmt->clauses[i + 1]]
+                    : joinB;
             builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                                   {IrOperand::block(next)},
                                   clause->range.begin);
