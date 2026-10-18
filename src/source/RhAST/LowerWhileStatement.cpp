@@ -45,7 +45,6 @@ bool AstToIrTranslator::Impl::lowerContinue() {
 
 bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
     if (failed || builder.broken() || !blockOpen()) return false;
-
     const NameValueMap preLoopEnv = env.back().vars;
     const BlockId preLoopBlock = currentBlock;
 
@@ -55,60 +54,89 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({condB, exitB, {}});
+    loopStack.push_back({condB, exitB, {}});  // lanjut -> condB
 
-    // Kondisi di header; SSA value loop-carried dibangun setelah body.
+    // Phi loop-carried PRE-CREATED di header condB untuk SEMUA variabel
+    // pra-loop: kondisi & body yang di-lowering setelah ini mereferensikan
+    // phi (bukan nilai pra-loop), sehingga assignment di body benar-benar
+    // loop-carried. Variabel yang tak berubah mendapat incoming self
+    // (legal SSA, artinya nilai tetap).
     setCurrent(condB);
+    std::vector<std::pair<std::string, ValueId>> carried;
+    for (const auto& [name, oldValue] : preLoopEnv) {
+        const TypeId phiType =
+            builder.function(currentFunc).values[oldValue].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
+                                              0, name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
+        env.back().vars[name] = phi;
+        carried.emplace_back(name, phi);
+    }
+
+    // Kondisi membaca phi.
     const ValueId condition = lowerExpr(stmt->condition);
-    if (condition == InvalidValue) return false;
+    if (condition == InvalidValue) { loopStack.pop_back(); return false; }
     builder.setTerminator(currentFunc, condB, IrOpcode::CondBr,
                           {IrOperand::value(condition),
-                           IrOperand::block(bodyB),
-                           IrOperand::block(exitB)},
+                           IrOperand::block(bodyB), IrOperand::block(exitB)},
                           stmt->range.begin);
 
-    // Body.
+    // Body: assignment meng-update env; pemakaian nama membaca phi.
     setCurrent(bodyB);
-    const NameValueMap bodyStartEnv = env.back().vars;
-    if (!lowerStmt(stmt->body)) return false;
-    BlockId bodyEnd = currentBlock;
+    capturePoppedEnv = true;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
+    capturePoppedEnv = false;
     if (blockOpen()) {
-        builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
+        builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(condB)}, stmt->range.begin);
-    } else {
-        bodyEnd = InvalidBlock;
     }
+    const auto continues = loopStack.back().continues;
     loopStack.pop_back();
 
-    // Loop-carried phi: nama yang berubah di body -> phi di header
-    // dengan incoming (preLoopBlock, nilaiLama) + (bodyEnd, nilaiBaru).
-    std::vector<std::pair<BlockId, const NameValueMap*>> preds;
-    if (bodyEnd != InvalidBlock) preds.emplace_back(bodyEnd, nullptr);
-    for (const auto& [name, valueAfter] : env.back().vars) {
-        const auto it = bodyStartEnv.find(name);
-        if (it == bodyStartEnv.end() || it->second == valueAfter) continue;
-        const TypeId phiType = builder.function(currentFunc).values[it->second].type;
-        const ValueId phi = builder.createPhi(phiType, currentFunc, condB, 0, name);
-        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it->second);
-        if (bodyEnd != InvalidBlock) {
-            builder.addPhiIncoming(currentFunc, phi, bodyEnd, valueAfter);
+    // Phi incoming back-edge: tiap pred condB selain pra-loop. Default =
+    // nilai env akhir body (poppedEnv = scope body yang sudah pop);
+    // situs lanjut memakai snapshot env-nya.
+    // SNAPSHOT preds dulu: addPhiIncoming me-mutate fn.instrs, referensi
+    // fungsi builder bisa stale bila dipegang selama iterasi.
+    const std::vector<BlockId> condPreds(
+        builder.function(currentFunc).blocks[condB].preds);
+    for (const auto& [name, phi] : carried) {
+        const auto itNew = poppedEnv.find(name);
+        const ValueId bodyEndValue =
+            itNew == poppedEnv.end() ? preLoopEnv.at(name) : itNew->second;
+        for (const BlockId pred : condPreds) {
+            if (pred == preLoopBlock) continue;  // sudah ditambahkan
+            ValueId incoming = bodyEndValue;
+            for (const auto& cs : continues) {
+                if (cs.first != pred) continue;
+                const auto cv = cs.second.find(name);
+                incoming = cv != cs.second.end() ? cv->second
+                                                 : preLoopEnv.at(name);
+                break;
+            }
+            builder.addPhiIncoming(currentFunc, phi, pred, incoming);
         }
-        // (Incoming untuk edge lanjut sengaja tidak ditambahkan di sini:
-        // nilai env saat lanjut belum tentu dominasi-teruji; lihat
-        // dokumentasi loop-carried phi. Diperbaiki lewat phi gabungan
-        // bila diperlukan.)
-        env.back().vars[name] = phi;
+    }
+
+    // Nilai keluar loop = EXIT PHI di blok exit: i_out = phi[condB, phi].
+    // Value didefinisikan di exit block sehingga mendominasi SEMUA
+    // pemakaian setelah loop. (Restore langsung ke phi header merusak
+    // dominasi saat loop-unroll peel: exit menjadi terjangkau tanpa lewat
+    // header, dan peel hanya me-rewrite operand di blok exit itu sendiri.)
+    for (const auto& [name, phi] : carried) {
+        const TypeId outT = builder.function(currentFunc).values[phi].type;
+        const ValueId out = builder.createPhi(outT, currentFunc, exitB, 0, name);
+        builder.addPhiIncoming(currentFunc, out, condB, phi);
+        env.back().vars[name] = out;
+        builder.function(currentFunc).locals[name] = out;
     }
 
     setCurrent(exitB);
     return !builder.broken();
 }
 
-// ===== ulangi-selama (do-while) =====
-
 bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
     if (failed || builder.broken() || !blockOpen()) return false;
-
     const NameValueMap preLoopEnv = env.back().vars;
     const BlockId preLoopBlock = currentBlock;
 
@@ -118,62 +146,85 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(bodyB)}, stmt->range.begin);
-    loopStack.push_back({condB, exitB, {}});
+    loopStack.push_back({bodyB, exitB, {}});  // lanjut -> body
 
+    // Phi PRE-CREATED di header bodyB (preds: pra-loop, back-edge condB,
+    // situs lanjut) — SEBELUM body, agar body & kondisi membaca nilai
+    // loop-carried. bodyB mendominasi condB sehingga kondisi aman.
     setCurrent(bodyB);
-    const NameValueMap bodyStartEnv = env.back().vars;
-    if (!lowerStmt(stmt->body)) return false;
-    BlockId bodyEnd = currentBlock;
-    if (blockOpen()) {
-        builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
-                              {IrOperand::block(condB)}, stmt->range.begin);
-    } else {
-        bodyEnd = InvalidBlock;
+    std::vector<std::pair<std::string, ValueId>> carried;
+    for (const auto& [name, oldValue] : preLoopEnv) {
+        const TypeId phiType =
+            builder.function(currentFunc).values[oldValue].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, bodyB,
+                                              0, name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
+        env.back().vars[name] = phi;
+        carried.emplace_back(name, phi);
     }
-    loopStack.pop_back();
 
-    // Kondisi — body minimal jalan sekali, jadi selalu ada jalur ke cond.
+    capturePoppedEnv = true;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
+    capturePoppedEnv = false;
+    if (blockOpen()) {
+        builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
+                              {IrOperand::block(condB)}, stmt->range.begin);
+    }
+
+    // Kondisi membaca phi.
     setCurrent(condB);
     const ValueId condition = lowerExpr(stmt->condition);
-    if (condition == InvalidValue) return false;
+    if (condition == InvalidValue) { loopStack.pop_back(); return false; }
     builder.setTerminator(currentFunc, condB, IrOpcode::CondBr,
                           {IrOperand::value(condition),
-                           IrOperand::block(bodyB),
-                           IrOperand::block(exitB)},
+                           IrOperand::block(bodyB), IrOperand::block(exitB)},
                           stmt->range.begin);
+    const auto continues = loopStack.back().continues;
+    loopStack.pop_back();
 
-    // Loop-carried phi di header (cond) untuk nilai yang berubah di body.
-    if (bodyEnd != InvalidBlock) {
-        for (const auto& [name, valueAfter] : env.back().vars) {
-            const auto it = bodyStartEnv.find(name);
-            if (it == bodyStartEnv.end() || it->second == valueAfter) continue;
-            const TypeId phiType =
-                builder.function(currentFunc).values[it->second].type;
-            const ValueId phi =
-                builder.createPhi(phiType, currentFunc, condB, 0, name);
-            builder.addPhiIncoming(currentFunc, phi, bodyEnd, valueAfter);
-            // preLoopBlock bukan pred cond pada do-while; pred cond hanya
-            // bodyEnd — nilai awal diisi dari env sebelum loop.
-            builder.addPhiIncoming(currentFunc, phi, preLoopBlock,
-                                   it->second);
-            env.back().vars[name] = phi;
+    // Phi incoming back-edge: tiap pred bodyB selain pra-loop. Nilai yang
+    // mengalir lewat condB = nilai env akhir body (kondisi tak mengubah
+    // env); situs lanjut memakai snapshot env-nya.
+    const std::vector<BlockId> bodyPreds(
+        builder.function(currentFunc).blocks[bodyB].preds);
+    for (const auto& [name, phi] : carried) {
+        const auto itNew = poppedEnv.find(name);
+        // Fallback variabel tak berubah di body: pakai NILAI PRA-LOOP
+        // (loop-invariant, mendominasi back-edge). Self-incoming (phi)
+        // memicu dominasi-rusak saat loop-unroll.
+        const ValueId bodyEndValue =
+            itNew == poppedEnv.end() ? preLoopEnv.at(name) : itNew->second;
+        for (const BlockId pred : bodyPreds) {
+            if (pred == preLoopBlock) continue;  // sudah ditambahkan
+            ValueId incoming = bodyEndValue;
+            for (const auto& cs : continues) {
+                if (cs.first != pred) continue;
+                const auto cv = cs.second.find(name);
+                incoming = cv != cs.second.end() ? cv->second
+                                                 : preLoopEnv.at(name);
+                break;
+            }
+            builder.addPhiIncoming(currentFunc, phi, pred, incoming);
         }
+    }
+
+    // Nilai keluar loop = EXIT PHI di blok exit: i_out = phi[condB, phi].
+    // Value didefinisikan di exit block sehingga mendominasi SEMUA
+    // pemakaian setelah loop. (Restore langsung ke phi header merusak
+    // dominasi saat loop-unroll peel: exit menjadi terjangkau tanpa lewat
+    // header, dan peel hanya me-rewrite operand di blok exit itu sendiri.)
+    for (const auto& [name, phi] : carried) {
+        const TypeId outT = builder.function(currentFunc).values[phi].type;
+        const ValueId out = builder.createPhi(outT, currentFunc, exitB, 0, name);
+        builder.addPhiIncoming(currentFunc, out, condB, phi);
+        env.back().vars[name] = out;
+        builder.function(currentFunc).locals[name] = out;
     }
 
     setCurrent(exitB);
     return !builder.broken();
 }
 
-// ===== foreach iterator-protocol (koleksi generik: Daftar, dsb) =====
-// Desugar:
-//   it = iterator_mulai(koleksi)
-//   selama bukan iterator_selesai(it)
-//     pilih iterator_berikutnya(it) {
-//       kasus ADA(v): elem = v; body
-//       kasus KOSONG(): berhenti
-//     }
-// Subjek pilih diberi tipe Opsi via resolusi varian (lihat
-// LowerPilihStatement); primitif call/selama/pilih sudah terverifikasi.
 bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
                                                    ValueId iterable) {
     const NameValueMap preLoopEnv = env.back().vars;
@@ -431,7 +482,22 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
                           {IrOperand::block(condB)}, stmt->range.begin);
     loopStack.push_back({updateB, exitB, {}});
 
+    // Phi PRE-CREATED di header condB untuk index iterator + seluruh
+    // variabel env pra-loop (pola untuk/while/do-while): cond & body
+    // membaca phi, bukan nilai pra-loop.
     setCurrent(condB);
+    NameValueMap preLoopEnvFE = env.back().vars;
+    preLoopEnvFE[indexName] = lookupLocal(indexName);
+    std::vector<std::pair<std::string, ValueId>> carriedFE;
+    for (const auto& [name, oldValue] : preLoopEnvFE) {
+        const TypeId phiType =
+            builder.function(currentFunc).values[oldValue].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, condB, 0,
+                                              name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
+        env.back().vars[name] = phi;
+        carriedFE.emplace_back(name, phi);
+    }
     const ValueId i0 = lookupLocal(indexName);
     const ValueId cond = builder.emit(
         IrOpcode::CmpLt, elementType,
@@ -450,7 +516,9 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
         {IrOperand::value(iterable), IrOperand::value(i1)},
         stmt->range.begin, elemName);
     bindLocal(elemName, elem);
-    if (!lowerStmt(stmt->body)) return false;
+    capturePoppedEnv = true;
+    if (!lowerStmt(stmt->body)) { capturePoppedEnv = false; return false; }
+    capturePoppedEnv = false;
     BlockId bodyEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
@@ -458,10 +526,50 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
     } else {
         bodyEnd = InvalidBlock;
     }
+
+    const auto continuesFE = loopStack.back().continues;
     loopStack.pop_back();
 
     setCurrent(updateB);
-    const ValueId i2 = lookupLocal(indexName);
+    // Phi merge latch khusus loop var di updateB
+    // masuk updateB dari akhir body / situs lanjut.
+    ValueId latchIdx = InvalidValue;
+    {
+        const auto envEnd = env.back().vars.find(indexName);
+        const auto itC = carriedFE.end();
+        (void)itC;
+        if (envEnd != env.back().vars.end()) {
+            latchIdx = builder.createPhi(elementType, currentFunc, updateB, 0,
+                                         indexName + "_latch");
+            // incoming: dari akhir body (poppedEnv) & continue-sites.
+            const auto& postBody = poppedEnv;
+            for (const auto& [pred, envMap] : continuesFE) {
+                const auto cv = envMap.find(indexName);
+                if (cv != envMap.end()) {
+                    builder.addPhiIncoming(currentFunc, latchIdx, pred,
+                                           cv->second);
+                }
+            }
+            // bodyEnd pred -> postBody[indexName] (phi condB bila tak berubah)
+            const auto pb = postBody.find(indexName);
+            if (pb != postBody.end()) {
+                // bodyEnd = pred terakhir; cari dari preds updateB
+                const IrFunction& f = builder.function(currentFunc);
+                for (const BlockId pred : f.blocks[updateB].preds) {
+                    bool found = false;
+                    for (const auto& [cp, cm] : continuesFE) {
+                        if (cp == pred) { found = true; break; }
+                    }
+                    if (!found) {
+                        builder.addPhiIncoming(currentFunc, latchIdx, pred,
+                                               pb->second);
+                    }
+                }
+            }
+        }
+    }
+    const ValueId i2 = latchIdx != InvalidValue ? latchIdx
+                                                : lookupLocal(indexName);
     ValueId next = InvalidValue;
     if (stmt->stepValue) {
         const ValueId step = lowerExpr(stmt->stepValue);
@@ -478,16 +586,23 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
     builder.setTerminator(currentFunc, updateB, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
 
-    for (const auto& [name, valueAfter] : env.back().vars) {
-        const auto it = bodyStartEnv.find(name);
-        if (it == bodyStartEnv.end() || it->second == valueAfter) continue;
-        const TypeId phiType =
-            builder.function(currentFunc).values[it->second].type;
-        const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
-                                              0, name);
-        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it->second);
-        builder.addPhiIncoming(currentFunc, phi, updateB, valueAfter);
-        env.back().vars[name] = phi;
+    // Wiring incoming phi condB (carriedFE): nama yang berubah mendapat
+    // incoming dari updateB = nilai env akhir (valueAfter); nama yang
+    // sama -> self-incoming (benign, removeable).
+    for (const auto& [name, phi] : carriedFE) {
+        const auto itAfter = poppedEnv.find(name);
+        if (itAfter == poppedEnv.end()) continue;
+        if (itAfter->second == phi) continue;  // tak berubah -> self
+        builder.addPhiIncoming(currentFunc, phi, updateB, itAfter->second);
+    }
+    // Nilai keluar loop = EXIT PHI (lihat lowerWhileStatement): value di
+    // exit block mendominasi semua pemakaian setelah loop.
+    for (const auto& [name, phi] : carriedFE) {
+        const TypeId outT = builder.function(currentFunc).values[phi].type;
+        const ValueId out = builder.createPhi(outT, currentFunc, exitB, 0, name);
+        builder.addPhiIncoming(currentFunc, out, condB, phi);
+        env.back().vars[name] = out;
+        builder.function(currentFunc).locals[name] = out;
     }
 
     // Variabel elemen bersifat scoped terhadap loop: nilainya didefinisikan
@@ -513,18 +628,18 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
                      "for-range butuh loop variable tunggal");
     }
 
-    const NameValueMap preLoopEnv = env.back().vars;
-    const BlockId preLoopBlock = currentBlock;
-
-    // Init: var loop = nilai awal.
+    // start/end (dan step opsional) dinilai sekali sebelum loop di blok
+    // sekarang — keduanya loop-invariant (spec).
     const ValueId start = lowerExpr(stmt->startValue);
     if (start == InvalidValue) return false;
-    bindLocal(stmt->loopVariable, start);
-
-    const ValueId end = lowerExpr(stmt->endValue);
-    if (end == InvalidValue) return false;
+    const ValueId upper = lowerExpr(stmt->endValue);
+    if (upper == InvalidValue) return false;
     const ValueId step = stmt->stepValue ? lowerExpr(stmt->stepValue)
                                          : InvalidValue;
+    if (stmt->stepValue && step == InvalidValue) return false;
+
+    NameValueMap preLoopEnv = env.back().vars;
+    const BlockId preLoopBlock = currentBlock;
 
     const BlockId condB = builder.createBlock(currentFunc, "for.cond");
     const BlockId bodyB = builder.createBlock(currentFunc, "for.body");
@@ -533,72 +648,156 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
 
     builder.setTerminator(currentFunc, preLoopBlock, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
-    loopStack.push_back({updateB, exitB, {}});  // lanjut -> update, berhenti -> exit
+    loopStack.push_back({updateB, exitB, {}});  // lanjut -> update
 
-    // Kondisi: var loop < end (asumsi langkah positif; langkah negatif
-    // menghasilkan CmpGt — ditentukan lewat constant folding step saat
-    // nilainya konstan, selain itu CmpLt dengan catatan).
+    // Phi loop-carried PRE-CREATED di header condB (pola sama dengan
+    // while/do-while): kondisi & body membaca phi; variabel tak berubah
+    // mendapat incoming self/merge. Loop variable (nama baru) ikut di-
+    // phi-kan; kondisi & body membaca phi.
     setCurrent(condB);
+    preLoopEnv[stmt->loopVariable] = start;   // agar merge latch melihatnya
+    std::vector<std::pair<std::string, ValueId>> carried;
+    for (const auto& [name, oldValue] : preLoopEnv) {
+        const TypeId phiType =
+            builder.function(currentFunc).values[oldValue].type;
+        const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
+                                              0, name);
+        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
+        env.back().vars[name] = phi;
+        carried.emplace_back(name, phi);
+    }
+
+    // Kondisi: loopVariable < upper (membaca phi loop var). Langkah
+    // negatif konstan -> CmpGt (pola pristine).
     const ValueId loopVar = lookupLocal(stmt->loopVariable);
     IrOpcode cmpOp = IrOpcode::CmpLt;
     if (step != InvalidValue) {
-        // deteksi langkah negatif konstan
-        // (disederhanakan: hanya bila step adalah ConstInt 1-ImmV negatif
-        // — lowering umum konstanta folding di pass terpisah)
+        // deteksi langkah negatif konstan (ConstInt 1-ImmV negatif)
+        const IrInstr* stepDef = nullptr;
+        if (step < builder.function(currentFunc).values.size()) {
+            const IrValue& sv = builder.function(currentFunc).values[step];
+            if (sv.kind == IrValue::Kind::Instr &&
+                sv.payload < builder.function(currentFunc).instrs.size()) {
+                stepDef = &builder.function(currentFunc).instrs[sv.payload];
+            }
+        }
+        if (stepDef && stepDef->op == IrOpcode::ConstInt &&
+            stepDef->operands.size() == 1 &&
+            stepDef->operands[0].kind == IrOperandKind::ImmV) {
+            const std::int32_t stepImm =
+                static_cast<std::int32_t>(stepDef->operands[0].id);
+            if (stepImm < 0) cmpOp = IrOpcode::CmpGt;
+        }
     }
     const TypeId condType =
         builder.function(currentFunc).values[loopVar].type;
     const ValueId condition = builder.emit(
-        cmpOp, condType, {IrOperand::value(loopVar), IrOperand::value(end)},
+        cmpOp, condType, {IrOperand::value(loopVar), IrOperand::value(upper)},
         stmt->range.begin);
+    if (condition == InvalidValue) { loopStack.pop_back(); return false; }
     builder.setTerminator(currentFunc, condB, IrOpcode::CondBr,
                           {IrOperand::value(condition),
-                           IrOperand::block(bodyB),
-                           IrOperand::block(exitB)},
+                           IrOperand::block(bodyB), IrOperand::block(exitB)},
                           stmt->range.begin);
 
     // Body.
     setCurrent(bodyB);
-    const NameValueMap bodyStartEnv = env.back().vars;
-    if (!lowerStmt(stmt->body)) return false;
-    BlockId bodyEnd = currentBlock;
+    capturePoppedEnv = true;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
+    capturePoppedEnv = false;
+    const NameValueMap& postBodyEnv = poppedEnv;
+    const BlockId bodyEnd = currentBlock;
+    const auto continues = loopStack.back().continues;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
                               {IrOperand::block(updateB)}, stmt->range.begin);
-    } else {
-        bodyEnd = InvalidBlock;
     }
-    loopStack.pop_back();
-
-    // Update: var loop = var loop + langkah (default 1).
+    // Merge latch di updateB atas nilai yang datang dari akhir body dan
+    // situs lanjut (bila perbedaan -> phi di updateB lewat mergeAtJoin).
     setCurrent(updateB);
-    const ValueId current = lookupLocal(stmt->loopVariable);
-    ValueId next = InvalidValue;
-    if (step != InvalidValue) {
-        next = builder.emit(IrOpcode::Add, condType,
-                            {IrOperand::value(current),
-                             IrOperand::value(step)},
-                            stmt->range.begin, stmt->loopVariable);
-    } else {
-        next = builder.emit(IrOpcode::Inc, condType,
-                            {IrOperand::value(current)},
-                            stmt->range.begin, stmt->loopVariable);
+    std::vector<std::pair<BlockId, const NameValueMap*>> latchPreds;
+    if (bodyEnd != InvalidBlock && blockOpen()) {
+        // bodyEnd baru saja di-terminasi; cek lewat CFG.
     }
-    bindLocal(stmt->loopVariable, next);
+    // (preds updateB: bodyEnd bila body berakhir terbuka + tiap lanjut)
+    {
+        const IrFunction& f = builder.function(currentFunc);
+        for (const BlockId p : f.blocks[updateB].preds) {
+            if (p == bodyEnd) {
+                latchPreds.emplace_back(p, &postBodyEnv);
+            } else {
+                for (const auto& cs : continues) {
+                    if (cs.first == p) {
+                        latchPreds.emplace_back(p, &cs.second);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    NameValueMap latchEnv = preLoopEnv;
+    if (!latchPreds.empty()) {
+        latchEnv = mergeAtJoin(updateB, latchPreds, preLoopEnv);
+    }
+
+    // Phi merge latch khusus loop var di updateB: merepresentasikan nilai
+    // loop var yang masuk ke updateB (dari akhir body / situs lanjut).
+    // Tanpa ini, loop var self-referensi (inc(phi condB) -> incoming
+    // condB = hasil inc itu sendiri).
+    ValueId latchPhi = InvalidValue;
+    if (!latchPreds.empty()) {
+        latchPhi = builder.createPhi(condType, currentFunc, updateB, 0,
+                                     stmt->loopVariable + "_latch");
+        for (const auto& [pred, envMap] : latchPreds) {
+            const auto itV = envMap->find(stmt->loopVariable);
+            builder.addPhiIncoming(
+                currentFunc, latchPhi, pred,
+                itV == envMap->end()
+                    ? env.back().vars[stmt->loopVariable]
+                    : itV->second);
+        }
+    }
+    const ValueId latchLoopVar =
+        latchPhi != InvalidValue ? latchPhi : lookupLocal(stmt->loopVariable);
+    ValueId nextValue = InvalidValue;
+    if (step != InvalidValue) {
+        nextValue = builder.emit(IrOpcode::Add, condType,
+                                 {IrOperand::value(latchLoopVar),
+                                  IrOperand::value(step)},
+                                 stmt->range.begin, stmt->loopVariable);
+        if (builder.broken()) return false;
+    } else {
+        nextValue = builder.emit(IrOpcode::Inc, condType,
+                                 {IrOperand::value(latchLoopVar)},
+                                 stmt->range.begin, stmt->loopVariable);
+        if (builder.broken()) return false;
+    }
+    env.back().vars = latchEnv;
+    env.back().vars[stmt->loopVariable] = nextValue;
     builder.setTerminator(currentFunc, updateB, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
 
-    // Loop-carried phi untuk var loop (dan nama lain yang berubah).
-    for (const auto& [name, valueAfter] : env.back().vars) {
-        const auto it = bodyStartEnv.find(name);
-        if (it == bodyStartEnv.end() || it->second == valueAfter) continue;
-        const TypeId phiType =
-            builder.function(currentFunc).values[it->second].type;
-        const ValueId phi =
-            builder.createPhi(phiType, currentFunc, condB, 0, name);
-        builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it->second);
-        builder.addPhiIncoming(currentFunc, phi, updateB, valueAfter);
-        env.back().vars[name] = phi;
+    // Phi incoming (updateB): loop var -> nextValue; lainnya -> latchEnv.
+    for (const auto& [name, phi] : carried) {
+        ValueId incoming = nextValue;
+        if (name != stmt->loopVariable) {
+            const auto itL = latchEnv.find(name);
+            incoming = itL == latchEnv.end() ? phi : itL->second;
+        }
+        builder.addPhiIncoming(currentFunc, phi, updateB, incoming);
+    }
+
+    // Nilai keluar loop = EXIT PHI di blok exit: i_out = phi[condB, phi].
+    // Value didefinisikan di exit block sehingga mendominasi SEMUA
+    // pemakaian setelah loop. (Restore langsung ke phi header merusak
+    // dominasi saat loop-unroll peel: exit menjadi terjangkau tanpa lewat
+    // header, dan peel hanya me-rewrite operand di blok exit itu sendiri.)
+    for (const auto& [name, phi] : carried) {
+        const TypeId outT = builder.function(currentFunc).values[phi].type;
+        const ValueId out = builder.createPhi(outT, currentFunc, exitB, 0, name);
+        builder.addPhiIncoming(currentFunc, out, condB, phi);
+        env.back().vars[name] = out;
+        builder.function(currentFunc).locals[name] = out;
     }
 
     setCurrent(exitB);

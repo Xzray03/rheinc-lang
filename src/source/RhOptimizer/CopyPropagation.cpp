@@ -13,7 +13,7 @@ namespace {
 
 // Resolve operand -> nilai integer konstan (ImmV langsung atau ValueV yang
 // didefinisikan ConstInt/ConstBool), seperti resolver di pass lain.
-bool constImm(const IrFunction& fn, const IrOperand& op, std::uint32_t& out) {
+bool constImm(const IrFunction& fn, const IrOperand& op, std::uint64_t& out) {
     if (op.kind == IrOperandKind::ImmV) {
         out = op.id;
         return true;
@@ -22,8 +22,11 @@ bool constImm(const IrFunction& fn, const IrOperand& op, std::uint32_t& out) {
         const IrValue& v = fn.values[op.id];
         if (v.kind == IrValue::Kind::Instr && v.payload < fn.instrs.size()) {
             const IrInstr& d = fn.instrs[v.payload];
-            if ((d.op == IrOpcode::ConstInt || d.op == IrOpcode::ConstBool) &&
-                d.operands.size() == 1 &&
+            // ConstInt 64-bit: 1-2 ImmV lo/hi (D-4); ConstBool 1 ImmV.
+            if (d.op == IrOpcode::ConstInt) {
+                return decodeConstInt(d, out);
+            }
+            if (d.op == IrOpcode::ConstBool && d.operands.size() == 1 &&
                 d.operands[0].kind == IrOperandKind::ImmV) {
                 out = d.operands[0].id;
                 return true;
@@ -50,7 +53,7 @@ bool identityCopy(const IrFunction& fn, const IrModule& module,
     if (vIdx < 0) return false;
     // kandidat op identitas; konstanta identitas tergantung op
     const IrOpcode op = instr.op;
-    std::uint32_t c = 0;
+    std::uint64_t c = 0;
     if (!constImm(fn, instr.operands[1 - vIdx], c)) return false;
     bool ident = false;
     switch (op) {
@@ -66,19 +69,17 @@ bool identityCopy(const IrFunction& fn, const IrModule& module,
         ident = (c == 1);
         break;
     case IrOpcode::BitAnd: {
-        // mask penuh lebar tipe: hanya Int dengan sizeBytes 1/2/4
-        // (8 byte: mask ~0 tidak representabel ImmV 32-bit, tapi c
-        // konstan 32-bit tak mungkin == mask 64-bit kecuali 0xFFFFFFFF
-        // yang BUKAN mask penuh 8 byte -> aman otomatis).
+        // mask penuh lebar tipe: Int sizeBytes 1/2/4/8 (8 byte: mask
+        // ~0ull; representable lewat ConstInt 2 ImmV lo/hi, D-4).
         if (instr.resultType == InvalidType ||
             instr.resultType >= module.types.size()) {
             break;
         }
         const IrType& t = module.types[instr.resultType];
-        if (t.kind != IrTypeKind::Int || t.sizeBytes >= 8) break;
-        const std::uint32_t bits = t.sizeBytes * 8;
-        const std::uint32_t mask =
-            bits >= 32 ? 0xFFFFFFFFu : ((1u << bits) - 1u);
+        if (t.kind != IrTypeKind::Int || t.sizeBytes > 8) break;
+        const std::uint64_t mask = t.sizeBytes >= 8
+            ? ~0ull
+            : ((1ull << (t.sizeBytes * 8)) - 1);
         ident = (c == mask);
         break;
     }

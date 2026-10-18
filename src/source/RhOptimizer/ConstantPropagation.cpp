@@ -17,8 +17,9 @@ namespace {
 // tak bisa membawa bit pattern desimal.
 struct Fact {
     enum class K : std::uint8_t { Int, Bool, Float } k = K::Int;
-    std::uint32_t bits = 0;      // Int: bit pattern; Bool: 0/1
-    std::uint64_t bits64 = 0;    // Float: IEEE-754 double 64-bit
+    std::uint32_t bits = 0;      // Bool: 0/1
+    std::uint64_t bits64 = 0;    // Int: bit pattern penuh (<=64 bit);
+                                 // Float: IEEE-754 double 64-bit
     TypeId type = InvalidType;   // Float: tipe desimal hasil
 };
 
@@ -27,9 +28,12 @@ bool factFromDef(const IrInstr& def, Fact& out) {
         def.operands[0].kind != IrOperandKind::ImmV) {
         return false;
     }
-    if (def.op == IrOpcode::ConstInt && def.operands.size() == 1) {
+    if (def.op == IrOpcode::ConstInt) {
+        // 1-2 ImmV (lo, hi) untuk nilai 64-bit (DEVIATIONS D-4).
+        std::uint64_t value = 0;
+        if (!decodeConstInt(def, value)) return false;
         out.k = Fact::K::Int;
-        out.bits = def.operands[0].id;
+        out.bits64 = value;
         return true;
     }
     if (def.op == IrOpcode::ConstBool && def.operands.size() == 1) {
@@ -52,6 +56,9 @@ bool sameFact(const Fact& a, const Fact& b) {
     if (a.k != b.k) return false;
     if (a.k == Fact::K::Float) {
         return a.bits64 == b.bits64 && a.type == b.type;
+    }
+    if (a.k == Fact::K::Int) {
+        return a.bits64 == b.bits64;
     }
     return a.bits == b.bits;
 }
@@ -116,7 +123,7 @@ IrPassResult ConstantPropagation::run(IrModule& module) {
                     if (op.kind == IrOperandKind::ImmV) {
                         cur = Fact{};
                         cur->k = Fact::K::Int;
-                        cur->bits = op.id;
+                        cur->bits64 = op.id;
                     } else if (op.kind == IrOperandKind::ValueV &&
                                op.id < facts.size() &&
                                facts[op.id].has_value()) {
@@ -161,8 +168,17 @@ IrPassResult ConstantPropagation::run(IrModule& module) {
                             return result;
                         }
                         rewritten = IrOperand::constant(cid);
-                    } else {
+                    } else if (fact.k == Fact::K::Bool) {
                         rewritten = IrOperand::imm(fact.bits);
+                    } else if (fact.k == Fact::K::Int &&
+                               fact.bits64 <= 0xFFFFFFFFull) {
+                        rewritten = IrOperand::imm(
+                            static_cast<std::uint32_t>(fact.bits64));
+                    } else {
+                        // Int 64-bit tidak bisa jadi ImmV (D-4) — use
+                        // dibiarkan, def ConstInt-nya tetap menjadi
+                        // sumber nilai (sound, konservatif).
+                        continue;
                     }
                     if (!editor.replaceOperandAt(f, b, pos, oi,
                                                  rewritten).ok) {

@@ -27,7 +27,7 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
     if (subject == InvalidValue) return false;
 
     struct CaseTarget {
-        std::uint32_t tag;      // nilai konstanta kasus (int/tag sum)
+        std::uint64_t tag;      // nilai konstanta kasus (int/tag sum, 64-bit)
         const CaseClause* clause;
     };
     std::vector<CaseTarget> targets;
@@ -125,7 +125,8 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
                                  "' tidak ada pada " + sumType.name);
                 }
                 targets.push_back(
-                    {static_cast<std::uint32_t>(sumType.variants[variantIndex].tagValue),
+                    {static_cast<std::uint64_t>(
+                         sumType.variants[variantIndex].tagValue),
                      clause});
             }
         }
@@ -145,12 +146,13 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
                 if (value == InvalidValue) return false;
                 const IrFunction& fn = builder.function(currentFunc);
                 const IrInstr& instr = fn.instrs[fn.values[value].payload];
-                if (instr.op != IrOpcode::ConstInt || instr.operands.empty() ||
-                    instr.operands[0].kind != IrOperandKind::ImmV) {
+                std::uint64_t tagValue = 0;
+                if (instr.op != IrOpcode::ConstInt ||
+                    !decodeConstInt(instr, tagValue)) {
                     return error(AstIrErrorCode::MalformedShape, pattern,
                                  "nilai kasus pilih harus konstanta integer");
                 }
-                targets.push_back({instr.operands[0].id, clause});
+                targets.push_back({tagValue, clause});
             }
         }
     }
@@ -173,7 +175,8 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
     for (const CaseTarget& target : targets) {
         operands.push_back(IrOperand::value(
             builder.emit(IrOpcode::ConstInt, subjectTypeId,
-                         {IrOperand::imm(target.tag)}, stmt->range.begin)));
+                         encodeConstIntOperands(target.tag),
+                         stmt->range.begin)));
         operands.push_back(IrOperand::block(clauseBlocks[target.clause]));
     }
     operands.push_back(IrOperand::block(defaultBlock));

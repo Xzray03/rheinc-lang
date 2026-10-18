@@ -227,7 +227,16 @@ struct AstToIrTranslator::Impl {
 
     // helper kecil
     void pushEnv() { env.emplace_back(); }
-    void popEnv() { env.pop_back(); }
+    // Tangkap isi scope terdalam saat pop bila flag aktif — dipakai
+    // lowering loop untuk membaca env akhir body SEBELUM scope-nya hilang
+    // (assignment menulis ke scope terdalam, bukan scope pendeklarasi).
+    void popEnv() {
+        if (capturePoppedEnv) poppedEnv = env.back().vars;
+        env.pop_back();
+    }
+    // Aktifkan tangkapan popEnv untuk satu body loop; hasil di poppedEnv.
+    bool capturePoppedEnv = false;
+    NameValueMap poppedEnv;
     const NameValueMap& currentVars() const { return env.back().vars; }
     // Nilai tersimpan mentah: SSA value biasa, atau ptr Alloc untuk
     // variabel memory-style. Tidak meng-emit instruksi.
@@ -245,6 +254,11 @@ struct AstToIrTranslator::Impl {
     // Nilai untuk dibaca: variabel memory-style di-Load dulu.
     ValueId lookupLocal(const std::string& name);
     void bindLocal(const std::string& name, ValueId value);
+    // Assignment update-through: cari binding 'name' dari scope terdalam
+    // ke terluar dan UPDATE di scope tempat ditemukan (tidak shadow).
+    // Beda dengan bindLocal (deklarasi, selalu scope terdalam). Bila tak
+    // ditemukan, fallback bindLocal.
+    void assignLocal(const std::string& name, ValueId value);
 };
 
 // true bila tipe mengandung ErrorType di kedalaman (definisi di

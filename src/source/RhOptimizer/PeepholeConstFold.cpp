@@ -4,6 +4,7 @@
 #include "RhIR/IrInstr.h"
 #include "RhIR/IrModule.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -108,15 +109,18 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                         return false;
                     }
                     const IrInstr& def = fn.instrs[v.payload];
+                    out.type = def.resultType;
+                    if (def.op == IrOpcode::ConstInt) {
+                        // 1-2 ImmV (lo, hi) untuk nilai 64-bit (D-4).
+                        std::uint64_t value = 0;
+                        if (!decodeConstInt(def, value)) return false;
+                        out.k = Resolved::K::Int;
+                        out.bits = value;
+                        return true;
+                    }
                     if (def.operands.empty() ||
                         def.operands[0].kind != IrOperandKind::ImmV) {
                         return false;
-                    }
-                    out.type = def.resultType;
-                    if (def.op == IrOpcode::ConstInt) {
-                        out.k = Resolved::K::Int;
-                        out.bits = def.operands[0].id;
-                        return true;
                     }
                     if (def.op == IrOpcode::ConstBool) {
                         out.k = Resolved::K::Bool;
@@ -142,8 +146,7 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                 bool done = false;
                 auto emitInt = [&](std::uint64_t bits) {
                     folded.op = IrOpcode::ConstInt;
-                    folded.operands = {IrOperand::imm(
-                        static_cast<std::uint32_t>(bits & 0xFFFFFFFFu))};
+                    folded.operands = encodeConstIntOperands(bits);
                     folded.name.clear();
                     done = true;
                 };
@@ -177,13 +180,20 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                     const TypeId target = instr.operands[1].id;
                     const IrTypeKind tk = typeKindAt(target);
                     if (X.k == Resolved::K::Int) {
-                        const bool sSrc = typeSignedAt(X.type);
+                        // Sign/zero extension 64-bit penuh dari lebar
+                        // tipe sumber (X.type), bukan cuma 32-bit.
+                        const std::uint32_t srcBytes = typeSizeAt(X.type);
+                        const unsigned srcWidth =
+                            std::min(64u, (srcBytes == 0 ? 8u : srcBytes) * 8u);
+                        const std::uint64_t srcMask =
+                            srcWidth >= 64 ? ~0ull : ((1ull << srcWidth) - 1);
+                        std::uint64_t raw = X.bits & srcMask;
+                        if (typeSignedAt(X.type) && srcWidth < 64 &&
+                            (raw & (1ull << (srcWidth - 1)))) {
+                            raw |= ~srcMask;
+                        }
                         const std::int64_t sv =
-                            sSrc ? static_cast<std::int64_t>(
-                                       static_cast<std::int32_t>(
-                                           static_cast<std::uint32_t>(X.bits)))
-                                 : static_cast<std::int64_t>(
-                                       static_cast<std::uint32_t>(X.bits));
+                            static_cast<std::int64_t>(raw);
                         if (tk == IrTypeKind::Int) {
                             const std::uint32_t bytes = typeSizeAt(target);
                             std::uint64_t mask =
@@ -241,21 +251,33 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                     if (haveL && haveR && intOp &&
                         L.k == Resolved::K::Int &&
                         R.k == Resolved::K::Int) {
-                        const std::uint32_t lhs =
-                            static_cast<std::uint32_t>(L.bits);
-                        const std::uint32_t rhs =
-                            static_cast<std::uint32_t>(R.bits);
-                        const bool sgn = typeSignedAt(instr.resultType) ||
-                                         (isCmp && typeSignedAt(L.type));
-                        const std::int64_t sL =
-                            sgn ? static_cast<std::int64_t>(
-                                      static_cast<std::int32_t>(lhs))
-                                : static_cast<std::int64_t>(lhs);
-                        const std::int64_t sR =
-                            sgn ? static_cast<std::int64_t>(
-                                      static_cast<std::int32_t>(rhs))
-                                : static_cast<std::int64_t>(rhs);
+                        // Fold 64-bit penuh; hasil aritmetika dimask ke
+                        // lebar resultType. Sign extension mengikuti tipe
+                        // masing-masing operand (cmp) / resultType (lainnya).
+                        const std::uint64_t lhs = L.bits;
+                        const std::uint64_t rhs = R.bits;
+                        const auto toSigned =
+                            [&typeSizeAt, &typeSignedAt](
+                                std::uint64_t value, TypeId type) -> std::int64_t {
+                                const std::uint32_t b = typeSizeAt(type);
+                                const unsigned w =
+                                    std::min(64u, (b == 0 ? 8u : b) * 8u);
+                                const std::uint64_t m =
+                                    w >= 64 ? ~0ull : ((1ull << w) - 1);
+                                value &= m;
+                                if (!typeSignedAt(type)) {
+                                    return static_cast<std::int64_t>(value);
+                                }
+                                if (w >= 64) {
+                                    return static_cast<std::int64_t>(value);
+                                }
+                                const std::uint64_t signBit = 1ull << (w - 1);
+                                if (value & signBit) value |= ~m;
+                                return static_cast<std::int64_t>(value);
+                            };
                         if (isCmp) {
+                            const std::int64_t sL = toSigned(lhs, L.type);
+                            const std::int64_t sR = toSigned(rhs, R.type);
                             bool v = false;
                             switch (instr.op) {
                             case IrOpcode::CmpEq: v = lhs == rhs; break;
@@ -268,7 +290,16 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                             }
                             emitBool(v);
                         } else {
-                            std::uint32_t v = 0;
+                            const std::uint32_t bytes =
+                                typeSizeAt(instr.resultType);
+                            const unsigned width =
+                                std::min(64u, (bytes == 0 ? 8u : bytes) * 8u);
+                            const std::uint64_t mask =
+                                width >= 64 ? ~0ull : ((1ull << width) - 1);
+                            const bool sgn = typeSignedAt(instr.resultType);
+                            const std::int64_t sL = toSigned(lhs, instr.resultType);
+                            const std::int64_t sR = toSigned(rhs, instr.resultType);
+                            std::uint64_t v = 0;
                             bool ok = true;
                             switch (instr.op) {
                             case IrOpcode::Add: v = lhs + rhs; break;
@@ -277,19 +308,19 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                             case IrOpcode::Div:
                             case IrOpcode::DivFloor:
                                 if (rhs == 0) { ok = false; break; }
-                                v = static_cast<std::uint32_t>(
+                                v = static_cast<std::uint64_t>(
                                     sgn ? floorDiv(sL, sR) : sL / sR);
                                 break;
                             case IrOpcode::Mod:
                                 if (rhs == 0) { ok = false; break; }
-                                v = static_cast<std::uint32_t>(
+                                v = static_cast<std::uint64_t>(
                                     sgn ? floorMod(sL, sR) : sL % sR);
                                 break;
                             case IrOpcode::Pow: {
                                 if (rhs > 10000) { ok = false; break; }
-                                std::uint32_t acc = 1;
-                                for (std::uint32_t i = 0; i < rhs; ++i) {
-                                    acc = acc * lhs;
+                                std::uint64_t acc = 1;
+                                for (std::uint64_t i = 0; i < rhs; ++i) {
+                                    acc *= lhs;
                                 }
                                 v = acc;
                                 break;
@@ -298,18 +329,17 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                             case IrOpcode::BitOr:  v = lhs | rhs; break;
                             case IrOpcode::BitXor: v = lhs ^ rhs; break;
                             case IrOpcode::Shl:
-                                if (rhs >= 32) { ok = false; break; }
+                                if (rhs >= width) { ok = false; break; }
                                 v = lhs << rhs;
                                 break;
                             case IrOpcode::Shr:
-                                if (rhs >= 32) { ok = false; break; }
-                                v = sgn ? static_cast<std::uint32_t>(
-                                              static_cast<std::int32_t>(lhs) >> rhs)
+                                if (rhs >= width) { ok = false; break; }
+                                v = sgn ? static_cast<std::uint64_t>(sL >> rhs)
                                         : lhs >> rhs;
                                 break;
                             default: continue;
                             }
-                            if (ok) emitInt(v);
+                            if (ok) emitInt(v & mask);
                         }
                     } else if (haveL && haveR && floatOp &&
                                L.k == Resolved::K::Float &&
@@ -373,9 +403,17 @@ IrPassResult PeepholeConstFold::run(IrModule& module) {
                     if ((instr.op == IrOpcode::Neg ||
                          instr.op == IrOpcode::BitNot) &&
                         X.k == Resolved::K::Int) {
-                        const std::uint32_t x =
-                            static_cast<std::uint32_t>(X.bits);
-                        emitInt(instr.op == IrOpcode::Neg ? (0u - x) : ~x);
+                        // 64-bit penuh; mask lebar resultType diterapkan
+                        // di emitInt oleh pemanggil (v & mask tidak untuk
+                        // unary) — maka mask di sini eksplisit.
+                        const std::uint32_t bytes =
+                            typeSizeAt(instr.resultType);
+                        const unsigned width =
+                            std::min(64u, (bytes == 0 ? 8u : bytes) * 8u);
+                        const std::uint64_t m =
+                            width >= 64 ? ~0ull : ((1ull << width) - 1);
+                        const std::uint64_t x = X.bits & m;
+                        emitInt((instr.op == IrOpcode::Neg ? (0ull - x) : ~x) & m);
                     } else if (instr.op == IrOpcode::Neg &&
                                X.k == Resolved::K::Float) {
                         emitFloat(-floatBitsToDouble(X.bits));

@@ -41,6 +41,13 @@ public:
     FuncId entryFunction() const;
     FuncId globalInitFunction() const;
     const std::vector<FuncId>& externalFunctions() const;
+    // External terpisah untuk konsumen link-time (RhLinker):
+    //   builtin  = stub runtime bahasa (isBuiltin=true) -> resolve lewat
+    //              library RhBuiltin (simbol rh_* via RuntimeContract.h)
+    //   user     = deklarasi External dari user (.rhh) -> harus terdefinisi
+    //              di modul lain sesi link (UnresolvedExternal)
+    const std::vector<FuncId>& builtinExternalFunctions() const;
+    const std::vector<FuncId>& userExternalFunctions() const;
 
 private:
     std::shared_ptr<const IrModule> module_;
@@ -50,6 +57,8 @@ private:
     std::map<std::string, FuncId> functionByName_;
     std::map<std::string, std::uint32_t> globalByName_;
     std::vector<FuncId> externalFunctions_;
+    std::vector<FuncId> builtinExternalFunctions_;
+    std::vector<FuncId> userExternalFunctions_;
     FuncId entryFunction_ = InvalidFunc;
     FuncId globalInitFunction_ = InvalidFunc;
 };

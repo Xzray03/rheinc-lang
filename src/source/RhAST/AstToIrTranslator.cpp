@@ -178,6 +178,18 @@ void AstToIrTranslator::Impl::bindLocal(const std::string& name,
     }
 }
 
+void AstToIrTranslator::Impl::assignLocal(const std::string& name,
+                                          ValueId value) {
+    // Assignment SELALU menulis scope terdalam (shadow) agar merge
+    // if/else (yang membandingkan snapshot env.back()) melihat perubahan.
+    // Scope body loop ditangkap via capturePoppedEnv saat pop, jadi
+    // nilai loop-carried tetap terbaca oleh wiring phi.
+    env.back().vars[name] = value;
+    if (currentFunc != InvalidFunc) {
+        builder.function(currentFunc).locals[name] = value;
+    }
+}
+
 // ===== AstToIrTranslator: shell publik =====
 
 AstToIrTranslator::AstToIrTranslator(SourceManager& sourceManager,

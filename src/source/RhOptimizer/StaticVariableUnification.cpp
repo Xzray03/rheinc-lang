@@ -28,8 +28,13 @@ KonstKind constOf(const IrFunction& initFn, const IrOperand& op,
             return KonstKind::None;
         }
         const IrInstr& d = initFn.instrs[v.payload];
+        if (d.op == IrOpcode::ConstInt) {
+            // 1-2 ImmV (lo, hi) untuk nilai 64-bit (DEVIATIONS D-4).
+            return decodeConstInt(d, bits) ? KonstKind::Imm
+                                           : KonstKind::None;
+        }
         if (d.operands.size() != 1) return KonstKind::None;
-        if (d.op == IrOpcode::ConstInt || d.op == IrOpcode::ConstBool) {
+        if (d.op == IrOpcode::ConstBool) {
             if (d.operands[0].kind != IrOperandKind::ImmV) {
                 return KonstKind::None;
             }

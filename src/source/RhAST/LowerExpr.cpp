@@ -19,12 +19,9 @@ namespace {
 
 // Operand ImmV hanya muat 32 bit; ConstInt menyimpan 1-2 ImmV
 // (lo, hi) untuk integer hingga 64 bit. Lebih besar -> const_encode_failed.
+// Encoding kanonis: encodeConstIntOperands (RhIR/IrInstr.h).
 std::vector<IrOperand> intOperands(std::uint64_t value) {
-    if (value <= std::numeric_limits<std::uint32_t>::max()) {
-        return {IrOperand::imm(static_cast<std::uint32_t>(value))};
-    }
-    return {IrOperand::imm(static_cast<std::uint32_t>(value & 0xFFFFFFFFu)),
-            IrOperand::imm(static_cast<std::uint32_t>(value >> 32))};
+    return encodeConstIntOperands(value);
 }
 
 // Parser tidak membedakan literal desimal: keduanya IntegerLiteralExpr
@@ -1085,7 +1082,7 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                              expr->range.begin);
                 return builder.broken() ? InvalidValue : value;
             }
-            bindLocal(target->name, value);
+            assignLocal(target->name, value);  // update-through, bukan shadow
             return value;
         }
 
@@ -1109,7 +1106,7 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                                         expr->range.begin);
                 }
                 if (lookupRaw(name) != InvalidValue) {
-                    bindLocal(name, lhs);
+                    assignLocal(name, lhs);  // update-through
                     return lhs;
                 }
                 const auto globalIt = module.globalVarIndex.find(name);
@@ -1249,7 +1246,7 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
             const ValueId updated = builder.emit(compound, lhsType,
                 {IrOperand::value(current), IrOperand::value(rhs)},
                 expr->range.begin, target->name);
-            bindLocal(target->name, updated);
+            assignLocal(target->name, updated);  // update-through
             return updated;
         }
 
@@ -1315,7 +1312,7 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                 mapType(semantic->context().getExprType(node->operand)),
                 {IrOperand::value(current)}, expr->range.begin,
                 target->name);
-            bindLocal(target->name, updated);
+            assignLocal(target->name, updated);  // update-through
             return updated;
         }
         case UnaryOp::AddressOf: {

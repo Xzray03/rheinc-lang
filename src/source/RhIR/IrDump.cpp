@@ -317,6 +317,18 @@ private:
             return;
         }
 
+        // ConstInt: gabungkan 1-2 ImmV (lo, hi) jadi satu nilai 64-bit
+        // agar dump mudah dibaca (encode kanonis: encodeConstIntOperands).
+        if (inst.op == IrOpcode::ConstInt) {
+            std::uint64_t value = 0;
+            if (hasResult) {
+                out_ << valueName(fn, valueOf(fn, inst)) << " = ";
+            }
+            out_ << opName << ' ';
+            out_ << (decodeConstInt(inst, value) ? std::to_string(value) : "?");
+            return;
+        }
+
         if (hasResult) {
             out_ << valueName(fn, valueOf(fn, inst)) << " = ";
         }

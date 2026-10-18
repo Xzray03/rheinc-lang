@@ -105,6 +105,9 @@ OptimizerReport OptimizerManager::runAll(IrModule& module) {
         bool anyChanged = false;
         for (const auto& pass : impl_->order) {
             const std::string name{pass->name()};
+            // loop-unroll: transformasi one-shot — hanya iterasi pertama.
+            // Menghindari siklus perubahan antar pass pada fixpoint.
+            if (name == "loop-unroll" && iter > 0) continue;
             OptimizerReport step = runPass(name, module);
             report.results.insert(report.results.end(),
                                   step.results.begin(), step.results.end());
@@ -114,6 +117,11 @@ OptimizerReport OptimizerManager::runAll(IrModule& module) {
                 return report;  // fail-fast
             }
             anyChanged = anyChanged || step.results.back().second.changed;
+            if (std::getenv("RHEINC_OPT_DEBUG") != nullptr &&
+                step.results.back().second.changed) {
+                std::fprintf(stderr, "[OPT-DEBUG] iter=%u pass=%s changed\n",
+                             iter, name.c_str());
+            }
         }
         if (!impl_->options.iterateToFixpoint || !anyChanged) {
             return report;  // konvergen (atau iterasi tunggal diminta)

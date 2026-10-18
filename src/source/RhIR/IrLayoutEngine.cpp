@@ -218,6 +218,14 @@ RawLayout layoutType(TypeId id,
             payloadAlign = std::max<std::uint64_t>(payloadAlign, 8);
             const std::uint64_t tagOffset = alignUp(0, payloadAlign);
             const std::uint64_t payloadOffset = tagOffset + 8;
+            // Offset payload disimpan per varian agar backend tidak
+            // menghitung ulang layout Sum (spesifikasi 5.6). Offset
+            // sama untuk seluruh varian ber-payload (satu area union).
+            for (IrVariant& variant : types[id].variants) {
+                variant.payloadOffsetBytes = variant.payloadType == InvalidType
+                                                 ? 0
+                                                 : static_cast<std::uint32_t>(payloadOffset);
+            }
             layout = {alignUp(payloadOffset + alignUp(payloadSize, payloadAlign), payloadAlign),
                       payloadAlign};
         }

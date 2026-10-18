@@ -41,14 +41,17 @@ ValueId valueOfInstr(const IrFunction& fn, InstrId iid) {
     return InvalidValue;
 }
 
-bool constImm(const IrFunction& fn, const IrOperand& op, std::uint32_t& out) {
+bool constImm(const IrFunction& fn, const IrOperand& op, std::uint64_t& out) {
     if (op.kind == IrOperandKind::ImmV) { out = op.id; return true; }
     if (op.kind == IrOperandKind::ValueV && op.id < fn.values.size()) {
         const IrValue& v = fn.values[op.id];
         if (v.kind == IrValue::Kind::Instr && v.payload < fn.instrs.size()) {
             const IrInstr& d = fn.instrs[v.payload];
-            if ((d.op == IrOpcode::ConstInt || d.op == IrOpcode::ConstBool) &&
-                d.operands.size() == 1 &&
+            // ConstInt 64-bit: 1-2 ImmV lo/hi (D-4); ConstBool 1 ImmV.
+            if (d.op == IrOpcode::ConstInt) {
+                return decodeConstInt(d, out);
+            }
+            if (d.op == IrOpcode::ConstBool && d.operands.size() == 1 &&
                 d.operands[0].kind == IrOperandKind::ImmV) {
                 out = d.operands[0].id;
                 return true;
@@ -152,6 +155,7 @@ IrPassResult LoopUnroll::run(IrModule& module) {
             L = latches[0];
             if (fn.blocks[L].succs.size() != 1) continue;
 
+
             std::vector<BlockId> chain;
             std::uint8_t walkOk = 1;
             {
@@ -221,7 +225,7 @@ IrPassResult LoopUnroll::run(IrModule& module) {
                             if (defBlock[pv.payload] !=
                                 static_cast<std::int32_t>(H)) continue;
                             if (fn.instrs[pv.payload].op != IrOpcode::Phi) continue;
-                            std::uint32_t nC = 0;
+                            std::uint64_t nC = 0;
                             if (!constImm(fn, ko, nC)) continue;
                             indPhi = po.id;
                             N = nC;
@@ -262,6 +266,7 @@ IrPassResult LoopUnroll::run(IrModule& module) {
                     }
                 }
                 if (!gotInit || !gotUpd) { phiOk = 0; break; }
+
                 const IrValue& uv = fn.values[cp.upd];
                 if (uv.kind != IrValue::Kind::Instr ||
                     uv.payload >= defBlock.size() ||
@@ -286,7 +291,7 @@ IrPassResult LoopUnroll::run(IrModule& module) {
             std::uint8_t indOk = 0;
             for (const CarriedPhi& cp : phis) {
                 if (cp.phi != indPhi) continue;
-                std::uint32_t z = 1;
+                std::uint64_t z = 1;
                 if (!constImm(fn, cp.initOp, z) || z != 0) break;
                 const IrValue& uv = fn.values[cp.upd];
                 const IrInstr& u = fn.instrs[uv.payload];
@@ -294,7 +299,7 @@ IrPassResult LoopUnroll::run(IrModule& module) {
                 bool hasPhi = false, hasOne = false;
                 for (const IrOperand& o : u.operands) {
                     if (o.kind == IrOperandKind::ValueV && o.id == cp.phi) hasPhi = true;
-                    std::uint32_t one = 0;
+                    std::uint64_t one = 0;
                     if (constImm(fn, o, one) && one == 1) hasOne = true;
                 }
                 if (!hasPhi || !hasOne) break;
@@ -379,14 +384,30 @@ IrPassResult LoopUnroll::run(IrModule& module) {
                         BlockId hc = InvalidBlock;
                         if (!editor.appendBlock(f, hc).ok) { failed = true; break; }
                         headClone[c] = hc;
+                        // [FIX] Clone dua-pass: urutan instruksi di blok
+                        // bisa terserah (merge simplify-cfg), sehingga
+                        // remap satu-pass melewatkan rujukan maju. Pass 1:
+                        // klon MENTAH + daftarkan iterMap; pass 2: remap
+                        // operand via replaceOperandAt.
+                        std::vector<std::size_t> headArity;
                         for (const InstrId iid : hCopy) {
-                            IrInstr ci = fn.instrs[iid];
-                            for (IrOperand& o : ci.operands) o = remapOp(o);
-                            if (failed) break;
+                            if (fn.instrs[iid].op == IrOpcode::Phi) { failed = true; break; }
+                            IrInstr ci = fn.instrs[iid];  // mentah, belum remap
                             ValueId nv = InvalidValue;
                             if (!editor.insertInstrBefore(f, hc, fn.blocks[hc].insts.size(), ci, nv).ok) { failed = true; break; }
                             const ValueId ov = valueOfInstr(fn, iid);
                             if (ov != InvalidValue) iterMap[c][ov] = nv;
+                            headArity.push_back(fn.instrs[fn.blocks[hc].insts.back()].operands.size());
+                        }
+                        if (failed) break;
+                        for (std::size_t hp = 0; hp < headArity.size() && !failed; ++hp) {
+                            for (std::size_t oi = 0; oi < headArity[hp]; ++oi) {
+                                const IrOperand cur = fn.instrs[fn.blocks[hc].insts[hp]].operands[oi];
+                                const IrOperand mo = remapOp(cur);
+                                if (failed) break;
+                                if (mo.kind == cur.kind && mo.id == cur.id) continue;
+                                if (!editor.replaceOperandAt(f, hc, hp, oi, mo).ok) { failed = true; break; }
+                            }
                         }
                         if (failed) break;
                         std::vector<BlockId> chainClone(chainCopy.size());
@@ -396,15 +417,48 @@ IrPassResult LoopUnroll::run(IrModule& module) {
                             if (!editor.appendBlock(f, bc).ok) { failed = true; break; }
                             chainClone[bi] = bc;
                             IrBlock& nblk = fn.blocks[bc];
+                            // [FIX] Clone dua-pass (lihat headClone di
+                            // atas). Phi 1-pasangan (latch phi yang ikut
+                            // ter-merge ke chain block) dilipat: pemakaian
+                            // merujuk langsung ke nilai pasangannya.
+                            std::vector<std::pair<ValueId, ValueId>> foldPairs;
+                            std::vector<std::size_t> chainPos;
+                            std::vector<std::size_t> chainArity;
                             for (std::size_t ii = 0; ii + 1 < fn.blocks[b].insts.size(); ++ii) {
                                 const InstrId iid = fn.blocks[b].insts[ii];
-                                IrInstr ci = fn.instrs[iid];
-                                for (IrOperand& o : ci.operands) o = remapOp(o);
-                                if (failed) break;
+                                const IrInstr& srcI = fn.instrs[iid];
+                                const ValueId ov = valueOfInstr(fn, iid);
+                                if (srcI.op == IrOpcode::Phi) {
+                                    if (srcI.operands.size() != 2 ||
+                                        srcI.operands[0].kind != IrOperandKind::BlockV ||
+                                        srcI.operands[1].kind != IrOperandKind::ValueV) {
+                                        failed = true; break;
+                                    }
+                                    foldPairs.push_back({ov, srcI.operands[1].id});
+                                    continue;
+                                }
+                                IrInstr ci = srcI;  // mentah, belum remap
                                 ValueId nv = InvalidValue;
                                 if (!editor.insertInstrBefore(f, bc, nblk.insts.size(), ci, nv).ok) { failed = true; break; }
-                                const ValueId ov = valueOfInstr(fn, iid);
                                 if (ov != InvalidValue) iterMap[c][ov] = nv;
+                                chainPos.push_back(nblk.insts.size() - 1);
+                                chainArity.push_back(fn.instrs[nblk.insts.back()].operands.size());
+                            }
+                            for (const auto& [fov, fval] : foldPairs) {
+                                if (fov == InvalidValue) continue;
+                                const IrOperand m = remapOp(IrOperand::value(fval));
+                                if (failed) break;
+                                iterMap[c][fov] = m.id;
+                            }
+                            if (failed) break;
+                            for (std::size_t cp2 = 0; cp2 < chainPos.size() && !failed; ++cp2) {
+                                for (std::size_t oi = 0; oi < chainArity[cp2]; ++oi) {
+                                    const IrOperand cur = fn.instrs[fn.blocks[bc].insts[chainPos[cp2]]].operands[oi];
+                                    const IrOperand mo = remapOp(cur);
+                                    if (failed) break;
+                                    if (mo.kind == cur.kind && mo.id == cur.id) continue;
+                                    if (!editor.replaceOperandAt(f, bc, chainPos[cp2], oi, mo).ok) { failed = true; break; }
+                                }
                             }
                         }
                         if (failed) break;

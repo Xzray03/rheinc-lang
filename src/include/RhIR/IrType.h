@@ -41,6 +41,11 @@ struct IrVariant {
     std::string name;
     TypeId payloadType = InvalidType;
     std::int64_t tagValue = 0;
+    // Offset area payload dalam representasi fisik Sum (tag + union
+    // payload), dihitung IrLayoutEngine; 0 = varian tanpa payload
+    // (plain enum case) / belum di-layout. Backend hanya membaca
+    // (layout precomputed — TIDAK dihitung ulang, spesifikasi 5.6).
+    std::uint32_t payloadOffsetBytes = 0;
 };
 
 // Type table milik IR sendiri, per IrModule (spesifikasi Bagian 5.1).
@@ -54,7 +59,7 @@ struct IrVariant {
 //   Array    -> elementType, arraySize
 //   View     -> elementType
 //   Struct   -> name, fields (dapat recursive via Pointer ke TypeId sendiri)
-//   Sum      -> name, variants
+//   Sum      -> name, variants (payloadOffsetBytes diisi layout engine)
 //   FnPtr    -> paramTypes, returnType
 struct IrType {
     IrTypeKind kind = IrTypeKind::Void;

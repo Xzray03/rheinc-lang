@@ -23,6 +23,11 @@ FinalIr::FinalIr(std::shared_ptr<const IrModule> module,
         }
         if (fn.kind == IrFunctionKind::External) {
             externalFunctions_.push_back(funcId);
+            if (fn.isBuiltin) {
+                builtinExternalFunctions_.push_back(funcId);
+            } else {
+                userExternalFunctions_.push_back(funcId);
+            }
         } else if (fn.kind == IrFunctionKind::Entry) {
             entryFunction_ = funcId;
         } else if (fn.kind == IrFunctionKind::GlobalInit) {
@@ -88,6 +93,14 @@ FuncId FinalIr::globalInitFunction() const {
 
 const std::vector<FuncId>& FinalIr::externalFunctions() const {
     return externalFunctions_;
+}
+
+const std::vector<FuncId>& FinalIr::builtinExternalFunctions() const {
+    return builtinExternalFunctions_;
+}
+
+const std::vector<FuncId>& FinalIr::userExternalFunctions() const {
+    return userExternalFunctions_;
 }
 
 }  // namespace rhc

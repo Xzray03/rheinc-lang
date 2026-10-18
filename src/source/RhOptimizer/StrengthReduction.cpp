@@ -11,10 +11,10 @@ namespace rhc {
 
 namespace {
 
-// Resolve konstanta integer 32-bit dari operand: ImmV langsung atau
-// ValueV yang didefinisikan ConstInt(ImmV).
+// Resolve konstanta integer 64-bit dari operand: ImmV langsung atau
+// ValueV yang didefinisikan ConstInt (1-2 ImmV lo/hi, DEVIATIONS D-4).
 bool constIntOf(const IrFunction& fn, const IrOperand& op,
-                std::uint32_t& out) {
+                std::uint64_t& out) {
     if (op.kind == IrOperandKind::ImmV) {
         out = op.id;
         return true;
@@ -26,17 +26,11 @@ bool constIntOf(const IrFunction& fn, const IrOperand& op,
     if (v.kind != IrValue::Kind::Instr || v.payload >= fn.instrs.size()) {
         return false;
     }
-    const IrInstr& def = fn.instrs[v.payload];
-    if (def.op != IrOpcode::ConstInt || def.operands.size() != 1 ||
-        def.operands[0].kind != IrOperandKind::ImmV) {
-        return false;
-    }
-    out = def.operands[0].id;
-    return true;
+    return decodeConstInt(fn.instrs[v.payload], out);
 }
 
-bool isPow2(std::uint32_t v) { return v != 0 && (v & (v - 1)) == 0; }
-std::uint32_t log2Of(std::uint32_t v) {
+bool isPow2(std::uint64_t v) { return v != 0 && (v & (v - 1)) == 0; }
+std::uint32_t log2Of(std::uint64_t v) {
     std::uint32_t k = 0;
     while (v >>= 1) ++k;
     return k;
@@ -66,7 +60,7 @@ IrPassResult StrengthReduction::run(IrModule& module) {
                     instr.resultType < module.types.size() &&
                     module.types[instr.resultType].isSigned;
 
-                std::uint32_t cL = 0, cR = 0;
+                std::uint64_t cL = 0, cR = 0;
                 const bool isCL = constIntOf(fn, instr.operands[0], cL);
                 const bool isCR = constIntOf(fn, instr.operands[1], cR);
                 if (isCL && isCR) continue;  // serahkan ke const fold
@@ -101,7 +95,7 @@ IrPassResult StrengthReduction::run(IrModule& module) {
                 if (!isCR && !comm) continue;  // konstan di kiri non-komutatif
                 IrOperand xOp =
                     isCR ? instr.operands[0] : instr.operands[1];
-                const std::uint32_t c = isCR ? cR : cL;
+                const std::uint64_t c = isCR ? cR : cL;
 
                 IrInstr repl = instr;
                 repl.name.clear();
@@ -139,8 +133,8 @@ IrPassResult StrengthReduction::run(IrModule& module) {
                     else {
                         // Dekomposisi shift-add: c = 2^k0 + 2^k1 + ...
                         std::vector<std::uint32_t> ks;
-                        for (std::uint32_t k = 0; k < 32; ++k) {
-                            if (c & (1u << k)) ks.push_back(k);
+                        for (std::uint32_t k = 0; k < 64; ++k) {
+                            if (c & (1ull << k)) ks.push_back(k);
                         }
                         // Optimasi: term 2^0 == x — pakai x langsung.
                         ValueId acc = InvalidValue;
@@ -189,14 +183,18 @@ IrPassResult StrengthReduction::run(IrModule& module) {
                     if (!floorOk) continue;  // signed trunc-div bukan shift
                     emit2(IrOpcode::Shr, xOp, log2Of(c));
                 } else if (op == IrOpcode::Mod) {
-                    if (c == 0 || !isPow2(c) || sgn) continue;  // unsigned
-                    emit2(IrOpcode::BitAnd, xOp, c - 1);
+                    // unsigned; mask c-1 harus muat ImmV 32-bit
+                    if (c == 0 || !isPow2(c) || sgn ||
+                        c - 1 > 0xFFFFFFFFull) continue;
+                    emit2(IrOpcode::BitAnd, xOp,
+                          static_cast<std::uint32_t>(c - 1));
                 } else {  // Pow
                     if (c < 2 || c > 16) continue;
                     // Rantai biner dari MSB: SQUARE / MULX. Operasi
                     // terakhir menjadi repl (bisa tanpa sisipan).
                     std::vector<bool> ops;  // true=SQUARE, false=MULX
-                    const std::uint32_t bit = 31 - __builtin_clz(c);
+                    const std::uint32_t bit =
+                        63 - __builtin_clzll(c);
                     for (std::int32_t i = static_cast<std::int32_t>(bit) - 1;
                          i >= 0; --i) {
                         ops.push_back(true);

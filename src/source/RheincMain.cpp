@@ -28,6 +28,7 @@
 
 #include "RhAST/AstToIrTranslator.h"
 #include "RhAST/IrDump.h"
+#include "RhBackend/RhBackend.h"
 #include "RhCore/DiagnosticEngine.h"
 #include "RhCore/LangOptions.h"
 #include "RhCore/ModuleKind.h"
@@ -78,6 +79,7 @@ namespace {
 struct DriverOptions {
     bool dump = false;
     bool opt = false;
+    bool emitAsm = false;   // RhBackend: FinalIr -> .s -> .o (tanpa link)
     std::optional<std::string> target;
     std::optional<std::string> output;
     std::vector<std::string> inputs;
@@ -258,6 +260,31 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
         return 1;
     }
 
+    if (opts.emitAsm && moduleKind == ModuleKind::Executable) {
+        // RhBackend Fase 0: <input>.s -> <input>.o (link ditunda RhLinker)
+        std::string asmPath = path;
+        const std::string::size_type dot = asmPath.rfind('.');
+        if (dot != std::string::npos) {
+            asmPath.resize(dot);
+        }
+        asmPath += ".s";
+        RhBackendOptions backendOptions;
+        backendOptions.outputPath = asmPath;
+        const RhBackendReport backendReport =
+            RhBackend{}.emitAssembly(finalIr, backendOptions);
+        if (!backendReport.ok) {
+            for (const RhBackendError& err : backendReport.errors) {
+                std::cerr << "rheinc: backend: ";
+                if (!err.functionName.empty()) {
+                    std::cerr << err.functionName << ": ";
+                }
+                std::cerr << err.message << "\n";
+            }
+            return 1;
+        }
+        std::cout << "rheinc: asm " << asmPath << "\n";
+    }
+
     if (dumpStream != nullptr) {
         IrDumpOptions dumpOptions;
         dumpIrModule(*dumpStream, finalIr.module(), dumpOptions);
@@ -275,6 +302,8 @@ int main(int argc, char** argv) {
         const std::string arg = argv[i];
         if (arg == "--dump") {
             opts.dump = true;
+        } else if (arg == "--emit-asm") {
+            opts.emitAsm = true;
         } else if (arg == "-opt") {
             opts.opt = true;
         } else if (arg == "--target") {

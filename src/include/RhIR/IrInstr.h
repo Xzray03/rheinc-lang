@@ -16,7 +16,10 @@ namespace rhc {
 //
 // Operand layout per opcode (indeks operand ke-i, kind ditulis dalam kurung):
 //
-//   ConstInt      [0](ImmV)                     -> imm integer inline
+//   ConstInt      [0](ImmV) [1?](ImmV hi)       -> imm integer inline,
+//                                                 1-2 ImmV lo/hi 64-bit
+//                                                 (encode kanonis:
+//                                                 encodeConstIntOperands)
 //   ConstFloat    [0](ImmV)                     -> bit pattern inline
 //   ConstBool     [0](ImmV)                     -> 0 / 1
 //   ConstString   [0](ConstantV)                -> ConstId string di pool
@@ -197,6 +200,36 @@ inline constexpr bool isTerminator(IrOpcode op) {
     default:
         return false;
     }
+}
+
+// ===== Encoding kanonis nilai ConstInt =====
+// ImmV hanya 32-bit (DEVIATIONS D-4), sehingga ConstInt memakai
+// 1 ImmV untuk nilai <= 0xFFFFFFFF, atau 2 ImmV (lo, hi) untuk nilai
+// 64-bit penuh. Helper ini SATU-SATUNYA jalur encode/decode agar
+// producer (RhAST), optimizer, dan backend konsisten.
+inline std::vector<IrOperand> encodeConstIntOperands(std::uint64_t value) {
+    if (value <= 0xFFFFFFFFull) {
+        return {IrOperand::imm(static_cast<std::uint32_t>(value))};
+    }
+    return {IrOperand::imm(static_cast<std::uint32_t>(value & 0xFFFFFFFFull)),
+            IrOperand::imm(static_cast<std::uint32_t>(value >> 32))};
+}
+
+// Decode nilai ConstInt (op == ConstInt) dari operand ImmV-nya.
+// true bila operand valid (1-2 ImmV); out berisi nilai 64-bit.
+inline bool decodeConstInt(const IrInstr& instr, std::uint64_t& out) {
+    if (instr.op != IrOpcode::ConstInt || instr.operands.empty() ||
+        instr.operands.size() > 2) {
+        return false;
+    }
+    for (const IrOperand& op : instr.operands) {
+        if (op.kind != IrOperandKind::ImmV) return false;
+    }
+    out = static_cast<std::uint64_t>(instr.operands[0].id);
+    if (instr.operands.size() == 2) {
+        out |= static_cast<std::uint64_t>(instr.operands[1].id) << 32;
+    }
+    return true;
 }
 
 } // namespace rhc
