@@ -26,6 +26,10 @@ prosedur utama() {
     -- Argumen variadik berisi kurung dan koma bersarang
     LOG("d", (1, 2), 3)        -- tampilkan("d", (1, 2), 3)
 
+    -- Tes print tuple int dan float (format "(f0, f1)")
+    tampilkan "tuple int: ", (10, 20), "\n"
+    tampilkan "tuple float: ", (1.5, 2.5), "\n"
+
     -- Dua parameter tetap + variadik
     variabel x: bilangan = JUMLAH(1, 2, 3)   -- 1 + 2 + 3
 

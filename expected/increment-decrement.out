@@ -1,0 +1,23 @@
+Integer
+Sebelum Increment: 10
+Setelah Increment: 11
+Sebelum Decrement: 11
+Setelah Decrement: 10
+
+Desimal
+Sebelum Increment: 10
+Setelah Increment: 11
+Sebelum Decrement: 11
+Setelah Decrement: 10
+
+Logika
+Sebelum Increment: salah
+Setelah Increment: benar
+Sebelum Decrement: benar
+Setelah Decrement: salah
+
+Karakter
+Sebelum Increment: A
+Setelah Increment: B
+Sebelum Decrement: B
+Setelah Decrement: A

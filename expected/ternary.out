@@ -1,0 +1,22 @@
+1. Ternary sederhana: b = 1000
+
+2. Nested ternary: nilai = 75 → grade = B
+
+3. Max/Min: p = 25, q = 50
+   max = 50, min = 25
+
+4. Ternary aritmetika: harga = 100000, diskon = 20%
+   total = 80000
+
+5. Validasi umur: umur = 17 → Bisa buat SIM
+
+6. Ternary string: Halo Budi!
+
+7. Ganjil/Genap: 42 = bilangan Genap
+
+8. Logika AND: suhu = 28, cuaca = cerah
+   Rekomendasi: Cocok untuk ke pantai
+
+9. Absolute value: |-99| = 99
+
+10. Range check: score = 85 → Sangat Baik

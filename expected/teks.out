@@ -1,0 +1,17 @@
+=== TEST TIPE DATA TEKS ===
+s1: Halo Dunia
+s2: RheinC
+s3 (kosong): ''
+s4: String dengan "quote"
+s5: Baris 1
+Baris 2
+Baris 3
+
+=== ESCAPE SEQUENCES ===
+Newline:
+(Setelah Newline)
+Tab:	(Setelah Tab)
+Backslash: '\'
+Quote: '"'
+String kosong: ''
+Unicode: こんにちは世界 🌍

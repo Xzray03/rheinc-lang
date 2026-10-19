@@ -1,0 +1,11 @@
+=== TEST KONSTANTA (TETAP) ===
+Konstanta Global:
+  GOL_DARAH = A
+  MAX_SIZE = 100
+  APP_NAME = RheinC Test
+  DEBUG_MODE = salah
+Konstanta Lokal:
+  LOKAL_KONSTAN = 42
+Penggunaan Konstanta:
+100 x 10 x 10 = 10000
+Debug mode tidak aktif

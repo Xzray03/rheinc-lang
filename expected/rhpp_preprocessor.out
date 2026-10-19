@@ -1,0 +1,60 @@
+1. TEST #jika X terdefinisi:
+FLAG_DEBUG didefinisikan
+
+2. TEST #jika X tidak terdefinisi:
+FLAG_RELEASE tidak didefinisikan
+
+3. TEST #definisikan DAN #hapus definisi:
+TEST = 100
+TEST sudah dihapus
+
+4. TEST #jika DENGAN EKSPRESI:
+VERSION > 0
+
+5. TEST #jika (setelah #jika) DAN #jika bukan semua diatas:
+Mode 2
+
+6. TEST #jika X terdefinisi DAN #jika X tidak terdefinisi:
+FEATURE_A aktif
+
+6-1. TEST LANJUTAN #jika X terdefinisi DAN #jika X tidak terdefinisi:
+FEATURE_A tidak aktif
+
+7. TEST MAKRO FUNGSI:
+MAX(10,20) = 20
+
+8. TEST OPERATOR '#' (STRINGIZE):
+STR(hello) = hello
+
+9. TEST OPERATOR '##' (TOKEN PASTING):
+CONCAT(x,1) = 42
+
+10. TEST MAKRO BERSARANG:
+FOO = 10
+BAR = 10
+BAZ = 10
+
+11. TEST MAKRO MULTI-BARIS:
+Ini adalah macro panjang
+yang terdiri dari banyak baris
+
+12. TEST VARIADIC MACRO:
+Variadic macro aktif
+Nilai variadic = 42
+
+13. TEST EKSPRESI PREPROCESSOR PENUH:
+arith + benar
+arith * benar
+bitwise & benar
+bitwise | benar
+bitwise ^ benar
+shift << benar
+shift >> benar
+bukan benar
+dan benar
+atau benar
+ternary benar
+identifier undefined = 0 benar
+
+14. TEST DIRECTIVE DI INACTIVE BRANCH:
+directive inactive tidak diproses

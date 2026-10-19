@@ -1,0 +1,21 @@
+Sistem: stdout:
+Linux k2112289540897349633 5.10.134-18.0.12.lifsea8.x86_64 #1 SMP Tue Aug 4 16:35:16 CST 2026 x86_64 GNU/Linux
+stderr:
+
+Direktori: stdout:
+<CWD>
+stderr:
+
+Output aplikasi: stdout:
+
+stderr:
+usage: rheinc <main.rhc> [-o <out.exe> | -oo <out.o> | -os <out.a> | -od <out.so> | -dump] [-opt] [--target <id>] [-Ilink <dir>]... [--link <file.rhc/.o/.a/.so> ...]
+  <main.rhc>        file utama; argumen paling pertama
+  -o <out.exe>      build Executable (entry di file utama tepat 1)
+  -oo <out.o>       build Object (tidak boleh ada entry; single file)
+  -os <out.a>       build Static Library (tidak boleh ada entry)
+  -od <out.so>      build Dynamic Library (tidak boleh ada entry)
+  -dump             dump IR final ke stdout
+  -Ilink <dir>      auto-resolve simbol dari .o/.a/.so di direktori (untuk -o/-od)
+  --link <file..>   dependency eksplisit sesuai target output
+

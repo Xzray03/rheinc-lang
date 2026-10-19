@@ -1,0 +1,13 @@
+=== TEST TIPE DATA KARAKTER ===
+Huruf: A
+Angka: 7
+Simbol: @
+Newline escape: 
+(setelah newline)
+Tab escape: 	(setelah tab)
+ASCII 'A': 65
+ASCII '7': 55
+ASCII '@': 64
+Huruf setelah 'A' : B
+A adalah huruf kapital
+7 adalah digit

@@ -1,0 +1,10 @@
+=== DEMONSTRASI LARIK ===
+Isi larik:
+  angka[0] = 10
+  angka[1] = 20
+  angka[2] = 30
+  angka[3] = 40
+  angka[4] = 50
+Total: 150
+Rata-rata: 30
+Nilai maksimum: 50

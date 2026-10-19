@@ -1,0 +1,13 @@
+=== TEST OPERASI I/O ===
+=== INPUT BILANGAN ===
+Masukkan umur anda: Umur anda: 25
+=== INPUT TEKS ===
+Masukkan nama anda: Halo, Budi!
+=== INPUT KARAKTER ===
+Pilih (Y/N): Anda memilih: Y
+Anda memilih Ya
+=== INPUT LOGIKA ===
+Lanjutkan? (1/0): Program dilanjutkan
+=== MULTIPLE INPUT ===
+Masukkan dua bilangan: a = 7, b = 8
+a + b = 15

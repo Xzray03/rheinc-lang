@@ -1,0 +1,16 @@
+=== TEST TIPE DATA INTEGER ===
+bilangan8: 127
+bilangan16: 32767
+bilangan32: 2147483647
+bilangan64: 9223372036854775807
+bilangan: 100
+bilangan8: -128
+bilangan16: -32767
+bilangan32: -2147483648
+bilangan64: -9223372036854775808
+bilangan: -100
+
+bilangan_tanpa_tanda8: 255
+bilangan_tanpa_tanda16: 65535
+bilangan_tanpa_tanda32: 4294967295
+bilangan_tanpa_tanda64: 18446744073709551615

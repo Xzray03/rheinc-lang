@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <functional>
 #include "RhAST/AstToIrTranslatorImpl.h"
 
 #include "RhParser/Stmt.h"
@@ -153,13 +154,17 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         if (!failed && initial != InvalidValue && varType != InvalidType) {
             const TypeId initT =
                 builder.function(currentFunc).values[initial].type;
+            // Numeric ATAU Bool (int<->bool dikoerce; Bool = int 1-byte
+            // di backend, narrowing path).
             const bool numA = initT != InvalidType &&
                               module.types.size() > initT &&
                               (module.types[initT].kind == IrTypeKind::Int ||
-                               module.types[initT].kind == IrTypeKind::Float);
+                               module.types[initT].kind == IrTypeKind::Float ||
+                               module.types[initT].kind == IrTypeKind::Bool);
             const bool numB = module.types.size() > varType &&
                               (module.types[varType].kind == IrTypeKind::Int ||
-                               module.types[varType].kind == IrTypeKind::Float);
+                               module.types[varType].kind == IrTypeKind::Float ||
+                               module.types[varType].kind == IrTypeKind::Bool);
             if (initT != InvalidType && initT != varType && numA && numB) {
                 initial = builder.emit(IrOpcode::Cast, varType,
                                        {IrOperand::value(initial)},
@@ -184,16 +189,63 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
         return lowerContinue();
     case AstKind::GotoStmt: {
         const auto* node = static_cast<const GotoStmt*>(stmt);
+        // Nama bridge UNIK per goto: multi-goto ke label sama membuat
+        // >1 bridge — nama identik membuat phi incoming tak bisa
+        // membedakan pred (dominasi rusak, multi_goto.rhc gagal adopt).
+        std::size_t nth = 1;
+        for (const auto& pg0 : pendingGotos) {
+            if (pg0.label == node->label) ++nth;
+        }
+        std::string bridgeName = "goto." + node->label;
+        if (nth > 1) bridgeName += "." + std::to_string(nth);
         const BlockId bridge =
-            builder.createBlock(currentFunc, "goto." + node->label);
+            builder.createBlock(currentFunc, bridgeName);
         builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(bridge)}, stmt->range.begin);
-        pendingGotos.push_back({bridge, node->label, stmt->range.begin});
+        PendingGoto pg;
+        pg.bridge = bridge;
+        pg.label = node->label;
+        pg.loc = stmt->range.begin;
+        // MERGE semua layer scope (outer -> inner, inner menang per
+        // nama) — env.back() saja melewatkan assignment update-through
+        // (layer phi) & var scope luar (snapshot then kosong utk var
+        // label, fallback fnLocals -> def di blok yang tak dilewati).
+        for (const auto& layer : env) {
+            for (const auto& [n2, v2] : layer.vars) pg.env[n2] = v2;
+        }
+        pendingGotos.push_back(std::move(pg));
         setCurrent(InvalidBlock);
         return !builder.broken();
     }
     case AstKind::LabelStmt: {
         const auto* node = static_cast<const LabelStmt*>(stmt);
+        // Deteksi GOTO MUNDUR ke label ini (loop via goto): scan body utk
+        // GotoStmt dengan target == label. Jika ada, bangun phi carried
+        // var di header label (pola sama loop lowering) supaya assignment
+        // di body terbawa ke iterasi berikutnya — tanpa ini, binding SSA
+        // statis memakai nilai pra-loop selamanya (goto.rhc infinite).
+        bool hasBackGoto = false;
+        std::function<void(const StmtNode*)> scanGoto;
+        scanGoto = [&](const StmtNode* s) {
+                if (!s) return;
+                if (s->kind == AstKind::GotoStmt &&
+                    static_cast<const GotoStmt*>(s)->label == node->label) {
+                    hasBackGoto = true;
+                    return;
+                }
+                if (s->kind == AstKind::CompoundStmt) {
+                    for (const auto* c :
+                         static_cast<const CompoundStmt*>(s)->statements)
+                        scanGoto(c);
+                } else if (s->kind == AstKind::IfStmt) {
+                    const auto* i = static_cast<const IfStmt*>(s);
+                    scanGoto(i->thenBranch);
+                    scanGoto(i->elseBranch);
+                }
+            };
+        scanGoto(node->statement);
+
+        const BlockId preBlock = currentBlock;
         BlockId labelBlock = InvalidBlock;
         const auto found = labelBlocks.find(node->label);
         if (found != labelBlocks.end()) {
@@ -208,7 +260,58 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
                                   stmt->range.begin);
         }
         setCurrent(labelBlock);
+
+        std::vector<std::pair<std::string, ValueId>> carried;
+        if (hasBackGoto) {
+            // Snapshot binding pra-label; phi per var, incoming pra-loop.
+            // Semua use di body otomatis pakai phi (binding di-set phi).
+            for (const auto& [name, val] : env.back().vars) {
+                const auto& vv = builder.function(currentFunc).values[val];
+                TypeId ty = vv.type;
+                if (vv.kind == IrValue::Kind::Instr &&
+                    vv.payload < builder.function(currentFunc).instrs.size()) {
+                    ty = builder.function(currentFunc)
+                             .instrs[vv.payload].resultType;
+                }
+                const ValueId phi =
+                    builder.createPhi(ty, currentFunc, labelBlock, 0);
+                builder.addPhiIncoming(currentFunc, phi, preBlock, val);
+                env.back().vars[name] = phi;
+                carried.emplace_back(name, phi);
+            }
+        }
         if (!lowerStmt(node->statement)) return false;
+        if (hasBackGoto) {
+            // Incoming back-edge: utk tiap pendingGoto ke label ini, pakai
+            // binding akhir body (approx: nilai terakhir utk semua bridge).
+            // Nilai back-edge = SNAPSHOT ENV SAAT GOTO (per bridge) —
+            // benar utk goto sblm/ sesudah assignment manapun; fnLocals
+            // terakhir bisa def di blok yg TIDAK dilewati edge goto (T2).
+            const auto& fnL = builder.function(currentFunc).locals;
+            for (const auto& pg : pendingGotos) {
+                if (pg.label != node->label) continue;
+                for (const auto& [name, phi] : carried) {
+                    const auto itS = pg.env.find(name);
+                    const ValueId v = (itS != pg.env.end())
+                                          ? itS->second
+                                          : (fnL.count(name)
+                                                 ? fnL.at(name)
+                                                 : InvalidValue);
+                    if (v == InvalidValue) continue;
+                    builder.addPhiIncoming(currentFunc, phi, pg.bridge, v);
+                }
+            }
+            // Restore binding carried ke NILAI AKHIR BODY — uses
+            // SESUDAH label membaca nilai exit (SSA: last write),
+            // bukan phi (phi hanya live di dalam loop). Tanpa ini,
+            // print setelah goto-loop membaca phi = nilai back-edge
+            // terakhir (multi_goto.rhc: 4,4 padahal iterasi 5,5).
+            for (const auto& [name, phi] : carried) {
+                const auto itL = fnL.find(name);
+                if (itL == fnL.end()) continue;
+                env.back().vars[name] = itL->second;
+            }
+        }
         return true;
     }
     case AstKind::JedaStmt: {

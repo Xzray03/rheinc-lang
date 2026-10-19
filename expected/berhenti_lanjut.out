@@ -1,0 +1,40 @@
+=== TEST BERHENTI DAN LANJUT ===
+Test 1: Berhenti saat i == 5
+i = 1
+i = 2
+i = 3
+i = 4
+Berhenti di i = 5
+Test 2: Lanjut melewati bilangan genap
+i = 1 (ganjil)
+Test 3: Nested loops
+  i=1, j=1, i*j=1
+  i=1, j=2, i*j=2
+  i=1, j=3, i*j=3
+Setelah inner loop untuk i=1
+  i=2, j=1, i*j=2
+  i=2, j=2, i*j=4
+Berhenti di i=2, j=3
+Setelah inner loop untuk i=2
+  i=3, j=1, i*j=3
+Berhenti di i=3, j=2
+Setelah inner loop untuk i=3
+Test 4: Berhenti dalam perulangan selama
+hitung = 1
+hitung = 2
+hitung = 3
+Berhenti di hitung = 4
+Test 5: Lanjut dalam ulangi
+n = 1
+n = 2
+Lanjut di n = 3 (kelipatan 3)
+n = 4
+n = 5
+Lanjut di n = 6 (kelipatan 3)
+n = 7
+n = 8
+Lanjut di n = 9 (kelipatan 3)
+n = 10
+Test 6: Berhenti dalam pilih
+Kasus 2 - akan berhenti
+Setelah pilih

@@ -70,7 +70,17 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
                 t.elementType = builder.internType(byte);
             }
             break;
-        default:  // Bilangan* & Karakter
+        case BuiltinTypeKind::Karakter:
+            t.kind = IrTypeKind::Int;
+            t.sizeBytes = builtin->bits / 8;
+            t.alignBytes = t.sizeBytes;
+            t.isSigned = builtin->isSigned;
+            // Penanda dispatch printer: karakter (Int 1-byte) vs bilangan8.
+            // name hanya dipakai named type (Struct/Sum/Object), aman dipakai
+            // sebagai tag tipe builtin.
+            t.name = "karakter";
+            break;
+        default:  // Bilangan*
             t.kind = IrTypeKind::Int;
             t.sizeBytes = builtin->bits / 8;
             t.alignBytes = t.sizeBytes;

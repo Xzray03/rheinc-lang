@@ -1,0 +1,5 @@
+=== TEST PROTOTIPE FUNGSI ===
+Pesan: Testing prototipe
+tambah(10, 5) = 15
+kali(10, 5) = 50
+hitung(10, 5) = 30

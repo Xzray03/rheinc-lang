@@ -151,6 +151,18 @@ IrPassResult ConstantPropagation::run(IrModule& module) {
                 if (iid == InvalidInstr || iid >= fn.instrs.size()) continue;
                 const IrInstr& instr = fn.instrs[iid];
                 if (instr.op == IrOpcode::Phi) continue;
+                // Jangan fold operand call @baca: argumen baca adalah
+                // STORAGE (slot variabel bersama) — fold ke ImmV
+                // menghilangkan slot yang ditulis rh_read & dibaca
+                // pemakai sesudahnya (bug: baca(umur) tercetak 0).
+                if (instr.op == IrOpcode::Call && !instr.operands.empty() &&
+                    instr.operands[0].kind == IrOperandKind::FuncV) {
+                    const FuncId fid = instr.operands[0].id;
+                    if (fid < module.functions.size() &&
+                        module.functions[fid].name == "baca") {
+                        continue;
+                    }
+                }
                 for (std::size_t oi = 0; oi < instr.operands.size(); ++oi) {
                     const IrOperand& op = instr.operands[oi];
                     if (op.kind != IrOperandKind::ValueV ||

@@ -1,0 +1,17 @@
+=== TEST SCOPE DAN SHADOWING ===
+Global var: 100
+Variabel lokal di main: 50
+  Dalam blok - dalam_blok: 25
+  Dalam blok - lokal (dari main): 50
+  Dalam blok - global_var: 100
+  Dalam blok - lokal (shadow): 999
+Kembali ke main - lokal: 50
+Loop scope:
+  i = 1, loop_var = 10
+  i = 2, loop_var = 20
+  i = 3, loop_var = 30
+Nested blocks:
+  Block 1: a = 1
+    Block 2: a = 10, b = 2
+  Block 1: a = 1
+Global var tetap: 100

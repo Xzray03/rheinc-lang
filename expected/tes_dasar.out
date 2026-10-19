@@ -1,0 +1,13 @@
+(bilangan): -9223372036854775808
+(bilangan8): -128
+(bilangan16): -32768
+(bilangan32): -2147483648
+(bilangan64): -9223372036854775808
+(bilangan_tanpa_tanda8): 255
+(bilangan_tanpa_tanda16): 65535
+(bilangan_tanpa_tanda32): 4294967295
+(bilangan_tanpa_tanda64): 18446744073709551615
+(desimal(Flaot)): 3.14
+(logika): benar
+(karakter): A
+(teks): tes teks

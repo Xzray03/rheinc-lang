@@ -1,0 +1,29 @@
+╔══════════════════════════════════════════════════════════╗
+║         DEMONSTRASI OPERASI FILE I/O RHEINC              ║
+╚══════════════════════════════════════════════════════════╝
+
+[1] Menulis file 'contoh.txt'...
+ ✓ File berhasil ditulis!
+   Konten yang ditulis:
+─────────────────────────────────
+Halo dari RheinC!
+
+─────────────────────────────────
+
+[2] Membaca file 'contoh.txt'...
+  ✓ File berhasil dibaca!
+    Isi file yang dibaca:
+─────────────────────────────────
+Halo dari RheinC!
+
+─────────────────────────────────
+
+[3] Menghapus file 'contoh.txt'...
+  ✓ File berhasil dihapus!
+
+[4] Verifikasi file telah dihapus (Opsional)...
+  ✓ File tidak dapat dibaca (berhasil dihapus)
+
+╔══════════════════════════════════════════════════════════╗
+║              DEMONSTRASI SELESAI!                        ║
+╚══════════════════════════════════════════════════════════╝

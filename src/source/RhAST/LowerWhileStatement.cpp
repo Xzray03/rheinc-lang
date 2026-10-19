@@ -34,7 +34,17 @@ bool AstToIrTranslator::Impl::lowerContinue() {
     // Rekam situs lanjut (block sumber + env) sebelum menutup block:
     // edge continue adalah pred tambahan dari header, dan phi loop-
     // carried wajib punya incoming untuk edge ini.
-    loopStack.back().continues.emplace_back(currentBlock, env.back().vars);
+    // Snapshot MERGE semua layer scope (back menang per nama). env.back()
+    // saja melewatkan assignment update-through — assignLocal register-
+    // style menulis ke LAYER scope phi (tak ikut terlihat di back), jadi
+    // snapshot kosong utk carried var -> fallback preLoopEnv = NILAI AWAL
+    // (bug: `ulangi { n=n+1; jika ... lanjut }` -> n reset tiap lanjut,
+    // berhenti_lanjut.rhc Test 5 infinite loop).
+    NameValueMap contSnap;
+    for (const auto& layer : env) {
+        for (const auto& [n, v] : layer.vars) contSnap[n] = v;
+    }
+    loopStack.back().continues.emplace_back(currentBlock, contSnap);
     builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                           {IrOperand::block(loopStack.back().header)});
     setCurrent(InvalidBlock);
@@ -66,8 +76,32 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
     for (const auto& [name, oldValue] : preLoopEnv) {
         const TypeId phiType =
             builder.function(currentFunc).values[oldValue].type;
+        // Nama phi HARUS unik per fungsi: dua loop `untuk i` berturut-turut
+        // menyebabkan collision nama `%i` -> adopt remap salah, phi move
+        // membaca home loop-1 -> loop kedua beku (rekursif.rhc).
+        // membaca home loop-1 -> loop kedua beku (rekursif.rhc).
+        std::string phiName = name;
+        {
+            // Cek collision thd SEMUA nama value di fungsi ini (locals
+            // saja tak cukup — loop var `untuk i` tak masuk locals, maka
+            // collision `%i` antar-dua-loop tetap terjadi & lp5 hang).
+            const auto& vv = builder.function(currentFunc).values;
+            auto nameTaken = [&](const std::string& nm) {
+                for (const auto& v : vv) {
+                    if (v.name == nm) return true;
+                }
+                return builder.function(currentFunc).locals.count(nm) > 0;
+            };
+            if (nameTaken(phiName)) {
+                int n = 2;
+                while (nameTaken(phiName + "_" + std::to_string(n))) {
+                    ++n;
+                }
+                phiName += "_" + std::to_string(n);
+            }
+        }
         const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
-                                              0, name);
+                                              0, phiName);
         builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
         env.back().vars[name] = phi;
         carried.emplace_back(name, phi);
@@ -83,7 +117,7 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
 
     // Body: assignment meng-update env; pemakaian nama membaca phi.
     setCurrent(bodyB);
-    capturePoppedEnv = true;
+    capturePoppedEnv = true; poppedEnv.clear();
     if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
     capturePoppedEnv = false;
     if (blockOpen()) {
@@ -102,8 +136,18 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
         builder.function(currentFunc).blocks[condB].preds);
     for (const auto& [name, phi] : carried) {
         const auto itNew = poppedEnv.find(name);
-        const ValueId bodyEndValue =
-            itNew == poppedEnv.end() ? preLoopEnv.at(name) : itNew->second;
+        ValueId bodyEndValue =
+            itNew == poppedEnv.end() ? InvalidValue : itNew->second;
+        if (bodyEndValue == InvalidValue) {
+            // Assignment update-through menulis ke layer scope phi (tak
+            // ikut pop saat body) -> poppedEnv bisa melewatkannya (bug:
+            // hitung=0 di bilangan_prima). Baca env terbuka; bila = phi
+            // sendiri (tak berubah) pakai pra-loop (self-incoming memicu
+            // dominasi-rusak saat loop-unroll).
+            const ValueId cur = lookupRaw(name);
+            bodyEndValue =
+                (cur != InvalidValue && cur != phi) ? cur : preLoopEnv.at(name);
+        }
         for (const BlockId pred : condPreds) {
             if (pred == preLoopBlock) continue;  // sudah ditambahkan
             ValueId incoming = bodyEndValue;
@@ -156,14 +200,37 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
     for (const auto& [name, oldValue] : preLoopEnv) {
         const TypeId phiType =
             builder.function(currentFunc).values[oldValue].type;
+        // Nama phi HARUS unik per fungsi: dua loop `untuk i` berturut-turut
+        // menyebabkan collision nama `%i` -> adopt remap salah, phi move
+        // membaca home loop-1 -> loop kedua beku (rekursif.rhc).
+        std::string phiName = name;
+        {
+            // Cek collision thd SEMUA nama value di fungsi ini (locals
+            // saja tak cukup — loop var `untuk i` tak masuk locals, maka
+            // collision `%i` antar-dua-loop tetap terjadi & lp5 hang).
+            const auto& vv = builder.function(currentFunc).values;
+            auto nameTaken = [&](const std::string& nm) {
+                for (const auto& v : vv) {
+                    if (v.name == nm) return true;
+                }
+                return builder.function(currentFunc).locals.count(nm) > 0;
+            };
+            if (nameTaken(phiName)) {
+                int n = 2;
+                while (nameTaken(phiName + "_" + std::to_string(n))) {
+                    ++n;
+                }
+                phiName += "_" + std::to_string(n);
+            }
+        }
         const ValueId phi = builder.createPhi(phiType, currentFunc, bodyB,
-                                              0, name);
+                                              0, phiName);
         builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
         env.back().vars[name] = phi;
         carried.emplace_back(name, phi);
     }
 
-    capturePoppedEnv = true;
+    capturePoppedEnv = true; poppedEnv.clear();
     if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
     capturePoppedEnv = false;
     if (blockOpen()) {
@@ -171,7 +238,29 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
                               {IrOperand::block(condB)}, stmt->range.begin);
     }
 
-    // Kondisi membaca phi.
+    // Kondisi HARUS membaca nilai AKHIR body utk carried var, bukan phi
+    // header (stale, satu iterasi tertinggal). assignLocal update-through
+    // menulis layer scope phi (tak terlihat di env.back()) -> lookup
+    // kondisi membaca phi -> off-by-one (bug: dw.rhc `selama n < 5`
+    // membaca n-1; output 1,2,4,5,7 vs ekspektasi 1,2,4,5). Nilai akhir
+    // body = poppedEnv + pelengkap fnLocals (pola sama postBodyEnv;
+    // loop var dari env.back() — fnLocals bisa berisi exit-phi loop
+    // sebelumnya, dua loop `untuk n` berturut).
+    {
+        NameValueMap bodyEndEnv = poppedEnv;
+        const NameValueMap& fnL = builder.function(currentFunc).locals;
+        for (const auto& [name, phi] : carried) {
+            if (bodyEndEnv.count(name)) continue;
+            const auto itL = fnL.find(name);
+            if (itL != fnL.end() && itL->second != phi) {
+                bodyEndEnv[name] = itL->second;
+            }
+        }
+        for (const auto& [n, v] : bodyEndEnv) {
+            env.back().vars[n] = v;
+        }
+    }
+
     setCurrent(condB);
     const ValueId condition = lowerExpr(stmt->condition);
     if (condition == InvalidValue) { loopStack.pop_back(); return false; }
@@ -189,11 +278,19 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
         builder.function(currentFunc).blocks[bodyB].preds);
     for (const auto& [name, phi] : carried) {
         const auto itNew = poppedEnv.find(name);
-        // Fallback variabel tak berubah di body: pakai NILAI PRA-LOOP
-        // (loop-invariant, mendominasi back-edge). Self-incoming (phi)
-        // memicu dominasi-rusak saat loop-unroll.
-        const ValueId bodyEndValue =
-            itNew == poppedEnv.end() ? preLoopEnv.at(name) : itNew->second;
+        ValueId bodyEndValue =
+            itNew == poppedEnv.end() ? InvalidValue : itNew->second;
+        if (bodyEndValue == InvalidValue) {
+            // Fallback: (1) env terbuka — assignment update-through menulis
+            // ke layer scope phi (tak ikut pop) sehingga poppedEnv bisa
+            // melewatkannya (bug: hitung=0 di bilangan_prima); (2) bila =
+            // phi sendiri (tak berubah) pakai NILAI PRA-LOOP (loop-invariant,
+            // mendominasi back-edge; self-incoming memicu dominasi-rusak saat
+            // loop-unroll).
+            const ValueId cur = lookupRaw(name);
+            bodyEndValue =
+                (cur != InvalidValue && cur != phi) ? cur : preLoopEnv.at(name);
+        }
         for (const BlockId pred : bodyPreds) {
             if (pred == preLoopBlock) continue;  // sudah ditambahkan
             ValueId incoming = bodyEndValue;
@@ -352,8 +449,31 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
         if (it2 == bodyStartEnv.end() || it2->second == valueAfter) continue;
         const TypeId phiType =
             builder.function(currentFunc).values[it2->second].type;
+        // Nama phi HARUS unik per fungsi: dua loop `untuk i` berturut-turut
+        // menyebabkan collision nama `%i` -> adopt remap salah, phi move
+        // membaca home loop-1 -> loop kedua beku (rekursif.rhc).
+        std::string phiName = name;
+        {
+            // Cek collision thd SEMUA nama value di fungsi ini (locals
+            // saja tak cukup — loop var `untuk i` tak masuk locals, maka
+            // collision `%i` antar-dua-loop tetap terjadi & lp5 hang).
+            const auto& vv = builder.function(currentFunc).values;
+            auto nameTaken = [&](const std::string& nm) {
+                for (const auto& v : vv) {
+                    if (v.name == nm) return true;
+                }
+                return builder.function(currentFunc).locals.count(nm) > 0;
+            };
+            if (nameTaken(phiName)) {
+                int n = 2;
+                while (nameTaken(phiName + "_" + std::to_string(n))) {
+                    ++n;
+                }
+                phiName += "_" + std::to_string(n);
+            }
+        }
         const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
-                                              0, name);
+                                              0, phiName);
         builder.addPhiIncoming(currentFunc, phi, preLoopBlock, it2->second);
         // Edge lanjut menarget updateB dan melewati rebind: nilai latch
         // wajib merge phi di updateB (pred updateB yang bukan situs
@@ -367,8 +487,25 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
             if (cs.first == InvalidBlock) latchOk = false;
         }
         if (latchOk) {
+            // Nama phi HARUS unik per fungsi (dua foreach `setiap x`
+            // berturut -> collision -> remap salah). Pemisah "%" dipertahankan.
+            std::string mgName = name + "%latch";
+            {
+                const auto& vv = builder.function(currentFunc).values;
+                auto taken = [&](const std::string& nm) {
+                    for (const auto& v : vv) {
+                        if (v.name == nm) return true;
+                    }
+                    return builder.function(currentFunc).locals.count(nm) > 0;
+                };
+                if (taken(mgName)) {
+                    int n = 2;
+                    while (taken(mgName + "_" + std::to_string(n))) ++n;
+                    mgName += "_" + std::to_string(n);
+                }
+            }
             const ValueId mergePhi = builder.createPhi(
-                phiType, currentFunc, updateB, 0, name + "%latch");
+                phiType, currentFunc, updateB, 0, mgName);
             for (const BlockId p :
                  builder.function(currentFunc).blocks[updateB].preds) {
                 bool isCs = false;
@@ -516,7 +653,7 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
         {IrOperand::value(iterable), IrOperand::value(i1)},
         stmt->range.begin, elemName);
     bindLocal(elemName, elem);
-    capturePoppedEnv = true;
+    capturePoppedEnv = true; poppedEnv.clear();
     if (!lowerStmt(stmt->body)) { capturePoppedEnv = false; return false; }
     capturePoppedEnv = false;
     BlockId bodyEnd = currentBlock;
@@ -539,8 +676,25 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
         const auto itC = carriedFE.end();
         (void)itC;
         if (envEnd != env.back().vars.end()) {
+            // Nama phi HARUS unik per fungsi (dua foreach `setiap i, x`
+            // berturut -> collision `i_latch` -> remap salah).
+            std::string liName = indexName + "_latch";
+            {
+                const auto& vv = builder.function(currentFunc).values;
+                auto taken = [&](const std::string& nm) {
+                    for (const auto& v : vv) {
+                        if (v.name == nm) return true;
+                    }
+                    return builder.function(currentFunc).locals.count(nm) > 0;
+                };
+                if (taken(liName)) {
+                    int n = 2;
+                    while (taken(liName + "_" + std::to_string(n))) ++n;
+                    liName += "_" + std::to_string(n);
+                }
+            }
             latchIdx = builder.createPhi(elementType, currentFunc, updateB, 0,
-                                         indexName + "_latch");
+                                         liName);
             // incoming: dari akhir body (poppedEnv) & continue-sites.
             const auto& postBody = poppedEnv;
             for (const auto& [pred, envMap] : continuesFE) {
@@ -660,17 +814,41 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
     for (const auto& [name, oldValue] : preLoopEnv) {
         const TypeId phiType =
             builder.function(currentFunc).values[oldValue].type;
+        // Nama phi HARUS unik per fungsi: dua loop `untuk i` berturut-turut
+        // menyebabkan collision nama `%i` -> adopt remap salah, phi move
+        // membaca home loop-1 -> loop kedua beku (rekursif.rhc).
+        std::string phiName = name;
+        {
+            // Cek collision thd SEMUA nama value di fungsi ini (locals
+            // saja tak cukup — loop var `untuk i` tak masuk locals, maka
+            // collision `%i` antar-dua-loop tetap terjadi & lp5 hang).
+            const auto& vv = builder.function(currentFunc).values;
+            auto nameTaken = [&](const std::string& nm) {
+                for (const auto& v : vv) {
+                    if (v.name == nm) return true;
+                }
+                return builder.function(currentFunc).locals.count(nm) > 0;
+            };
+            if (nameTaken(phiName)) {
+                int n = 2;
+                while (nameTaken(phiName + "_" + std::to_string(n))) {
+                    ++n;
+                }
+                phiName += "_" + std::to_string(n);
+            }
+        }
         const ValueId phi = builder.createPhi(phiType, currentFunc, condB,
-                                              0, name);
+                                              0, phiName);
         builder.addPhiIncoming(currentFunc, phi, preLoopBlock, oldValue);
         env.back().vars[name] = phi;
         carried.emplace_back(name, phi);
     }
 
-    // Kondisi: loopVariable < upper (membaca phi loop var). Langkah
-    // negatif konstan -> CmpGt (pola pristine).
+    // Kondisi: loopVariable <= upper — 'sampai' INKLUSIF (dari 1 sampai 5
+    // berarti 1,2,3,4,5; sejalan dengan padanan selama i <= 5 di korpus).
+    // Langkah negatif konstan -> CmpGe (pola pristine).
     const ValueId loopVar = lookupLocal(stmt->loopVariable);
-    IrOpcode cmpOp = IrOpcode::CmpLt;
+    IrOpcode cmpOp = IrOpcode::CmpLe;
     if (step != InvalidValue) {
         // deteksi langkah negatif konstan (ConstInt 1-ImmV negatif)
         const IrInstr* stepDef = nullptr;
@@ -686,7 +864,7 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
             stepDef->operands[0].kind == IrOperandKind::ImmV) {
             const std::int32_t stepImm =
                 static_cast<std::int32_t>(stepDef->operands[0].id);
-            if (stepImm < 0) cmpOp = IrOpcode::CmpGt;
+            if (stepImm < 0) cmpOp = IrOpcode::CmpGe;
         }
     }
     const TypeId condType =
@@ -702,10 +880,40 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
 
     // Body.
     setCurrent(bodyB);
-    capturePoppedEnv = true;
+    capturePoppedEnv = true; poppedEnv.clear();
     if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
     capturePoppedEnv = false;
-    const NameValueMap& postBodyEnv = poppedEnv;
+    // poppedEnv (overwrite) = scope TERAKHIR yang pop saja; assignment
+    // update-through menulis ke layer scope phi (tak ikut pop saat body)
+    // sehingga bisa terlewat (bug: hitung=0 di bilangan_prima — carried
+    // var di-assign di blok bersarang dalam untuk-range). Lengkapi dari
+    // env terbuka utk nama carried yang berubah (cur != phi).
+    NameValueMap postBodyEnv = poppedEnv;
+    // Sumber nilai akhir body: function locals — assignLocal SELALU
+    // menulis function(currentFunc).locals (ter-update berurutan,
+    // regardless scope pop). poppedEnv (overwrite = scope pop terakhir
+    // saja) melewatkan assignment di blok bersarang (bug: hitung=0 di
+    // bilangan_prima). Nama tak pernah di-assign: locals = pra-loop
+    // (≠ phi) -> sama dgn fallback, tak mengubah hasil merge.
+    const NameValueMap& fnLocals = builder.function(currentFunc).locals;
+    for (const auto& [name, phi] : carried) {
+        if (postBodyEnv.count(name)) continue;
+        if (name == stmt->loopVariable) {
+            // Loop var: binding env.back() = phi header loop INI (ditulis
+            // saat header dibangun). fnLocals bisa berisi sisa exit-phi
+            // loop SEBELUMNYA bila dua loop `untuk i` berturut (bug
+            // lp5/rekursif: latch incoming = %i loop-1 -> hang).
+            const auto itE = env.back().vars.find(name);
+            if (itE != env.back().vars.end() && itE->second != phi) {
+                postBodyEnv[name] = itE->second;  // assignment di body loop
+            }
+            continue;  // bila == phi: tak berubah -> incoming langsung phi
+        }
+        const auto itL = fnLocals.find(name);
+        if (itL != fnLocals.end() && itL->second != phi) {
+            postBodyEnv[name] = itL->second;
+        }
+    }
     const BlockId bodyEnd = currentBlock;
     const auto continues = loopStack.back().continues;
     if (blockOpen()) {
@@ -746,8 +954,25 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
     // condB = hasil inc itu sendiri).
     ValueId latchPhi = InvalidValue;
     if (!latchPreds.empty()) {
+        // Nama latch phi HARUS unik per fungsi: dua loop `untuk i` berturut
+        // -> collision `i_latch` -> phi move loop-2 baca home loop-1 (hang).
+        std::string latchName = stmt->loopVariable + "_latch";
+        {
+            const auto& vv = builder.function(currentFunc).values;
+            auto taken = [&](const std::string& nm) {
+                for (const auto& v : vv) {
+                    if (v.name == nm) return true;
+                }
+                return builder.function(currentFunc).locals.count(nm) > 0;
+            };
+            if (taken(latchName)) {
+                int n = 2;
+                while (taken(latchName + "_" + std::to_string(n))) ++n;
+                latchName += "_" + std::to_string(n);
+            }
+        }
         latchPhi = builder.createPhi(condType, currentFunc, updateB, 0,
-                                     stmt->loopVariable + "_latch");
+                                     latchName);
         for (const auto& [pred, envMap] : latchPreds) {
             const auto itV = envMap->find(stmt->loopVariable);
             builder.addPhiIncoming(
@@ -764,25 +989,72 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
         nextValue = builder.emit(IrOpcode::Add, condType,
                                  {IrOperand::value(latchLoopVar),
                                   IrOperand::value(step)},
-                                 stmt->range.begin, stmt->loopVariable);
+                                 stmt->range.begin, stmt->loopVariable + "_next");
         if (builder.broken()) return false;
     } else {
         nextValue = builder.emit(IrOpcode::Inc, condType,
                                  {IrOperand::value(latchLoopVar)},
-                                 stmt->range.begin, stmt->loopVariable);
+                                 stmt->range.begin, stmt->loopVariable + "_next");
         if (builder.broken()) return false;
     }
+    // Merge-phi di bodyEnd utk carried var yang berubah. bodyEnd bisa
+    // menerima jalur yang MEMOTONG (mis. else dari `jika` di body yang
+    // lompat ke merge latch TANPA lewat blok def flow — kasus
+    // bilangan_prima: non-prima tak melewati join def %v17). Maka:
+    //   bodyEnd: %m = phi [ defBlock(flow), flow ], [ pred-lain, phi ]
+    // defBlock(flow) = blok instr def flow (mendominasi dirinya -> edge
+    // trivial); pred lain (jalur potong) membawa phi header (nilai TAK
+    // BERUBAH — benar karena assignment terlewati). %m def di bodyEnd ->
+    // mendominasi edge bodyEnd->updateB trivially. Def langsung di
+    // updateB, echo-phi, & clone SEMUANYA gagal utk kasus potongan jalur.
+    std::unordered_map<std::string, ValueId> echo;
+    for (const auto& [name, phi] : carried) {
+        if (name == stmt->loopVariable) continue;
+        const auto itL = latchEnv.find(name);
+        const ValueId v = itL == latchEnv.end() ? phi : itL->second;
+        if (v == phi) continue;  // tak berubah -> langsung phi
+        const auto& fnv = builder.function(currentFunc);
+        // Blok def flow.
+        BlockId defBv = InvalidBlock;
+        if (fnv.values[v].kind == IrValue::Kind::Instr &&
+            fnv.values[v].payload < fnv.instrs.size()) {
+            for (std::uint32_t bi = 0; bi < fnv.blocks.size(); ++bi) {
+                for (const auto ii : fnv.blocks[bi].insts) {
+                    if (ii == fnv.values[v].payload) { defBv = bi; break; }
+                }
+                if (defBv != InvalidBlock) break;
+            }
+        }
+        if (defBv == InvalidBlock || defBv == bodyEnd) {
+            echo[name] = v;  // def di bodyEnd/tak diketahui: langsung pakai
+            continue;
+        }
+        const TypeId ty = fnv.values[phi].type;
+        const ValueId e = builder.createPhi(ty, currentFunc, bodyEnd);
+        for (const BlockId P : fnv.blocks[bodyEnd].preds) {
+            builder.addPhiIncoming(currentFunc, e, P,
+                                   (P == defBv) ? v : phi);
+        }
+        echo[name] = e;
+    }
+
     env.back().vars = latchEnv;
     env.back().vars[stmt->loopVariable] = nextValue;
     builder.setTerminator(currentFunc, updateB, IrOpcode::Br,
                           {IrOperand::block(condB)}, stmt->range.begin);
 
-    // Phi incoming (updateB): loop var -> nextValue; lainnya -> latchEnv.
+    // Phi incoming (updateB): loop var -> nextValue; lainnya -> echo phi
+    // (bila berubah) atau latchEnv/phi (tak berubah).
     for (const auto& [name, phi] : carried) {
         ValueId incoming = nextValue;
         if (name != stmt->loopVariable) {
-            const auto itL = latchEnv.find(name);
-            incoming = itL == latchEnv.end() ? phi : itL->second;
+            const auto itE = echo.find(name);
+            if (itE != echo.end()) {
+                incoming = itE->second;
+            } else {
+                const auto itL = latchEnv.find(name);
+                incoming = itL == latchEnv.end() ? phi : itL->second;
+            }
         }
         builder.addPhiIncoming(currentFunc, phi, updateB, incoming);
     }

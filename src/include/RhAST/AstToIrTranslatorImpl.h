@@ -12,6 +12,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <vector>
 
@@ -85,6 +86,12 @@ struct AstToIrTranslator::Impl {
         BlockId bridge;      // block perantara yang menunggu terminator Br
         std::string label;
         SourceLocation loc;
+        // Snapshot env SAAT GOTO dieksekusi — incoming phi back-edge HARUS
+        // nilai pada titik goto (per-bridge), bukan binding akhir body:
+        // goto yg mendahului assignment -> nilai = phi (var belum berubah
+        // di path edge tsb; fnLocals terakhir bisa def di blok yang TIDAK
+        // dilewati edge -> dominasi patah, multi_goto.rhc T2).
+        std::unordered_map<std::string, ValueId> env;
     };
     std::vector<PendingGoto> pendingGotos;
 

@@ -86,7 +86,14 @@ public:
             return false;
         }
 
-        const std::string fnLabel = FnEmitter::asmName(fn_.name);
+        // DEVIATIONS: nama IR .__global_init diawali titik (label lokal di IR);
+        // sanitize asmName() mengubah '.' jadi '_' -> ___global_init tidak cocok
+        // dengan referensi __global_init dari rh_crt.s. GlobalInit dipetakan ke
+        // label __global_init eksplisit agar link ke CRT stub benar.
+        const std::string fnLabel =
+            (fn_.kind == IrFunctionKind::GlobalInit)
+                ? std::string("__global_init")
+                : FnEmitter::asmName(fn_.name);
         out_.globl(fnLabel);
         out_.typeFunction(fnLabel);
         out_.align_text();  // entry fungsi 16-byte aligned (ABI/performa)
@@ -125,6 +132,12 @@ private:
         if (alloc_ != nullptr) {
             shift_ = 8 * static_cast<std::uint32_t>(
                              alloc_->usedCalleeSaved.size());
+            // Selaraskan ke kelipatan 16: SEMUA slot (termasuk slot
+            // Float 16-byte dari allocSlot) digeser -shift_ di bawah;
+            // shift_ bukan kelipatan 16 membuat slot Float movdqa
+            // misaligned relatif rbp (rbp 16-aligned sjk fix stub
+            // __rheinc_stub). Konsisten dengan frameSize_ (baris ~181).
+            shift_ = (shift_ + 15) / 16 * 16;
         }
         for (ValueId i = 0; i < fn_.values.size(); ++i) {
             const IrValue& v = fn_.values[i];
@@ -171,6 +184,10 @@ private:
             allocArea_ += 8 + typeSizeAt(in.operands[0].id);
             allocArea_ = (allocArea_ + 15) / 16 * 16;
         }
+        // Scratch 16-byte utk spill argumen baca yang ber-register-home
+        // (rh_read menulis via alamat; home value harus spill+reload).
+        bacaScratch_ = -8 * (static_cast<std::int32_t>(slotCount_) + 2);
+        slotCount_ += 2;
         frameSize_ = (slotCount_ * 8 + allocArea_ + shift_ + 15) / 16 * 16;
     }
 
@@ -180,6 +197,45 @@ private:
     static bool isFloat(const IrModule& m, TypeId t) {
         return t != InvalidType && t < m.types.size() &&
                m.types[t].kind == IrTypeKind::Float && m.types[t].sizeBytes == 8;
+    }
+
+    // Simbol runtime printer sesuai tipe nilai: logika -> rh_print_bool,
+    // integer unsigned -> rh_print_uint, karakter (Int 1-byte bertag
+    // "karakter" dari MapSemanticType) -> rh_print_char, sisanya
+    // (integer signed) -> rh_print_int.
+    static const char* printSymForType(const IrModule& m, TypeId t) {
+        if (t == InvalidType || t >= m.types.size()) return "rh_print_int";
+        const IrType& ty = m.types[t];
+        if (ty.kind == IrTypeKind::Bool) return "rh_print_bool";
+        // karakter DIPERIKSA DULUAN: tipe karakter = int UNSIGNED width=4,
+        // tanpa reorder ia tertangkap cabang rh_print_uint.
+        // Tag "karakter" eksklusif (hanya di-set MapSemanticType utk Karakter).
+        if (ty.kind == IrTypeKind::Int && ty.name == "karakter") {
+            return "rh_print_char";
+        }
+        if (ty.kind == IrTypeKind::Int && !ty.isSigned) return "rh_print_uint";
+        return "rh_print_int";
+    }
+
+    // Nama register ber-suffix lebar untuk movsx/movzx: reg "rbx" ->
+    // "ebx"/"bx"/"bl", reg "r12" -> "r12d"/"r12w"/"r12b". Hanya utk
+    // register HOME regalloc (rbx, r12-r15 + keluarga ax..di).
+    static std::string regSized(const std::string& reg, std::uint32_t bytes) {
+        static const char* full[] = {"rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi"};
+        static const char* d32[]  = {"eax","ecx","edx","ebx","esp","ebp","esi","edi"};
+        static const char* d16[]  = {"ax","cx","dx","bx","sp","bp","si","di"};
+        static const char* d8[]   = {"al","cl","dl","bl","spl","bpl","sil","dil"};
+        for (int i = 0; i < 8; ++i) {
+            if (reg == full[i]) {
+                return bytes == 1 ? d8[i] : (bytes == 2 ? d16[i] : d32[i]);
+            }
+        }
+        // r8..r15: suffix langsung (r12d/r12w/r12b).
+        if (reg.size() >= 2 && reg[0] == 'r' &&
+            reg[1] >= '0' && reg[1] <= '9') {
+            return reg + (bytes == 1 ? "b" : (bytes == 2 ? "w" : "d"));
+        }
+        return reg;
     }
 
     // Tipe 16-byte inline (2 slot / 2 register gp): View {ptr,len},
@@ -467,6 +523,30 @@ private:
         }
         pendingStrings_->push_back({lbl, c});
     }
+    // Cetak string literal pendek via rh_print (kurung tuple dst).
+    void emitPrintStr(const std::string& s) {
+        IrConstant c;
+        c.kind = IrConstantKind::String;
+        c.length = s.size();
+        c.bytes.assign(s.begin(), s.end());
+        const std::string lbl = ".LCT" + std::to_string(tupleStrCounter_++) +
+                                "_" + asmName(fn_.name);
+        pushString(lbl, c);
+        out_.ins("leaq " + lbl + "(%rip), %rdi");
+        out_.ins("movq $" + std::to_string(s.size()) + ", %rsi");
+        out_.ins("call rh_print");
+    }
+    // Cetak SATU field fat16 (8-byte di off(%rbp)) sesuai tipe field.
+    // float: movq ke xmm0 (tak butuh align, beda movdqa slot utama).
+    void emitFatField(std::int32_t off, TypeId t) {
+        if (isFloat(module_, t)) {
+            out_.ins("movq " + std::to_string(off) + "(%rbp), %xmm0");
+            out_.ins("call rh_fprint");
+            return;
+        }
+        out_.ins("movq " + std::to_string(off) + "(%rbp), %rdi");
+        out_.ins(std::string("call ") + printSymForType(module_, t));
+    }
     std::string stringLabel(ConstId cid, std::uint32_t instrIdx) {
         const auto it = stringLabels_.find(cid);
         if (it != stringLabels_.end()) return it->second;
@@ -561,8 +641,14 @@ private:
                               : (std::to_string(pslot->second) + "(%rbp)");
                 moves_.push_back(mv);
             }
-            if (!emitParallelMoves()) return false;
         }
+        // Flush SEKALI per pred: SEMUA phi succ untuk pred ini dalam SATU
+        // batch agar algoritma parallel-move (incl. siklus-break %r10)
+        // menangani konflik ANTAR-PHI. Flush per-phi membuat mov phi ke-2
+        // membaca register yang baru ditimpa mov phi ke-1 (bug: init
+        // hitung=1 bukan 0 di bilangan_prima — Total 26).
+        if (!emitParallelMoves()) return false;
+        moves_.clear();
         return true;
     }
 
@@ -595,13 +681,25 @@ private:
             }
             return false;
         };
+        // KRITIS: move idx harus DITUNDA bila dst-nya adalah SRC move lain
+        // yang belum dieksekusi — mengeksekusi idx lebih dulu akan MENIMPA
+        // sumber move lain (bug: phi moves entry -> header, init hitung=1
+        // bukan 0 di bilangan_prima: %v5->%i menimpa %r12, src %v4->%hitung).
+        auto dstIsSrcOfOther = [&](std::size_t idx) {
+            for (std::size_t j = 0; j < moves_.size(); ++j) {
+                if (j != idx && moves_[j].src == moves_[idx].dst) {
+                    return true;
+                }
+            }
+            return false;
+        };
         std::vector<std::string> deferred;
         while (!moves_.empty()) {
             bool any = true;
             while (any) {
                 any = false;
                 for (std::size_t i = 0; i < moves_.size(); ++i) {
-                    if (!srcIsDstOfOther(i)) {
+                    if (!srcIsDstOfOther(i) && !dstIsSrcOfOther(i)) {
                         emitOneMove(moves_[i]);
                         moves_.erase(moves_.begin() + i);
                         any = true;
@@ -686,9 +784,29 @@ private:
                 !loadPtrToReg(inst.operands[0], "rax")) {
                 return false;
             }
-            out_.ins("movq (%rax), %rax");
+            out_.ins("movq (%rax), %rcx");
             if (!resultValue(instrIdx, result)) return false;
-            return storeReg("rax", result);
+            if (!storeReg("rcx", result)) return false;
+            const std::uint64_t lsz = typeSizeAt(inst.resultType);
+            if (lsz > 8) {
+                // Agregat (View/struct/larik): kata ke-w heap di +8*w
+                // ke slot kedua dst (slot menurun: kata ke-w di slot-8*w).
+                const auto s = slotOfValue_.find(result);
+                if (s != slotOfValue_.end()) {
+                    const std::uint32_t nw =
+                        static_cast<std::uint32_t>(lsz / 8);
+                    for (std::uint32_t w = 1; w < nw; ++w) {
+                        out_.ins("movq " +
+                                 std::to_string(8 * static_cast<int>(w)) +
+                                 "(%rax), %rcx");
+                        out_.ins("movq %rcx, " +
+                                 std::to_string(static_cast<int>(s->second) -
+                                                8 * static_cast<int>(w)) +
+                                 "(%rbp)");
+                    }
+                }
+            }
+            return true;
         }
         case IrOpcode::Store: {
             // store ptr val: movq val, (%r). ptr boleh ValueV atau GlobalV.
@@ -701,6 +819,26 @@ private:
             if (!loadToReg(inst.operands[1], "rax")) return false;  // val
             if (!loadPtrToReg(inst.operands[0], "rcx")) return false;  // ptr
             out_.ins("movq %rax, (%rcx)");
+            if (inst.operands[1].kind == IrOperandKind::ValueV &&
+                inst.operands[1].id < fn_.values.size() &&
+                typeSizeAt(fn_.values[inst.operands[1].id].type) > 8) {
+                // Agregat: kata ke-w dari slot (slot-8*w) ke heap (+8*w).
+            const auto s = slotOfValue_.find(inst.operands[1].id);
+            if (s != slotOfValue_.end()) {
+                const std::uint32_t nw =
+                    static_cast<std::uint32_t>(typeSizeAt(
+                        fn_.values[inst.operands[1].id].type) / 8);
+                for (std::uint32_t w = 1; w < nw; ++w) {
+                    out_.ins("movq " +
+                             std::to_string(static_cast<int>(s->second) -
+                                            8 * static_cast<int>(w)) +
+                             "(%rbp), %rax");
+                    out_.ins("movq %rax, " +
+                             std::to_string(8 * static_cast<int>(w)) +
+                             "(%rcx)");
+                }
+            }
+            }
             return true;
         }
         case IrOpcode::FieldAddr: {
@@ -805,8 +943,26 @@ private:
                             : 8;
                     delta = -static_cast<std::int32_t>(fi * esz);
                 }
-                out_.ins("movq %rax, " + std::to_string(s->second + delta) +
-                         "(%rbp)");
+                // mov SESUAI ukuran field/elemen — movq 8-byte utk
+                // esz<8 menimpa tetangga (construct array karakter:
+                // hanya elemen terakhir selamat, sisanya tertimpa).
+                std::uint32_t fsz = 8;
+                if (ct.kind == IrTypeKind::Struct && fi < ct.fields.size()) {
+                    fsz = ct.fields[fi].type < module_.types.size()
+                              ? module_.types[ct.fields[fi].type].sizeBytes
+                              : 8;
+                } else if (ct.elementType != InvalidType &&
+                           ct.elementType < module_.types.size()) {
+                    fsz = module_.types[ct.elementType].sizeBytes;
+                }
+                const std::string dst =
+                    std::to_string(s->second + delta) + "(%rbp)";
+                switch (fsz) {
+                    case 1: out_.ins("movb %al, " + dst); break;
+                    case 2: out_.ins("movw %ax, " + dst); break;
+                    case 4: out_.ins("movl %eax, " + dst); break;
+                    default: out_.ins("movq %rax, " + dst); break;
+                }
             }
             return true;
         }
@@ -827,23 +983,56 @@ private:
                 module_.types[at].elementType < module_.types.size()) {
                 esz = module_.types[module_.types[at].elementType].sizeBytes;
             }
-            if (esz > 8) {
-                fail(errors_, RhBackendErrorCode::UnsupportedType, fn_.name,
-                     "extract: elemen >8 byte belum didukung");
-                return false;
-            }
+            // arr mode: SLOT (stack agregat, slot menurun) atau HEAP
+            // POINTER (alloc pointer di register — offset MENAIK).
             const auto s = slotOfValue_.find(inst.operands[0].id);
-            if (s == slotOfValue_.end()) {
+            const RegLoc* h = (s == slotOfValue_.end())
+                                  ? home(inst.operands[0].id)
+                                  : nullptr;
+            if (s == slotOfValue_.end() && !h) {
                 fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
-                     "extract: arr tanpa slot");
+                     "extract: arr tanpa slot/home");
                 return false;
             }
-            // alamat elem = rbp + slotOff - idx*esz
-            out_.ins("negq %rax");
-            out_.ins("leaq " + std::to_string(s->second) + "(%rbp,%rax," +
-                     std::to_string(esz) + "), %rcx");
-            out_.ins("movq (%rcx), %rax");
+            out_.ins("imulq $" + std::to_string(esz) + ", %rax");
+            if (s != slotOfValue_.end()) {
+                // stack: alamat = rbp + slotOff - idx*esz (slot menurun)
+                out_.ins("negq %rax");
+                out_.ins("leaq " + std::to_string(s->second) + "(%rbp), %rcx");
+                out_.ins("addq %rax, %rcx");
+            } else {
+                // heap: alamat = ptr + idx*esz (heap menaik)
+                out_.ins("movq %" + h->reg + ", %rcx");
+                out_.ins("addq %rax, %rcx");
+            }
             if (!resultValue(instrIdx, result)) return false;
+            if (esz > 8) {
+                // Elemen agregat (larik nested/struct kecil): copy esz/8
+                // kata — kata ke-w elemen di -8*w dari alamat elem
+                // (konvensi: kata ke-0 di alamat, kata ke-1 di -8, ...).
+                // Hasil agregat >8 byte SELALU punya slot (tak eligible
+                // register home).
+                const auto ds = slotOfValue_.find(result);
+                if (ds == slotOfValue_.end()) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "extract: hasil agregat tanpa slot");
+                    return false;
+                }
+                const std::uint32_t nw = esz / 8;
+                const bool heapArr = (s == slotOfValue_.end());
+                for (std::uint32_t w = 0; w < nw; ++w) {
+                    const std::string eo = heapArr
+                        ? (w == 0 ? "" : std::to_string(8 * static_cast<int>(w)))
+                        : (w == 0 ? "" : std::to_string(-8 * static_cast<int>(w)));
+                    out_.ins("movq " + eo + "(%rcx), %rax");
+                    out_.ins("movq %rax, " +
+                             std::to_string(static_cast<int>(ds->second) -
+                                            8 * static_cast<int>(w)) +
+                             "(%rbp)");
+                }
+                return true;
+            }
+            out_.ins("movq (%rcx), %rax");
             return storeReg("rax", result);
         }
         case IrOpcode::Insert: {
@@ -865,16 +1054,40 @@ private:
             }
             if (!resultValue(instrIdx, result)) return false;
             const auto src = slotOfValue_.find(inst.operands[0].id);
-            const auto dst = slotOfValue_.find(result);
-            if (src == slotOfValue_.end() || dst == slotOfValue_.end()) {
+            const RegLoc* srcH =
+                (src == slotOfValue_.end()) ? home(inst.operands[0].id)
+                                            : nullptr;
+            if (src == slotOfValue_.end() && !srcH) {
                 fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
-                     "insert: slot hilang");
+                     "insert: src tanpa slot/home");
+                return false;
+            }
+            // NOTE: hasil insert DI-HOME-KAN (chained value, contoh
+            // ptr_load.rhc) -> slot dst tak ada. Konvensi home value =
+            // kata-0 di register, kata ke-u>0 di scratch -8u-16 — BISA
+            // MENIMPA SLOT VALUE LAIN -> segfault. SEMENTARA: gagal
+            // eksplisit; fix konsumen home-value (register+scratch di
+            // atas frame) = utang terpisah.
+            const auto dst = slotOfValue_.find(result);
+            if (dst == slotOfValue_.end()) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "insert: hasil di-home-kan (belum didukung)");
                 return false;
             }
             const std::uint32_t units = slotUnitsOf(at);
+            // src: SLOT (stack, -8u) / HEAP PTR (register, +8u menaik)
+            const bool heapSrc = (src == slotOfValue_.end());
             for (std::int32_t u = 0; u < static_cast<std::int32_t>(units); ++u) {
-                out_.ins("movq " + std::to_string(src->second - 8 * u) + "(%rbp), %rax");
-                out_.ins("movq %rax, " + std::to_string(dst->second - 8 * u) + "(%rbp)");
+                if (heapSrc) {
+                    const std::string so = u == 0
+                        ? "" : std::to_string(8 * static_cast<int>(u));
+                    out_.ins("movq " + so + "(%" + srcH->reg + "), %rax");
+                } else {
+                    out_.ins("movq " +
+                             std::to_string(src->second - 8 * u) + "(%rbp), %rax");
+                }
+                out_.ins("movq %rax, " +
+                         std::to_string(dst->second - 8 * u) + "(%rbp)");
             }
             // tulis elemen
             std::uint32_t esz = 8;
@@ -883,17 +1096,52 @@ private:
                 module_.types[at].elementType < module_.types.size()) {
                 esz = module_.types[module_.types[at].elementType].sizeBytes;
             }
+            if (!loadToReg(inst.operands[1], "rcx")) return false;  // idx
+            out_.ins("imulq $" + std::to_string(esz) + ", %rcx");
+            out_.ins("negq %rcx");
+            out_.ins("leaq " + std::to_string(dst->second) + "(%rbp), %rdx");
+            out_.ins("addq %rcx, %rdx");
             if (esz > 8) {
-                fail(errors_, RhBackendErrorCode::UnsupportedType, fn_.name,
-                     "insert: elemen >8 byte belum didukung");
-                return false;
+                // src agregat: SLOT (stack, slot menurun -8w) atau HEAP
+                // POINTER (register home — layout MENAIK +8w).
+                const auto vs = slotOfValue_.find(inst.operands[2].id);
+                const RegLoc* vh = (vs == slotOfValue_.end())
+                                       ? home(inst.operands[2].id)
+                                       : nullptr;
+                if (vs == slotOfValue_.end() && !vh) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "insert: val agregat tanpa slot/home");
+                    return false;
+                }
+                const std::uint32_t nw = esz / 8;
+                const bool heapVal = (vs == slotOfValue_.end());
+                for (std::uint32_t w = 0; w < nw; ++w) {
+                    const std::string eo =
+                        w == 0 ? "" : std::to_string(-8 * static_cast<int>(w));
+                    if (heapVal) {
+                        const std::string so = w == 0
+                            ? "" : std::to_string(8 * static_cast<int>(w));
+                        out_.ins("movq " + so + "(%" + vh->reg + "), %rax");
+                    } else {
+                        out_.ins("movq " +
+                                 std::to_string(static_cast<int>(vs->second) -
+                                                8 * static_cast<int>(w)) +
+                                 "(%rbp), %rax");
+                    }
+                    out_.ins("movq %rax, " + eo + "(%rdx)");
+                }
+                return true;
             }
             if (!loadToReg(inst.operands[2], "rax")) return false;  // val
-            if (!loadToReg(inst.operands[1], "rcx")) return false;  // idx
-            out_.ins("negq %rcx");
-            out_.ins("leaq " + std::to_string(dst->second) + "(%rbp,%rcx," +
-                     std::to_string(esz) + "), %rdx");
-            out_.ins("movq %rax, (%rdx)");
+            // mov SESUAI ukuran elemen — movq 8-byte untuk esz<8
+            // menimpa elemen tetangga (store karakter ke array:
+            // teks1[0..2] tertimpa, hanya terakhir selamat).
+            switch (esz) {
+                case 1: out_.ins("movb %al, (%rdx)"); break;
+                case 2: out_.ins("movw %ax, (%rdx)"); break;
+                case 4: out_.ins("movl %eax, (%rdx)"); break;
+                default: out_.ins("movq %rax, (%rdx)"); break;
+            }
             return true;
         }
         case IrOpcode::CopyConst: {
@@ -923,16 +1171,26 @@ private:
                 return false;
             }
             if (isFloat(module_, inst.resultType)) {
-                // -f = xorpd mask tanda 16-byte (kedua lane).
-                if (inst.op != IrOpcode::Neg) {
+                if (inst.op == IrOpcode::Neg) {
+                    // -f = xorpd mask tanda 16-byte (kedua lane).
+                    out_.ins("movdqa " + floatLabel(0x8000000000000000ULL) +
+                             "(%rip), %xmm1");
+                    out_.ins("movq %rax, %xmm0");
+                    out_.ins("xorpd %xmm1, %xmm0");
+                } else if (inst.op == IrOpcode::Inc ||
+                           inst.op == IrOpcode::Dec) {
+                    // ++/-- float = +/- 1.0 (SSE addsd/subsd); bit
+                    // pattern 1.0 = 0x3FF0000000000000.
+                    out_.ins("movq %rax, %xmm0");
+                    out_.ins(std::string(inst.op == IrOpcode::Inc
+                                             ? "addsd "
+                                             : "subsd ") +
+                             floatLabel(0x3FF0000000000000ULL) + "(%rip), %xmm0");
+                } else {
                     fail(errors_, RhBackendErrorCode::UnsupportedType, fn_.name,
                          "op bitwise tak berlaku untuk float");
                     return false;
                 }
-                out_.ins("movdqa " + floatLabel(0x8000000000000000ULL) +
-                         "(%rip), %xmm1");
-                out_.ins("movq %rax, %xmm0");
-                out_.ins("xorpd %xmm1, %xmm0");
                 if (!resultValue(instrIdx, result)) return false;
                 out_.ins("movdqa %xmm0, " +
                          std::to_string(slotOfValue_.at(result)) + "(%rbp)");
@@ -1082,6 +1340,40 @@ private:
                 }
             }
             emitEpilogue();
+            return true;
+        }
+        case IrOpcode::Append: {
+            // a +> b (teks View): rh_concat(a_ptr, a_len, b_ptr, b_len)
+            // -> View{buf, len} di rax:rdx -> slot & slot-8 (konvensi fat16).
+            if (inst.operands.size() < 2 ||
+                inst.operands[0].kind != IrOperandKind::ValueV ||
+                inst.operands[1].kind != IrOperandKind::ValueV) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "append: operand bukan ValueV");
+                return false;
+            }
+            const auto sa = slotOfValue_.find(inst.operands[0].id);
+            const auto sb = slotOfValue_.find(inst.operands[1].id);
+            if (sa == slotOfValue_.end() || sb == slotOfValue_.end()) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "append: operand tanpa slot");
+                return false;
+            }
+            out_.ins("movq " + std::to_string(sa->second) + "(%rbp), %rdi");
+            out_.ins("movq " + std::to_string(sa->second - 8) + "(%rbp), %rsi");
+            out_.ins("movq " + std::to_string(sb->second) + "(%rbp), %rdx");
+            out_.ins("movq " + std::to_string(sb->second - 8) + "(%rbp), %rcx");
+            out_.ins("call rh_concat");
+            if (!resultValue(instrIdx, result)) return false;
+            const auto s = slotOfValue_.find(result);
+            if (s == slotOfValue_.end()) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "append: hasil tanpa slot");
+                return false;
+            }
+            out_.ins("movq %rax, " + std::to_string(s->second) + "(%rbp)");
+            out_.ins("movq %rdx, " +
+                     std::to_string(s->second - 8) + "(%rbp)");
             return true;
         }
         default:
@@ -1326,7 +1618,13 @@ private:
             if (!resultValue(instrIdx, castRes)) return false;
             return storeReg("rax", castRes);
         }
-        if (from.kind != IrTypeKind::Int || to.kind != IrTypeKind::Int) {
+        // Bool masuk jalur int (Bool = int 1-byte; narrowing/widening
+        // menangani konversi, mis. bilangan -> logika: low byte, 0=salah).
+        const bool fromInt = from.kind == IrTypeKind::Int ||
+                             from.kind == IrTypeKind::Bool;
+        const bool toInt = to.kind == IrTypeKind::Int ||
+                           to.kind == IrTypeKind::Bool;
+        if (!fromInt || !toInt) {
             fail(errors_, RhBackendErrorCode::UnsupportedType, fn_.name,
                  "cast: hanya int<->int dan int<->float");
             return false;
@@ -1348,11 +1646,19 @@ private:
         if (same) {
             out_.ins("movq " + src + ", %rax");
         } else if (fromB < toB) {
-            // widening: movzx (unsigned) / movsx (signed)
-            const char* op = sign ? "movsbq" : "movzbq";
-            if (fromB == 2) out_.ins(std::string(sign ? "movswq " : "movzwq ") + src + ", %rax");
-            else if (fromB == 4) out_.ins(std::string(sign ? "movslq " : "movl ") + src + ", %eax" + (sign ? "" : ""));
-            else out_.ins(std::string(op) + " " + src + ", %rax");
+            // Widening: movzx (unsigned) / movsx (signed).
+            // Register source WAJIB ber-suffix lebar (movslq %r12d, %rax —
+            // bukan %r12: gas reject); memory source tak butuh suffix.
+            // Dest movs[bwl]q = r64 — movslq ke %eax INVALID.
+            std::string ssrc = srcH ? ("%" + regSized(srcH->reg, fromB)) : src;
+            if (fromB == 2) {
+                out_.ins(std::string(sign ? "movswq " : "movzwq ") + ssrc + ", %rax");
+            } else if (fromB == 4) {
+                if (sign) out_.ins("movslq " + ssrc + ", %rax");
+                else out_.ins("movl " + ssrc + ", %eax");
+            } else {
+                out_.ins(std::string(sign ? "movsbq " : "movzbq ") + ssrc + ", %rax");
+            }
         } else {
             // narrowing: muat lalu mask lebar tujuan
             out_.ins("movq " + src + ", %rax");
@@ -1451,7 +1757,27 @@ private:
                         }
                     }
                 }
+                // Value const_string yg juga ditulis call @baca (rh_read
+                // menulis slot-nya) HARUS baca slot, bukan konstanta asli
+                // (bug: baca(nama) -> tampilkan nama = "" padahal slot
+                // berisi input baru).
+                bool writtenByBaca = false;
+                for (const IrInstr& i2 : fn_.instrs) {
+                    if (i2.op == IrOpcode::Call && !i2.operands.empty() &&
+                        i2.operands[0].kind == IrOperandKind::FuncV &&
+                        i2.operands[0].id < module_.functions.size() &&
+                        (module_.functions[i2.operands[0].id].name == "baca" ||
+                         module_.functions[i2.operands[0].id].name == "baca_file")) {
+                        for (std::size_t k = 1; k < i2.operands.size(); ++k) {
+                            if (i2.operands[k].kind == IrOperandKind::ValueV &&
+                                i2.operands[k].id == arg.id) {
+                                writtenByBaca = true;
+                            }
+                        }
+                    }
+                }
                 const bool isStr =
+                    !writtenByBaca &&
                     cid != InvalidConst && cid < module_.constants.size() &&
                     module_.constants[cid].kind == IrConstantKind::String;
                 if (isStr) {
@@ -1499,7 +1825,14 @@ private:
                 if (arg.kind == IrOperandKind::ValueV) {
                     if (const RegLoc* h = home(arg.id)) {
                         out_.ins("movq %" + h->reg + ", %rdi");
-                        out_.ins("call rh_print_int");
+                        // Tipe reliable dari instr.resultType pembuat nilai.
+                        TypeId vt = InvalidType;
+                        if (fn_.values[arg.id].kind == IrValue::Kind::Instr &&
+                            fn_.values[arg.id].payload < fn_.instrs.size()) {
+                            vt = fn_.instrs[fn_.values[arg.id].payload].resultType;
+                        }
+                        out_.ins(std::string("call ") +
+                                 printSymForType(module_, vt));
                         continue;
                     }
                     const auto s = slotOfValue_.find(arg.id);
@@ -1509,13 +1842,64 @@ private:
                         return false;
                     }
                     if (isFat16(module_, fn_.values[arg.id].type)) {
-                        // teks View {ptr,len}
-                        out_.ins("movq " + std::to_string(s->second) + "(%rbp), %rdi");
-                        out_.ins("movq " + std::to_string(s->second - 8) + "(%rbp), %rsi");
-                        out_.ins("call rh_print");
+                        const IrType& ty = module_.types[fn_.values[arg.id].type];
+                        if (ty.kind == IrTypeKind::View) {
+                            // teks: View {ptr,len} (perilaku existing)
+                            out_.ins("movq " + std::to_string(s->second) + "(%rbp), %rdi");
+                            out_.ins("movq " + std::to_string(s->second - 8) + "(%rbp), %rsi");
+                            out_.ins("call rh_print");
+                        } else {
+                            // Tuple/struct kecil (2 field 8-byte): cetak
+                            // "(f0, f1)" per tipe field. Field-0 di <slot>,
+                            // field-1 di <slot>-8 (konvensi fat16).
+                            // Tipe field: infer dari OPERAND instruksi
+                            // Construct (selalu terisi). ty.fields kosong
+                            // utk tuple anon -> fallback lama cetak bit
+                            // pattern float sbg int (bug tf.rhc).
+                            TypeId f0 = TypeId(0), f1 = TypeId(0);
+                            const auto& vv0 = fn_.values[arg.id];
+                            if (vv0.kind == IrValue::Kind::Instr &&
+                                vv0.payload < fn_.instrs.size() &&
+                                fn_.instrs[vv0.payload].op == IrOpcode::Construct) {
+                                const auto& ops = fn_.instrs[vv0.payload].operands;
+                                // Tipe reliable = instr.resultType pembuat
+                                // value (values[].type tidak terisi utk
+                                // hasil instruksi — pola fix printer).
+                                auto tOf = [&](ValueId v) -> TypeId {
+                                    const auto& x = fn_.values[v];
+                                    if (x.kind == IrValue::Kind::Instr &&
+                                        x.payload < fn_.instrs.size()) {
+                                        return fn_.instrs[x.payload].resultType;
+                                    }
+                                    return x.type;
+                                };
+                                // Layout operand Construct: [0]=metadata
+                                // (ConstId), [1]=field-0, [2]=field-1.
+                                if (ops.size() > 1) f0 = tOf(ops[1].id);
+                                if (ops.size() > 2) f1 = tOf(ops[2].id);
+                            } else {
+                                if (ty.fields.size() > 0) f0 = ty.fields[0].type;
+                                if (ty.fields.size() > 1) f1 = ty.fields[1].type;
+                            }
+                            emitPrintStr("(");
+                            emitFatField(s->second, f0);
+                            emitPrintStr(", ");
+                            emitFatField(s->second - 8, f1);
+                            emitPrintStr(")");
+                        }
                     } else {
                         out_.ins("movq " + std::to_string(s->second) + "(%rbp), %rdi");
-                        out_.ins("call rh_print_int");
+                        // Tipe nilai: fn_.values[v].type tidak terisi utk
+                        // hasil instruksi; tipe reliable ada di
+                        // instr.resultType (instrIdx = values[v].payload).
+                        TypeId vt = InvalidType;
+                        if (arg.id < fn_.values.size() &&
+                            fn_.values[arg.id].kind == IrValue::Kind::Instr &&
+                            fn_.values[arg.id].payload < fn_.instrs.size()) {
+                            vt = fn_.instrs[fn_.values[arg.id].payload].resultType;
+                        }
+                        out_.ins(std::string("call ") +
+                                 printSymForType(module_, vt));
                     }
                     continue;
                 }
@@ -1524,6 +1908,221 @@ private:
                 return false;
             }
             return true;  // tampilkan void
+        }
+        // ---- baca: variadic — string arg -> prompt (rh_print);
+        // argumen lain -> rh_read(slot, typeId) ----
+        if (sym == "rh_read") {
+            for (std::size_t i = 1; i < inst.operands.size(); ++i) {
+                const IrOperand& arg = inst.operands[i];
+                // (a) string konstan -> prompt (pola ConstString tampilkan)
+                // HANYA argumen PERTAMA (i==1) DAN ada var lain (size>2): tanpa
+                // ini, variabel teks yg fold ke const_string ikut tertangkap
+                // sbg prompt -> rh_read tak pernah dipanggil (baca(nama)=[]).
+                const bool canBePrompt = (i == 1 && inst.operands.size() > 2);
+                ConstId cid = InvalidConst;
+                if (arg.kind == IrOperandKind::ConstantV) {
+                    cid = arg.id;
+                } else if (arg.kind == IrOperandKind::ValueV &&
+                           arg.id < fn_.values.size()) {
+                    const IrValue& v = fn_.values[arg.id];
+                    if (v.kind == IrValue::Kind::Instr &&
+                        v.payload < fn_.instrs.size()) {
+                        const IrInstr& def = fn_.instrs[v.payload];
+                        if (def.op == IrOpcode::ConstString &&
+                            !def.operands.empty() &&
+                            def.operands[0].kind == IrOperandKind::ConstantV) {
+                            cid = def.operands[0].id;
+                        }
+                    }
+                }
+                const bool isStr =
+                    canBePrompt &&
+                    cid != InvalidConst && cid < module_.constants.size() &&
+                    module_.constants[cid].kind == IrConstantKind::String;
+                if (isStr) {
+                    const IrConstant& c = module_.constants[cid];
+                    const std::string lbl = stringLabel(cid, instrIdx);
+                    pushString(lbl, c);
+                    out_.ins("leaq " + lbl + "(%rip), %rdi");
+                    out_.ins("movq $" + std::to_string(c.bytes.size()) + ", %rsi");
+                    out_.ins("call rh_print");
+                    continue;
+                }
+                // (b) variabel target -> rh_read(slot, typeId)
+                if (arg.kind != IrOperandKind::ValueV) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "baca: bentuk argumen tak didukung");
+                    return false;
+                }
+                std::string sl;
+                const auto s = slotOfValue_.find(arg.id);
+                if (s != slotOfValue_.end()) {
+                    sl = std::to_string(s->second);
+                } else if (const RegLoc* h = home(arg.id)) {
+                    // Spill home ke scratch, reload setelah rh_read.
+                    out_.ins("movq %" + h->reg + ", " +
+                             std::to_string(bacaScratch_) + "(%rbp)");
+                    sl = std::to_string(bacaScratch_);
+                    reloadReg_ = h->reg;
+                } else {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "baca: target tanpa stack slot/home");
+                    return false;
+                }
+                // typeId: 0=int 1=uint 2=karakter 3=logika 4=desimal 5=teks
+                int tId = 0;
+                TypeId vt = InvalidType;
+                if (fn_.values[arg.id].kind == IrValue::Kind::Instr &&
+                    fn_.values[arg.id].payload < fn_.instrs.size()) {
+                    vt = fn_.instrs[fn_.values[arg.id].payload].resultType;
+                }
+                if (vt != InvalidType && vt < module_.types.size()) {
+                    const IrType& ty = module_.types[vt];
+                    if (ty.kind == IrTypeKind::Bool) tId = 3;
+                    else if (ty.kind == IrTypeKind::Float) tId = 4;
+                    else if (ty.kind == IrTypeKind::View) tId = 5;
+                    else if (ty.kind == IrTypeKind::Int) {
+                        if (!ty.isSigned) tId = 1;
+                        if (ty.name == "karakter") tId = 2;
+                    }
+                }
+                out_.ins("leaq " + sl + "(%rbp), %rdi");
+                out_.ins("movq $" + std::to_string(tId) + ", %rsi");
+                out_.ins("call rh_read");
+                if (!reloadReg_.empty()) {
+                    out_.ins("movq " + sl + "(%rbp), %" + reloadReg_);
+                    reloadReg_.clear();
+                }
+            }
+            return true;  // baca void
+        }
+        // ---- baca_file(path, isi): path View by-value, isi OUTPUT
+        // PARAM (alamat slot View ditulis rh_read_file) — TIDAK bisa
+        // lewat call handler umum (View by value 2 reg -> rh_read_file
+        // menulis ke alamat View = corrupt). Dispatcher custom: mirip
+        // pola baca. Return int sukses di rax -> slot hasil.
+        if (sym == "rh_read_file") {
+            if (inst.operands.size() != 3) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "baca_file: butuh (path, isi)");
+                return false;
+            }
+            // arg1: path (konstanta string atau View value)
+            const IrOperand& pa = inst.operands[1];
+            ConstId pcid = InvalidConst;
+            if (pa.kind == IrOperandKind::ConstantV) {
+                pcid = pa.id;
+            } else if (pa.kind == IrOperandKind::ValueV &&
+                       pa.id < fn_.values.size()) {
+                const IrValue& pv = fn_.values[pa.id];
+                if (pv.kind == IrValue::Kind::Instr &&
+                    pv.payload < fn_.instrs.size()) {
+                    const IrInstr& def = fn_.instrs[pv.payload];
+                    if (def.op == IrOpcode::ConstString &&
+                        !def.operands.empty() &&
+                        def.operands[0].kind == IrOperandKind::ConstantV) {
+                        pcid = def.operands[0].id;
+                    }
+                }
+            }
+            if (pcid != InvalidConst && pcid < module_.constants.size() &&
+                module_.constants[pcid].kind == IrConstantKind::String) {
+                const IrConstant& c = module_.constants[pcid];
+                const std::string lbl = stringLabel(pcid, instrIdx);
+                pushString(lbl, c);
+                out_.ins("leaq " + lbl + "(%rip), %rdi");
+                out_.ins("movq $" + std::to_string(c.bytes.size()) + ", %rsi");
+            } else if (pa.kind == IrOperandKind::ValueV) {
+                const auto ps = slotOfValue_.find(pa.id);
+                if (ps == slotOfValue_.end()) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "baca_file: path tanpa slot");
+                    return false;
+                }
+                out_.ins("movq " + std::to_string(ps->second) + "(%rbp), %rdi");
+                out_.ins("movq " + std::to_string(ps->second - 8) + "(%rbp), %rsi");
+            } else {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "baca_file: path tak didukung");
+                return false;
+            }
+            // arg2: isi — ALAMAT slot (output param)
+            const IrOperand& ia = inst.operands[2];
+            if (ia.kind != IrOperandKind::ValueV) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "baca_file: isi bukan variabel");
+                return false;
+            }
+            const auto islot = slotOfValue_.find(ia.id);
+            if (islot == slotOfValue_.end()) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "baca_file: isi tanpa slot");
+                return false;
+            }
+            out_.ins("leaq " + std::to_string(islot->second) + "(%rbp), %rdx");
+            out_.ins("call rh_read_file");
+            // return int sukses (rax) -> slot hasil call (pola return
+            // handler umum di emitCall: via valueOfInstr_).
+            const auto rv = valueOfInstr_.find(instrIdx);
+            if (rv != valueOfInstr_.end()) {
+                const auto s2 = slotOfValue_.find(rv->second);
+                if (s2 != slotOfValue_.end()) {
+                    out_.ins("movq %rax, " +
+                             std::to_string(s2->second) + "(%rbp)");
+                } else if (const RegLoc* h = home(rv->second)) {
+                    // hasil call di-home-kan: rax -> register home
+                    // (nilai baru), bukan slot (home values tak punya).
+                    out_.ins("movq %rax, %" + h->reg);
+                }
+            }
+            return true;
+        }
+        // ---- gabung(a, b): copy dua larik ke slot hasil call
+        // (output-via-slot, pola baca_file). Argumen agregat >16B tak
+        // bisa lewat call handler umum (MEMORY class konvensi rumit).
+        if (sym == "rh_concat_array_to") {
+            auto tOf = [&](ValueId v) -> TypeId {
+                const auto& x = fn_.values[v];
+                if (x.kind == IrValue::Kind::Instr &&
+                    x.payload < fn_.instrs.size()) {
+                    return fn_.instrs[x.payload].resultType;
+                }
+                return x.type;
+            };
+            const char* preg[2] = {"rdi", "rdx"};
+            const char* lreg[2] = {"rsi", "rcx"};
+            for (std::size_t k = 0; k < 2; ++k) {
+                const IrOperand& a = inst.operands[1 + k];
+                if (a.kind != IrOperandKind::ValueV) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "gabung: argumen bukan ValueV");
+                    return false;
+                }
+                const auto s = slotOfValue_.find(a.id);
+                if (s == slotOfValue_.end()) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "gabung: arg tanpa slot");
+                    return false;
+                }
+                out_.ins(std::string("leaq ") +
+                         std::to_string(s->second) + "(%rbp), %" +
+                         preg[k]);
+                out_.ins(std::string("movq $") +
+                         std::to_string(typeSizeAt(tOf(a.id))) +
+                         ", %" + lreg[k]);
+            }
+            // slot hasil call via valueOfInstr_ (pola rh_read_file)
+            const auto rv = valueOfInstr_.find(instrIdx);
+            if (rv == valueOfInstr_.end()) return true;  // void
+            const auto rs = slotOfValue_.find(rv->second);
+            if (rs == slotOfValue_.end()) {
+                fail(errors_, RhBackendErrorCode::UnsupportedOperand, fn_.name,
+                     "gabung: hasil tanpa slot");
+                return false;
+            }
+            out_.ins("leaq " + std::to_string(rs->second) + "(%rbp), %r8");
+            out_.ins("call rh_concat_array_to");
+            return true;
         }
 
         std::uint32_t reg = 0;
@@ -1541,7 +2140,16 @@ private:
             } else if (arg.kind == IrOperandKind::ValueV &&
                        arg.id < fn_.values.size()) {
                 const IrValue& v = fn_.values[arg.id];
-                if (isFloat(module_, v.type)) {
+                // Tipe reliable dari instr.resultType pembuat value
+                // (v.type tidak terisi utk hasil instruksi — bug: arg
+                // fat16 call handler terbaca size 0, len tak dipass,
+                // tulis_file gagal: io.rhc).
+                TypeId at = v.type;
+                if (v.kind == IrValue::Kind::Instr &&
+                    v.payload < fn_.instrs.size()) {
+                    at = fn_.instrs[v.payload].resultType;
+                }
+                if (isFloat(module_, at)) {
                     // Kelas SSE: argumen f64 -> xmm0-7. Runtime builtin
                     // belum menerima float (rh_print tak bisa format).
                     if (runtimeBuiltin_) {
@@ -1558,16 +2166,16 @@ private:
                     ++xmmN;
                     continue;
                 }
-                const std::uint64_t sz = typeSizeAt(v.type);
+                const std::uint64_t sz = typeSizeAt(at);
                 if (sz > 8) {
-                    if (sz <= 16 && isFat16(module_, v.type)) {
+                    if (sz <= 16 && isFat16(module_, at)) {
                         need = 2;  // agregat <=16B: dua register (System V)
-                    } else if (v.type != InvalidType &&
-                               v.type < module_.types.size() &&
-                               (module_.types[v.type].kind == IrTypeKind::Array ||
-                                module_.types[v.type].kind == IrTypeKind::Struct ||
-                                module_.types[v.type].kind == IrTypeKind::View ||
-                                module_.types[v.type].kind == IrTypeKind::Sum)) {
+                    } else if (at != InvalidType &&
+                               at < module_.types.size() &&
+                               (module_.types[at].kind == IrTypeKind::Array ||
+                                module_.types[at].kind == IrTypeKind::Struct ||
+                                module_.types[at].kind == IrTypeKind::View ||
+                                module_.types[at].kind == IrTypeKind::Sum)) {
                         // Agregat >16B: MEMORY class — seluruhnya ke stack.
                         need = static_cast<std::uint32_t>((sz + 7) / 8);
                         stackForce = true;
@@ -1716,11 +2324,27 @@ private:
         // Hasil call (bila ada) -> slot.
         const auto rv = valueOfInstr_.find(instrIdx);
         if (rv != valueOfInstr_.end()) {
-            const TypeId rt = fn_.values[rv->second].type;
+            // Tipe reliable dari instr.resultType (values[].type tidak
+            // terisi utk hasil instruksi).
+            const TypeId rt = inst.resultType;
             if (typeSizeAt(rt) > 8) {
-                fail(errors_, RhBackendErrorCode::UnsupportedType, fn_.name,
-                     "hasil call >8 byte belum didukung");
-                return false;
+                if (!isFat16(module_, rt)) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedType,
+                         fn_.name, "hasil call >16 byte belum didukung");
+                    return false;
+                }
+                // Return fat16 (SysV ABI struct <=16B): kata-0 di %rax,
+                // kata-1 di %rdx -> slot & slot-8 (konvensi fat16).
+                const auto s2 = slotOfValue_.find(rv->second);
+                if (s2 == slotOfValue_.end()) {
+                    fail(errors_, RhBackendErrorCode::UnsupportedOperand,
+                         fn_.name, "hasil call fat16 tanpa slot");
+                    return false;
+                }
+                out_.ins("movq %rax, " + std::to_string(s2->second) + "(%rbp)");
+                out_.ins("movq %rdx, " +
+                         std::to_string(s2->second - 8) + "(%rbp)");
+                return true;
             }
             if (isFloat(module_, rt)) {
                 // return f64 di xmm0 -> slot 16-byte (movdqa).
@@ -1804,6 +2428,9 @@ private:
     std::unordered_map<std::uint32_t, ValueId> valueOfInstr_;
     std::unordered_map<ValueId, std::int32_t> slotOfValue_;
     std::unordered_map<ConstId, std::string> stringLabels_;
+    std::uint32_t tupleStrCounter_ = 0;
+    std::int32_t bacaScratch_ = 0;
+    std::string reloadReg_;
     std::uint32_t slotCount_ = 0;
     std::int32_t frameSize_ = 0;
     std::uint32_t allocArea_ = 0;
@@ -1900,6 +2527,18 @@ bool X86_64SysVEmitter::emitModule(const FinalIr& finalIr, AsmBuilder& out,
         out.globl("__rheinc_stub");
         out.typeFunction("__rheinc_stub");
         out.label("__rheinc_stub");
+        // ABI System V: rsp harus 16-byte aligned SEBELUM call. _start
+        // manggil stub saat rsp≡8 (mod 16) -> andq merapatkan sehingga
+        // fungsi target melihat rsp≡8 di entry (standar). Tanpa ini,
+        // movdqa ke slot rbp-X fault (rbp tak 16-aligned).
+        out.ins("andq $-16, %rsp");
+        // initialisasi global HARUS jalan sebelum entry (DEVIATIONS:
+        // call __global_init dulu sebelum call utama — stub selalu call
+        // __global_init bila emittedGlobalInit; bila modul tak punya init,
+        // fallback kosong retq di bawah tetap aman dipanggil).
+        if (emittedGlobalInit) {
+            out.ins("call __global_init");
+        }
         if (entry != InvalidFunc) {
             out.ins("call " + entryName);
         }

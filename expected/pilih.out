@@ -1,0 +1,11 @@
+=== TEST PERNYATAAN PILIH ===
+Test 1: Pilih bilangan
+Nilai = 2
+Test 2: Pilih karakter
+Grade B: Baik
+Test 3: Hari kerja / akhir pekan
+Akhir pekan
+Test 4: Kategori nilai
+Nilai B
+Test 5: Pilih tanpa bawaan
+Setelah pilih (kode tidak cocok)

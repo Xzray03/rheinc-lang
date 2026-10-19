@@ -1,0 +1,34 @@
+═══ PROGRAM UJI COBA GABUNG ARRAY ═══
+Larik a (5 elemen):
+  a[0] = 10
+  a[1] = 20
+  a[2] = 30
+  a[3] = 40
+  a[4] = 50
+
+Larik b (3 elemen):
+  b[0] = 60
+  b[1] = 70
+  b[2] = 80
+
+--- Menggabungkan Larik a dan Larik b ---
+Hasil penggabungan (larik c):
+  c[0] = 10
+  c[1] = 20
+  c[2] = 30
+  c[3] = 40
+  c[4] = 50
+  c[5] = 60
+  c[6] = 70
+  c[7] = 80
+✓ BERHASIL: Penggabungan larik berfungsi dengan benar!
+
+--- Uji larik karakter ---
+  teks3[0] = R
+  teks3[1] = h
+  teks3[2] = e
+  teks3[3] = i
+  teks3[4] = n
+  teks3[5] = C
+
+═══ PROGRAM SELESAI ═══

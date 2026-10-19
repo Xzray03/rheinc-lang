@@ -1,0 +1,24 @@
+=== TEST OPERATOR BITWISE ===
+a = 15 (0x0F, biner: 00001111)
+b = 85 (0x55, biner: 01010101)
+a & b  = 5 (0x05, biner: 00000101)
+a | b  = 95 (0x5F, biner: 01011111)
+a ^ b  = 90 (0x5A, biner: 01011010)
+~a     = -16 (komplemen dari 0x0F)
+a << 2 = 60 (0x3C, biner: 00111100)
+b >> 2 = 21 (0x15, biner: 00010101)
+
+=== ASSIGNMENT BITWISE ===
+x awal = 15
+x &= 0x05 -> 5
+x |= 0xA0 -> 165
+x ^= 0xFF -> 90
+x <<= 1 -> 180
+x >>= 2 -> 45
+
+=== MANIPULASI FLAG ===
+Set bit 2: 4
+Set bit 4: 20
+Bit 2 = 1
+Clear bit 2: 16
+Toggle bit 4: 0

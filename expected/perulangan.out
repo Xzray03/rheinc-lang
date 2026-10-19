@@ -1,0 +1,25 @@
+=== Perulangan Untuk (For Loop) ===
+Iterasi ke-1
+Iterasi ke-2
+Iterasi ke-3
+Iterasi ke-4
+Iterasi ke-5
+=== Perulangan Selama (While Loop) ===
+Hitung: 1
+Hitung: 2
+Hitung: 3
+Hitung: 4
+Hitung: 5
+=== Perulangan Ulangi (Do-While) ===
+Nilai j: 1
+Nilai j: 2
+Nilai j: 3
+Nilai j: 4
+Nilai j: 5
+=== Perulangan dengan Langkah ===
+k = 0
+k = 2
+k = 4
+k = 6
+k = 8
+k = 10

@@ -1,0 +1,3 @@
+- Ini adalah teks dari deklarasi.rhh
+- Ini adalah teks dari deklarasi2.rhh yang di include melalui deklarasi.rhh
+- Ini adalah teks dari deklarasi3.rhh yang di include melalui deklarasi2.rhh

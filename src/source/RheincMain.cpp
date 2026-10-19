@@ -117,8 +117,11 @@ const char* severityName(DiagnosticSeverity severity) {
     return "diagnostic";
 }
 
-void printDiagnostics(const DiagnosticEngine& diagnostics) {
-    for (const Diagnostic& diagnostic : diagnostics.diagnostics()) {
+void printDiagnostics(const DiagnosticEngine& diagnostics,
+                    std::size_t fromIndex = 0) {
+    const auto& diags = diagnostics.diagnostics();
+    for (std::size_t i = fromIndex; i < diags.size(); ++i) {
+        const Diagnostic& diagnostic = diags[i];
         std::cerr << diagnostic.path << ':' << diagnostic.line << ':'
                   << diagnostic.column << ": "
                   << severityName(diagnostic.severity) << ": "
@@ -267,28 +270,37 @@ int runOneFile(const std::string& path, const DriverOptions& opts,
     IdentifierTable identifiers;
     LangOptions options;
     DiagnosticEngine diagnostics(sourceManager, options.maxLexicalErrors);
+    std::size_t diagPrinted = 0;
     Preprocessor preprocessor(sourceManager, diagnostics, identifiers, options);
     preprocessor.setMainFile(file);
     Parser parser(preprocessor, sourceManager, diagnostics);
     TranslationUnitDecl* unit = parser.parseTranslationUnit();
     if (diagnostics.hasErrors() || !unit) {
-        printDiagnostics(diagnostics);
+        printDiagnostics(diagnostics, diagPrinted);
         return 1;
     }
+    // Warning tetap tampil meski kompilasi lanjut (mis. #warning);
+    // hanya entri BARU sejak flush terakhir yang dicetak.
+    printDiagnostics(diagnostics, diagPrinted);
+    diagPrinted = diagnostics.diagnostics().size();
 
     SemanticAnalyzer semantic(sourceManager, diagnostics);
     semantic.analyze(unit);
     if (diagnostics.hasErrors()) {
-        printDiagnostics(diagnostics);
+        printDiagnostics(diagnostics, diagPrinted);
         return 1;
     }
+    printDiagnostics(diagnostics, diagPrinted);
+    diagPrinted = diagnostics.diagnostics().size();
 
     AstToIrTranslator translator(sourceManager, diagnostics);
     IrModule* module = translator.translate(unit, semantic);
     if (!module) {
-        printDiagnostics(diagnostics);
+        printDiagnostics(diagnostics, diagPrinted);
         return 1;
     }
+    printDiagnostics(diagnostics, diagPrinted);
+    diagPrinted = diagnostics.diagnostics().size();
     module->sourcePath = path;
 
     auto releasedModule = translator.releaseModule();

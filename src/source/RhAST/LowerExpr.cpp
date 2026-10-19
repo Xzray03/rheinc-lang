@@ -783,6 +783,55 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                                     std::move(operands), expr->range.begin);
             }
         }
+        // Intrinsik gabung(a, b): hasil = larik baru berukuran
+        // size(a) + size(b). Registry mendeklarasikan return 'error' ->
+        // slot hasil call cuma 8 byte -> runtime timpa slot tetangga
+        // (penggabungan_array.rhc: c[3]=alamat). Override resultType
+        // dengan IR ArrayType konkret dari ukuran kedua argumen.
+        if (node->callee->kind == AstKind::IdentifierExpr &&
+            static_cast<const IdentifierExpr*>(node->callee)->name ==
+                "gabung" &&
+            node->arguments.size() == 2) {
+            const ValueId va = lowerExpr(node->arguments[0]);
+            if (va == InvalidValue) return InvalidValue;
+            const ValueId vb = lowerExpr(node->arguments[1]);
+            if (vb == InvalidValue) return InvalidValue;
+            auto typeOfValue = [&](ValueId v) -> TypeId {
+                const auto& vv = builder.function(currentFunc).values[v];
+                if (vv.kind == IrValue::Kind::Instr &&
+                    vv.payload < builder.function(currentFunc).instrs.size()) {
+                    return builder.function(currentFunc)
+                        .instrs[vv.payload].resultType;
+                }
+                return vv.type;
+            };
+            const TypeId ta = typeOfValue(va);
+            const TypeId tb = typeOfValue(vb);
+            if (ta == InvalidType || tb == InvalidType ||
+                ta >= module.types.size() || tb >= module.types.size() ||
+                module.types[ta].kind != IrTypeKind::Array ||
+                module.types[tb].kind != IrTypeKind::Array) {
+                error(AstIrErrorCode::MalformedShape, expr,
+                      "gabung: argumen harus larik");
+                return InvalidValue;
+            }
+            IrType arrT;
+            arrT.kind = IrTypeKind::Array;
+            arrT.elementType = module.types[ta].elementType;
+            arrT.arraySize = module.types[ta].arraySize +
+                             module.types[tb].arraySize;
+            const TypeId resultT = builder.internType(arrT);
+            const FuncId fid = resolveCallee(node->callee);
+            if (fid == InvalidFunc) {
+                error(AstIrErrorCode::MalformedShape, expr,
+                      "gabung: fungsi tak ditemukan");
+                return InvalidValue;
+            }
+            return builder.emit(IrOpcode::Call, resultT,
+                                {IrOperand::func(fid), IrOperand::value(va),
+                                 IrOperand::value(vb)},
+                                expr->range.begin);
+        }
         // Intrinsik alokasi(T): argumen TypeExpr ATAU IdentifierExpr
         // nama struct (parser menghasilkan keduanya di konteks berbeda).
         if (node->callee->kind == AstKind::IdentifierExpr &&
@@ -1093,14 +1142,18 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                         builder.function(currentFunc).values[cur].type;
                     const TypeId valT =
                         builder.function(currentFunc).values[value].type;
+                    // Numeric ATAU Bool (int<->bool: 0->salah, nonzero->
+                    // benar; Bool = int 1-byte di backend, narrowing path).
                     const bool nA = curT != InvalidType &&
                                     curT < module.types.size() &&
                                     (module.types[curT].kind == IrTypeKind::Int ||
-                                     module.types[curT].kind == IrTypeKind::Float);
+                                     module.types[curT].kind == IrTypeKind::Float ||
+                                     module.types[curT].kind == IrTypeKind::Bool);
                     const bool nB = valT != InvalidType &&
                                     valT < module.types.size() &&
                                     (module.types[valT].kind == IrTypeKind::Int ||
-                                     module.types[valT].kind == IrTypeKind::Float);
+                                     module.types[valT].kind == IrTypeKind::Float ||
+                                     module.types[valT].kind == IrTypeKind::Bool);
                     if (curT != InvalidType && curT != valT && nA && nB) {
                         assigned = builder.emit(IrOpcode::Cast, curT,
                                                 {IrOperand::value(value)},
@@ -1390,14 +1443,37 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
             const bool objectIsPointer =
                 objectType && objectType->kind() == TypeKind::Pointer;
             if (!objectIsPointer) {
-                const bool objectIsContainer =
-                    objectType &&
-                    (objectType->kind() == TypeKind::Struct ||
-                     objectType->kind() == TypeKind::Builtin);
-                if (member->object->kind == AstKind::CallExpr &&
-                    objectIsContainer) {
+                // Aturan 2: "panggilan() -> nama" = SIMPAN HASIL KE
+                // VARIABEL nama — SEMUA CallExpr (bukan hanya Struct/
+                // Builtin container; gabung return larik/array -> tidak
+                // pernah masuk kondisi lama -> c tak pernah diisi,
+                // penggabungan_array.rhc salah output).
+                if (member->object->kind == AstKind::CallExpr) {
                     const ValueId value = lowerExpr(member->object);
                     if (value == InvalidValue) return InvalidValue;
+                    // Variabel target SUDAH ADA & memory-style (alloc
+                    // pointer, mis 'variabel x: larik dari T' ukuran
+                    // implisit) -> STORE ke slot-nya, bukan bind SSA
+                    // (bind tak mengisi slot alloc -> extract membaca
+                    // slot lama kosong, penggabungan_array.rhc uji
+                    // karakter).
+                    const ValueId existing = lookupLocal(member->memberName);
+                    if (existing != InvalidValue) {
+                        const auto& ev =
+                            builder.function(currentFunc).values[existing];
+                        if (ev.kind == IrValue::Kind::Instr &&
+                            ev.payload <
+                                builder.function(currentFunc).instrs.size() &&
+                            builder.function(currentFunc)
+                                    .instrs[ev.payload].op ==
+                                IrOpcode::Alloc) {
+                            builder.emit(IrOpcode::Store, TypeId(0),
+                                         {IrOperand::value(existing),
+                                          IrOperand::value(value)},
+                                         expr->range.begin);
+                            return value;
+                        }
+                    }
                     bindLocal(member->memberName, value);
                     return value;
                 }

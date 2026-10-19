@@ -36,6 +36,14 @@ public:
         module_ = &module;
         fn_ = &fn;
         errors_ = &errors;
+        // Reset penuh per fungsi — kalau tidak, homes (dan state lain)
+        // dari fungsi sebelumnya bocor ke fungsi berikutnya (bug: value
+        // F2 ambil register milik value F1 yang id-nya sama → loop
+        // `untuk i` kedua membaca home loop pertama → infinite loop).
+        // Reset PER FUNGSI: homes dari fungsi sebelumnya bocor ke fungsi
+        // berikutnya bila result_ tidak di-reassign (bug: value F2 ambil
+        // register milik value F1 dengan id sama -> phi move loop-2
+        // membaca home loop pertama -> loop `untuk i` kedua beku).
         result_ = RegAllocResult{};
 
         collectEligible();

@@ -1,0 +1,24 @@
+=== TEST TIPE DATA LOGIKA ===
+benar = benar
+salah = salah
+
+=== OPERASI LOGIKA ===
+benar dan benar = benar
+benar dan salah = salah
+salah atau benar = benar
+salah atau salah = salah
+bukan benar = salah
+bukan salah = benar
+
+=== PERBANDINGAN ===
+a = 10, b = 20
+a == b: salah
+a != b: benar
+a < b: benar
+a <= b: benar
+a > b: salah
+a >= b: salah
+
+x= 5, y= 15, z= 25
+(x < y) dan (y < z) = benar
+(x > y) atau (y < z) = benar
