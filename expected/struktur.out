@@ -1,0 +1,68 @@
+=== DEMONSTRASI STRUKTUR ===
+
+Titik: 10, 20, 30
+--- Mahasiswa 1 ---
+Nama     : Budi Santoso
+NIM      : 2024001
+Usia     : 20 tahun
+Alamat   : Jl. Merdeka No. 45, Jakarta 10110
+IPK      : 4
+Semester : 4
+SKS      : 72
+
+--- Mahasiswa 2 ---
+Nama     : Siti Aminah
+NIM      : 2024002
+Usia     : 19 tahun
+Alamat   : Jl. Sudirman No. 12, Bandung 40132
+IPK      : 3
+Semester : 4
+SKS      : 68
+
+=== DEMONSTRASI POINTER TO STRUCT ===
+--- Mahasiswa 3 (via Pointer) ---
+Nama     : Andi Pratama
+NIM      : 2024003
+Usia     : 21 tahun
+Alamat   : Jl. Diponegoro No. 7, Surabaya 60264
+IPK      : 2
+SKS      : 96
+
+=== MODIFIKASI DATA VIA POINTER ===
+  [Sistem] Budi Santoso menambah 6 SKS
+  [Sistem] Siti Aminah menambah 3 SKS
+  [Sistem] Andi Pratama menambah 4 SKS
+
+  [Sistem] IPK Budi Santoso diperbarui menjadi 3
+  [Sistem] IPK Siti Aminah diperbarui menjadi 3
+  [Sistem] IPK Andi Pratama diperbarui menjadi 3
+
+=== DATA SETELAH MODIFIKASI ===
+
+--- Mahasiswa 1 ---
+Nama     : Budi Santoso
+NIM      : 2024001
+Usia     : 20 tahun
+Alamat   : Jl. Merdeka No. 45, Jakarta 10110
+IPK      : 3
+SKS      : 78
+
+--- Mahasiswa 2 ---
+Nama     : Siti Aminah
+NIM      : 2024002
+Usia     : 19 tahun
+Alamat   : Jl. Sudirman No. 12, Bandung 40132
+IPK      : 3
+SKS      : 71
+
+--- Mahasiswa 3 (Pointer) ---
+Nama     : Andi Pratama
+NIM      : 2024003
+IPK      : 3
+SKS      : 100
+
+=== PERBANDINGAN DATA ===
+Mahasiswa dengan IPK tertinggi: Budi Santoso (3)
+Mahasiswa dengan SKS terbanyak: Budi Santoso (78 SKS)
+
+[Sistem] Memori dibersihkan

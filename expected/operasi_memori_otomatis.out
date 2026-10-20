@@ -1,0 +1,25 @@
+=== TEST OPERASI MEMORI (ALOKASI OTOMATIS) ===
+=== ALOKASI OTOMATIS ===
+Alokasi bilangan: 100
+Alokasi otomatis array:
+  arr[0] = 0
+  arr[1] = 10
+  arr[2] = 20
+  arr[3] = 30
+  arr[4] = 40
+=== SALIN MEMORI ===
+Sebelum salin:
+  src: 1, 2, 3
+  dst: 0, 0, 0
+Setelah salin:
+  dst: 1, 2, 3
+=== UKURAN TIPE ===
+ukuran(bilangan8) = 1
+ukuran(bilangan16) = 2
+ukuran(bilangan32) = 4
+ukuran(bilangan64) = 8
+ukuran(karakter) = 4
+ukuran(logika) = 1
+ukuran(tunjuk ke bilangan) = 8
+
+Semua memori alokasi otomatis akan dibebaskan saat fungsi selesai

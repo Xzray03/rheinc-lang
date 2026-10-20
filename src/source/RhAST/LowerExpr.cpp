@@ -128,11 +128,22 @@ bool decodeCharLiteral(const std::string& text, std::uint32_t& out) {
 
 // Decode string literal (text termasuk tanda kutip; raw = tanpa escape).
 bool decodeStringLiteral(const StringLiteralExpr& node, std::string& out) {
-    if (node.text.size() < 2) return false;
-    const std::size_t end = node.text.size() - 1;  // kutip penutup
+    // RAW: node.text = Raw("...") utuh — lewati prefix 'Raw(' (4) &
+    // suffix '")' (2), BUKAN 1/1 seperti string biasa ('R' dulu
+    // dianggap kutip pembuka -> "aw(...)" lolos, literal_lanjutan.rhc).
+    std::size_t end;
+    std::size_t i;
+    if (node.raw) {
+        if (node.text.size() < 6) return false;
+        i = 4;
+        end = node.text.size() - 2;
+    } else {
+        if (node.text.size() < 2) return false;
+        i = 1;                       // lewati kutip pembuka
+        end = node.text.size() - 1;  // kutip penutup
+    }
     std::string decoded;
     decoded.reserve(node.text.size());
-    std::size_t i = 1;  // lewati kutip pembuka
     while (i < end) {
         if (node.text[i] == '\\' && !node.raw) {
             if (i + 1 >= end) return false;
@@ -630,8 +641,8 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                 if (kase.name == node->name) {
                     return builder.emit(
                         IrOpcode::ConstInt, resultType,
-                        {IrOperand::imm(static_cast<std::uint32_t>(
-                            kase.hasEnumValue ? kase.enumValue : 0))},
+                        encodeConstIntOperands(static_cast<std::uint64_t>(
+                            kase.hasEnumValue ? kase.enumValue : 0)),
                         expr->range.begin, node->name);
                 }
             }
@@ -647,8 +658,8 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                     if (kase.name == node->name) {
                         return builder.emit(
                             IrOpcode::ConstInt, resultType,
-                            {IrOperand::imm(static_cast<std::uint32_t>(
-                                kase.hasEnumValue ? kase.enumValue : 0))},
+                            encodeConstIntOperands(static_cast<std::uint64_t>(
+                                kase.hasEnumValue ? kase.enumValue : 0)),
                             expr->range.begin, node->name);
                     }
                 }

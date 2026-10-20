@@ -21,7 +21,9 @@ trap 'rm -rf "$WORK"' EXIT
 # diff vs expected stabil antar run.
 normalize() {
     sed -E -e 's/(Buffer dialokasikan di: )[0-9]+/\1<ALAMAT>/' \
-           -e 's|/tmp/rheinc-test\.[A-Za-z0-9]+|<CWD>|g' "$1"
+           -e 's|/tmp/rheinc-test\.[A-Za-z0-9]+|<CWD>|g' \
+           -e 's/(Alamat nilai: )[0-9]+/\1<ALAMAT>/' \
+           -e 's/(Pointer kosong: )[0-9]+/\1<ALAMAT>/' "$1"
 }
 
 FILES=(
@@ -32,7 +34,10 @@ FILES=(
   perulangan.rhc rekursif.rhc prototipe_fungsi.rhc berhenti_lanjut.rhc
   scope_dan_shadowing.rhc interaktif.rhc perintah_sistem.rhc io.rhc
   ternary.rhc goto.rhc multi_goto.rhc array.rhc array_multi.rhc
-  penggabungan_array.rhc
+  penggabungan_array.rhc pengurutan_array.rhc pemotongan_teks.rhc
+  cacahan.rhc sum_type.rhc struktur.rhc struktur_dengan_bitfield.rhc
+  casting.rhc konversi_tipe.rhc literal_lanjutan.rhc tunjuk.rhc
+  operasi_memori.rhc operasi_memori_otomatis.rhc lambda.rhc
   rhpp/tambahkan.rhc rhpp/warning.rhc rhpp/error_warning_inactive.rhc
   rhpp/preprocessor.rhc rhpp/jika_makro_fungsi.rhc rhpp/variadic.rhc
   rhpp/variadic_opt.rhc rhpp/makro_fungsi_bersarang.rhc

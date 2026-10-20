@@ -1,0 +1,27 @@
+=== TEST KONVERSI TIPE ===
+=== KE_TEKS ===
+ke_teks(12345) = '12345'
+ke_teks(-6789) = '-6789'
+ke_teks(benar) = 'benar'
+=== KE_BILANGAN ===
+ke_bilangan('98765') = 98765
+ke_bilangan('-4321') = -4321
+ke_bilangan('abc123') = 0 (default 0)
+=== KE_LOGIKA ===
+ke_logika(0) = salah
+ke_logika(1) = benar
+ke_logika(100) = benar
+ke_logika(-5) = benar
+ke_logika("benar") = benar
+ke_logika("salah") = salah
+=== KE_KARAKTER ===
+ke_karakter(65) = 'A'
+ke_karakter(48) = '0'
+ke_karakter(126) = '~'
+=== CASTING INTEGER ===
+bilangan64(1000000) -> bilangan8: 64
+bilangan_tanpa_tanda32(-1): 4294967295
+=== POINTER CASTING ===
+Pointer int: 42
+Pointer void: 42
+Pointer char: 42

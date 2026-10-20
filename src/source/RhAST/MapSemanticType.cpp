@@ -166,10 +166,18 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
         t.name = sum->name;
         const TypeId id = builder.internType(t);
         module.typeMapping.map(type, id);
+        // tagValue: kasus DENGAN enumValue eksplisit -> enumValue;
+        // kasus sum tanpa nilai eksplisit -> ORDINAL varian (0,1,2..).
+        // Hardcode 0 membuat semua varian tag=0 (KOSONG() masuk blok
+        // ADA, sum_type.rhc).
+        std::uint64_t ordinal1 = 0;
         for (const SumType::Case& kase : sum->cases) {
             IrVariant v;
             v.name = kase.name;
-            v.tagValue = kase.hasEnumValue ? kase.enumValue : 0;
+            v.tagValue = kase.hasEnumValue
+                             ? kase.enumValue
+                             : static_cast<std::int64_t>(ordinal1);
+            ++ordinal1;
             if (!kase.fields.empty() && kase.fields[0].type) {
                 v.payloadType = mapType(kase.fields[0].type, node, "sum-payload");
             }
@@ -271,10 +279,14 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
                 }
                 return payload;
             };
+            std::uint64_t ordinal2 = 0;
             for (const SumType::Case& kase : sum->cases) {
                 IrVariant v;
                 v.name = kase.name;
-                v.tagValue = kase.hasEnumValue ? kase.enumValue : 0;
+                v.tagValue = kase.hasEnumValue
+                                 ? kase.enumValue
+                                 : static_cast<std::int64_t>(ordinal2);
+                ++ordinal2;
                 if (!kase.fields.empty()) {
                     const Type* payload = subst(kase.fields[0].type);
                     if (payload) v.payloadType = mapType(payload, node);

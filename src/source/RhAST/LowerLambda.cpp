@@ -104,7 +104,11 @@ FuncId AstToIrTranslator::Impl::lowerLambda(const LambdaExpr* expr) {
     const BlockId entry = builder.createBlock(func, "entry",
                                               expr->body->range.begin);
     setCurrent(entry);
-    if (!lowerStmt(expr->body)) return InvalidFunc;
+    if (!lowerStmt(expr->body)) {
+        error(AstIrErrorCode::UnsupportedNode, expr->body,
+              "lambda body lower gagal");
+        return InvalidFunc;
+    }
 
     IrFunction& fn = builder.function(func);
     if (blockOpen() &&

@@ -1,0 +1,31 @@
+Integer ke Desimal
+50 dalam desimal: 50
+
+Desimal ke Integer
+50.0 dalam integer: 50
+
+Integer ke Logika
+5 sebagai logika: benar
+0 sebagai logika: salah
+
+Logika ka Integer
+benar sebagai integer: 1
+salah sebagai integer: 0
+
+Karakter ke Integer
+ASCII 'A': 65
+
+Integer ke Karakter
+Karakter dari 65: A
+
+String ke Integer
+'123' sebagai integer: 123
+
+Integer ke String
+123 sebagai string: 123
+
+String ke Desimal
+'3.14' sebagai desimal: 3.14
+
+Desimal ke String
+3.14 sebagai string: 3.14

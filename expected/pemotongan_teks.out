@@ -1,0 +1,41 @@
+═══ UJI 1: Potong dengan dua pembatas ═══
+Sebelum: Sebentar lagi aku pulang ke rumah bersama temanku
+Setelah: aku pulang ke rumah
+Harapan: aku pulang ke rumah
+
+═══ UJI 2: Potong hanya dengan pembatas pertama ═══
+Sebelum: Sebentar lagi aku pulang ke rumah
+Setelah: aku pulang ke rumah
+Harapan: aku pulang ke rumah
+
+═══ UJI 3: Pembatas pertama tidak ditemukan ═══
+Sebelum: Halo dunia RheinC
+Setelah: Halo dunia RheinC
+Harapan: Halo dunia RheinC (tidak berubah)
+
+═══ UJI 4: Pembatas kedua tidak ditemukan ═══
+Sebelum: Selamat pagi dunia yang indah
+Setelah: dunia yang indah
+Harapan: dunia yang indah
+
+═══ UJI 5: Potong dengan pembatas karakter tunggal ═══
+Sebelum: a,b,c,d,e
+Setelah: ,
+Harapan: ,
+
+═══ UJI 6: Potong dengan pembatas spasi ═══
+Sebelum: satu dua tiga empat
+Setelah: dua tiga
+Harapan: dua tiga
+
+═══ UJI 7: Pembatas kedua di akhir string ═══
+Sebelum: mulai tengah akhir akhir
+Setelah: tengah akhir
+Harapan: tengah akhir
+
+═══ UJI 8: String pendek ═══
+Sebelum: ab
+Setelah: ab
+Harapan: ab
+
+═══ SEMUA PENGUJIAN SELESAI ═══

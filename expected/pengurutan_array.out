@@ -1,0 +1,81 @@
+═══ UJI 1: larik bilangan (8 byte) - kecil ke besar ═══
+Sebelum urut: 50 20 40 10 30
+Setelah urut (kecil ke besar): 10 20 30 40 50
+✓ BERHASIL: Urut naik 8-byte
+
+═══ UJI 2: larik bilangan (8 byte) - besar ke kecil ═══
+Sebelum urut: 15 85 35 95 25 75
+Setelah urut (besar ke kecil): 95 85 75 35 25 15
+✓ BERHASIL: Urut turun 8-byte
+
+═══ UJI 3: larik bilangan32 (4 byte) - kecil ke besar ═══
+Sebelum urut: 300000 100000 400000 200000
+Setelah urut (kecil ke besar): 100000 200000 300000 400000
+✓ BERHASIL: Urut naik 4-byte
+
+═══ UJI 4: larik bilangan32 (4 byte) - besar ke kecil ═══
+Sebelum urut: 5000 9000 1000 7000 3000
+Setelah urut (besar ke kecil): 9000 7000 5000 3000 1000
+✓ BERHASIL: Urut turun 4-byte
+
+═══ UJI 5: larik bilangan16 (2 byte) - kecil ke besar ═══
+Sebelum urut: 32000 10000 25000 5000 28000 15000
+Setelah urut (kecil ke besar): 5000 10000 15000 25000 28000 32000
+✓ BERHASIL: Urut naik 2-byte
+
+═══ UJI 6: larik bilangan16 (2 byte) - besar ke kecil ═══
+Sebelum urut: 200 800 400 600
+Setelah urut (besar ke kecil): 800 600 400 200
+✓ BERHASIL: Urut turun 2-byte
+
+═══ UJI 7: larik karakter (1 byte) - kecil ke besar ═══
+Sebelum urut: d a e b c
+Setelah urut (kecil ke besar): a b c d e
+✓ BERHASIL: Urut naik 1-byte (a, b, c, d, e)
+
+═══ UJI 8: larik karakter (1 byte) - besar ke kecil ═══
+Sebelum urut: m x p t q
+Setelah urut (besar ke kecil): x t q p m
+✓ BERHASIL: Urut turun 1-byte (x, t, q, p, m)
+
+═══ UJI 9: larik 2 elemen (edge case) ═══
+Sebelum urut: 999 111
+Setelah urut (kecil ke besar): 111 999
+✓ BERHASIL: Urut 2 elemen
+
+═══ UJI 10: larik 1 elemen (edge case) ═══
+Sebelum urut: 42
+Setelah urut: 42
+✓ BERHASIL: Urut 1 elemen (tidak berubah)
+
+═══ UJI 11: larik teks (string) - kecil ke besar ═══
+Sebelum urut: zebra apel mangga durian ceri
+Setelah urut (kecil ke besar): apel ceri durian mangga zebra
+✓ BERHASIL: Urut naik string
+
+═══ UJI 12: larik teks (string) - besar ke kecil ═══
+Sebelum urut: ayam ular bebek kucing
+Setelah urut (besar ke kecil): ular kucing bebek ayam
+✓ BERHASIL: Urut turun string
+
+═══ UJI 13: larik teks (duplikat) - kecil ke besar ═══
+Sebelum urut: jeruk apel jeruk mangga apel apel
+Setelah urut (kecil ke besar): apel apel apel jeruk jeruk mangga
+✓ BERHASIL: Urut naik string dengan duplikat
+
+═══ UJI 14: larik teks (string kosong) - kecil ke besar ═══
+Sebelum urut: '' zebra '' apel
+Setelah urut (kecil ke besar): ''  'apel' zebra
+✓ BERHASIL: Urut naik string dengan string kosong
+
+═══ UJI 15: larik teks (case-sensitive) - kecil ke besar ═══
+Sebelum urut: Zebra apel Mangga ceri
+Setelah urut (kecil ke besar): Mangga Zebra apel ceri
+✓ BERHASIL: Urut case-sensitive
+
+═══ UJI 16: larik teks (pointer ke string) - kecil ke besar ═══
+Sebelum urut: xyz abc mno
+Setelah urut (kecil ke besar): abc mno xyz
+✓ BERHASIL: Urut naik string
+
+═══ SEMUA PENGUJIAN SELESAI ═══

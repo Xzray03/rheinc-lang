@@ -20,6 +20,14 @@ inline std::optional<std::string> runtimeSymbolFor(std::string_view builtinName)
     if (builtinName == "baca_file")  return std::string{"rh_read_file"};
     if (builtinName == "hapus_file") return std::string{"rh_unlink"};
     if (builtinName == "gabung")     return std::string{"rh_concat_array_to"};
+    if (builtinName == "urutkan")    return std::string{"rh_sort"};
+    if (builtinName == "potong")     return std::string{"rh_slice_str"};
+    if (builtinName == "ambil_ada")  return std::string{"rh_unwrap_ada"};
+    if (builtinName == "ke_teks")    return std::string{"rh_int_to_text"};
+    if (builtinName == "ke_bilangan") return std::string{"rh_str_to_int"};
+    if (builtinName == "ke_logika")   return std::string{"rh_str_to_bool"};
+    if (builtinName == "ke_karakter") return std::string{"rh_str_to_char"};
+    if (builtinName == "salin")       return std::string{"rh_memcpy"};
     if (builtinName == "panjang")   return std::string{"rh_len"};
     if (builtinName == "sistem")    return std::string{"rh_system"};
     if (builtinName == "pangkat")   return std::string{"rh_pow"};

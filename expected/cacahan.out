@@ -1,0 +1,22 @@
+=== TEST ENUM (CACAHAN) ===
+Test 1: Warna
+MERAH = 0
+HIJAU = 1
+BIRU = 2
+Warna favorit = 2
+Test 2: Status
+SUKSES = 0
+GAGAL = -1
+PENDING = 1
+DIBATALKAN = 2
+Status saat ini = 1
+Test 3: Pilih dengan enum
+Hari kerja - pertengahan minggu
+Test 4: Flag Izin
+BACA = 1
+TULIS = 2
+EKSEKUSI = 4
+BACA | TULIS = 3
+File dapat dibaca
+File dapat ditulis
+File tidak dapat dieksekusi

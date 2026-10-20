@@ -62,10 +62,41 @@ private:
     bool isEligible(ValueId v) const {
         if (v >= fn_->values.size()) return false;
         const IrValue& val = fn_->values[v];
-        if (val.type == InvalidType || val.type >= module_->types.size()) {
+        // Tipe reliable: instr.resultType — values[].type bisa salah
+        // (insert result bilangan 8B vs resultType larik[2] 16B) ->
+        // value FAT16 eligible & di-home 1 register, kata-1+ hilang
+        // (array_multi j>0=0, am1 segv).
+        TypeId tt = val.type;
+        if (val.kind == IrValue::Kind::Instr &&
+            val.payload < fn_->instrs.size()) {
+            const IrInstr& ins = fn_->instrs[val.payload];
+            const TypeId rt = ins.resultType;
+            if (rt != InvalidType) tt = rt;
+            // EXTRACT field: resultType sering TypeVariable->default
+            // bilangan (DEVIATIONS D-2) padahal field = View fat16.
+            // Tipe reliable = fields[idx] dari tipe arr (operand[0]).
+            if (ins.op == IrOpcode::Extract && ins.operands.size() >= 2 &&
+                ins.operands[0].kind == IrOperandKind::ValueV &&
+                ins.operands[1].kind == IrOperandKind::ImmV) {
+                const auto& av = fn_->values[ins.operands[0].id];
+                TypeId at = av.type;
+                if (av.kind == IrValue::Kind::Instr &&
+                    av.payload < fn_->instrs.size() &&
+                    fn_->instrs[av.payload].resultType != InvalidType) {
+                    at = fn_->instrs[av.payload].resultType;
+                }
+                if (at != InvalidType && at < module_->types.size() &&
+                    module_->types[at].kind == IrTypeKind::Struct &&
+                    ins.operands[1].id < module_->types[at].fields.size()) {
+                    tt = module_->types[at]
+                             .fields[ins.operands[1].id].type;
+                }
+            }
+        }
+        if (tt == InvalidType || tt >= module_->types.size()) {
             return false;
         }
-        const IrType& t = module_->types[val.type];
+        const IrType& t = module_->types[tt];
         if (t.sizeBytes > 8) return false;
         return t.kind == IrTypeKind::Int || t.kind == IrTypeKind::Bool ||
                t.kind == IrTypeKind::Pointer || t.kind == IrTypeKind::FnPtr;

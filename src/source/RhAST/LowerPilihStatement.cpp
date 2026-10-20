@@ -219,9 +219,12 @@ bool AstToIrTranslator::Impl::lowerPilihStatement(const PilihStmt* stmt) {
                             loopStack.pop_back();
                             return false;
                         }
+                        // Payload sum = kata ke-1 (kata ke-0 = tag) —
+                        // extract index 1, bukan 0 (index 0 membaca
+                        // tag -> binding j = 0, sum_type.rhc).
                         const ValueId payload = builder.emit(
                             IrOpcode::Extract, payloadType,
-                            {IrOperand::value(subject), IrOperand::imm(0)},
+                            {IrOperand::value(subject), IrOperand::imm(1)},
                             pattern->range.begin, binding->name);
                         env.back().vars[binding->name] = payload;
                     }

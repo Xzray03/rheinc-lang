@@ -18,7 +18,7 @@ prosedur uji_biner() {
     variabel h1: bilangan = 0xFF
     variabel h2: bilangan = 0X0f
     variabel h3: bilangan = 0xDEAD_BEEF
-    tampilkan b1, " ", b2, " ", b3, " ", h1, " ", h2, " ", h3, "\n"
+    tampilkan b1, " ", b2, " ", b3, " ", h1, " ", h2, " ", h3, "\n", "\n"
 }
 
 -- 1b. Pemisah digit '_' (hanya boleh di antara dua digit)
@@ -27,7 +27,7 @@ prosedur uji_pemisah_digit() {
     variabel kecil: bilangan = 0b1_0_1
     variabel pecahan: desimal = 3.141_592_653
     variabel besar: desimal = 1_000.5e1_0
-    tampilkan juta, " ", kecil, " ", pecahan, " ", besar, "\n"
+    tampilkan juta, " ", kecil, " ", pecahan, " ", besar, "\n", "\n"
 }
 
 -- 2. String mentah: escape tidak diproses
@@ -35,9 +35,9 @@ prosedur uji_string_mentah() {
     variabel path: teks = Raw("C:\temp\baru\n")
     variabel pola: teks = Raw("\d+\.\d+ \q \\ ' ")
     variabel teks_hampa: teks = Raw("")
-    tampilkan path, "\n"
-    tampilkan pola, "\n"
-    tampilkan teks_hampa, "\n"
+    tampilkan path, "\n", "\n"
+    tampilkan pola, "\n", "\n"
+    tampilkan teks_hampa, "\n", "\n"
 }
 
 -- 3. Semua escape yang valid pada string dan karakter
@@ -51,14 +51,14 @@ prosedur uji_escape() {
     variabel c6: karakter = '\"'
     variabel c7: karakter = '\0'
     variabel c8: karakter = 'あ'
-    tampilkan s, "\n"
+    tampilkan s, "\n", "\n"
 }
 
 -- 4. Komentar blok di tengah baris dan dempet dengan token
 prosedur uji_komentar_blok() {
     variabel x: bilangan = --[ sisipan ]-- 5
     variabel y: bilangan = x --[ lagi ]-- + 1
-    tampilkan x, " ", y, "\n"
+    tampilkan x, " ", y, "\n", "\n"
 }
 
 -- 5. "--" sebagai dekremen vs komentar
@@ -66,14 +66,20 @@ prosedur uji_dekremen() {
     variabel i: bilangan = 3
     i--
     --i
-    tampilkan i, "\n"  -- komentar di akhir baris
+    tampilkan i, "\n"  -- komentar di akhir baris, "\n"
 }
 
 prosedur utama() {
+    tampilkan "\n", "\n"
     uji_biner()
+    tampilkan "\n", "\n"
     uji_pemisah_digit()
+    tampilkan "\n", "\n"
     uji_string_mentah()
+    tampilkan "\n", "\n"
     uji_escape()
+    tampilkan "\n", "\n"
     uji_komentar_blok()
+    tampilkan "\n", "\n"
     uji_dekremen()
 }

@@ -1,0 +1,17 @@
+=== TEST TIPE DATA TUNJUK ===
+Nilai: 42
+Alamat nilai: <ALAMAT>
+Nilai melalui pointer: 42
+
+Setelah isi(ptr) = 100:
+Nilai: 100
+
+Pointer ke pointer:
+isi(isi(ptr2)) = 100
+
+Pointer kosong: <ALAMAT>
+null_ptr = kosong (NULL)
+
+=== ALOKASI MEMORI ===
+Nilai di memori dinamis: 999
+Memori telah dibebaskan

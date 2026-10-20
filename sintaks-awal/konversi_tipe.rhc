@@ -42,8 +42,8 @@ fungsi utama() -> bilangan {
     tampilkan "ke_logika(1) = ", ke_logika(1), "\n"
     tampilkan "ke_logika(100) = ", ke_logika(100), "\n"
     tampilkan "ke_logika(-5) = ", ke_logika(-5), "\n"
-    tampilkan "ke_logika('benar') = ", ke_logika("benar"), "\n"
-    tampilkan "ke_logika('salah') = ", ke_logika("salah"), "\n"
+    tampilkan "ke_logika(\"benar\") = ", ke_logika("benar"), "\n"
+    tampilkan "ke_logika(\"salah\") = ", ke_logika("salah"), "\n"
 
     -- Konversi ke karakter
     tampilkan "=== KE_KARAKTER ===\n"
