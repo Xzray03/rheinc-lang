@@ -1,5 +1,5 @@
 Sistem: stdout:
-Linux k2112416510754791426 5.10.134-18.0.12.lifsea8.x86_64 #1 SMP Tue Aug 4 16:35:16 CST 2026 x86_64 GNU/Linux
+Linux <HOSTNAME> 5.10.134-18.0.12.lifsea8.x86_64 #1 SMP Tue Aug 4 16:35:16 CST 2026 x86_64 GNU/Linux
 stderr:
 
 Direktori: stdout:

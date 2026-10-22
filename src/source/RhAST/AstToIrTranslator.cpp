@@ -57,6 +57,39 @@ const Type* AstToIrTranslator::Impl::exprTypeOr(const ExprNode* expr,
 ValueId AstToIrTranslator::Impl::emitCallByName(
         const std::string& name, std::vector<ValueId> args,
         SourceLocation loc) {
+    // Dispatch kontekstual ke_teks: argumen kompleks (fat16 dua double)
+    // -> rh_ke_teks_kompleks; tipe lain tak tersentuh (jalur baru).
+    // ke_teks = global function DENGAN BODY (konverter generik frontend),
+    // jadi rewrite harus SEBELUM functionsByName.find.
+    if (name == "ke_teks" && !args.empty()) {
+        auto& f = builder.function(currentFunc);
+        const auto& av = f.values[args[0]];
+        TypeId at = (av.kind == IrValue::Kind::Instr &&
+                     av.payload < f.instrs.size())
+                        ? f.instrs[av.payload].resultType : av.type;
+        bool isKompleks =
+            at != InvalidType && at < module.types.size() &&
+            module.types[at].kind == IrTypeKind::Struct &&
+            (module.types[at].name == "bilangan_kompleks" ||
+             module.types[at].name == "Kompleks" ||
+             module.types[at].name == "kompleks");
+        if (!isKompleks && av.kind == IrValue::Kind::Instr &&
+            av.payload < f.instrs.size()) {
+            const auto& ci = f.instrs[av.payload];
+            if (ci.op == IrOpcode::Call && !ci.operands.empty() &&
+                ci.operands[0].kind == IrOperandKind::FuncV) {
+                const FuncId fid = static_cast<FuncId>(ci.operands[0].id);
+                if (fid < module.functions.size()) {
+                    const std::string& nm = module.functions[fid].name;
+                    isKompleks = (nm == "kx" || nm.rfind("kx_", 0) == 0);
+                }
+            }
+        }
+        if (isKompleks) {
+            return emitCallByName(std::string("ke_teks_kompleks"),
+                                  std::move(args), loc);
+        }
+    }
     FuncId fn = InvalidFunc;
     const auto found = functionsByName.find(name);
     if (found != functionsByName.end()) {
@@ -173,6 +206,7 @@ ValueId AstToIrTranslator::Impl::lookupLocal(const std::string& name) {
 void AstToIrTranslator::Impl::bindLocal(const std::string& name,
                                         ValueId value) {
     env.back().vars[name] = value;
+    env.back().declared.insert(name);   // dipanggil: tandai untuk merge cabang
     if (currentFunc != InvalidFunc) {
         builder.function(currentFunc).locals[name] = value;
     }

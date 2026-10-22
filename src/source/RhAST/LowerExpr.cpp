@@ -126,7 +126,11 @@ bool decodeCharLiteral(const std::string& text, std::uint32_t& out) {
     return false;
 }
 
+}  // namespace anonim
+
 // Decode string literal (text termasuk tanda kutip; raw = tanpa escape).
+// Definisi di LUAR namespace anonim (linkage eksternal) — dipakai juga
+// dari LowerStmt.cpp (konstruksi object named-args, spec §15.3).
 bool decodeStringLiteral(const StringLiteralExpr& node, std::string& out) {
     // RAW: node.text = Raw("...") utuh — lewati prefix 'Raw(' (4) &
     // suffix '")' (2), BUKAN 1/1 seperti string biasa ('R' dulu
@@ -260,8 +264,6 @@ IrOpcode binaryOpcode(TokenKind op) {
     default:                         return IrOpcode::Dead;
     }
 }
-
-} // namespace
 
 FuncId AstToIrTranslator::Impl::resolveCallee(const ExprNode* callee) {
     if (callee->kind != AstKind::IdentifierExpr) {
@@ -913,7 +915,8 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                 if (arg->kind == AstKind::NamedArgumentExpr) {
                     const auto* named =
                         static_cast<const NamedArgumentExpr*>(arg);
-                    if (named->name == "dengan") continue;
+                    if (named->name == "dengan" ||
+                        named->value->kind == AstKind::TypeExpr) continue;
                     actual = named->value;
                 }
                 const ValueId value = lowerExpr(actual);
@@ -932,8 +935,10 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
             indirectOps.push_back(IrOperand::value(fnPtr));
             for (const ExprNode* arg : node->arguments) {
                 if (arg->kind == AstKind::NamedArgumentExpr &&
-                    static_cast<const NamedArgumentExpr*>(arg)->name ==
-                        "dengan") {
+                    (static_cast<const NamedArgumentExpr*>(arg)->name ==
+                         "dengan" ||
+                     static_cast<const NamedArgumentExpr*>(arg)
+                             ->value->kind == AstKind::TypeExpr)) {
                     continue;
                 }
                 const ValueId value =
@@ -960,7 +965,8 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                     if (arg->kind == AstKind::NamedArgumentExpr) {
                         const auto* named =
                             static_cast<const NamedArgumentExpr*>(arg);
-                        if (named->name == "dengan") continue;
+                        if (named->name == "dengan" ||
+                        named->value->kind == AstKind::TypeExpr) continue;
                         actual = named->value;
                     }
                     const ValueId value = lowerExpr(actual);
@@ -1000,7 +1006,8 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
             if (arg->kind == AstKind::NamedArgumentExpr) {
                 const auto* named =
                     static_cast<const NamedArgumentExpr*>(arg);
-                if (named->name == "dengan") {
+                if (named->name == "dengan" ||
+                    named->value->kind == AstKind::TypeExpr) {
                     continue;  // type argument generik, bukan nilai
                 }
                 const ValueId value = lowerExpr(named->value);
@@ -1039,6 +1046,119 @@ ValueId AstToIrTranslator::Impl::lowerExprImpl(const ExprNode* expr) {
                         callResultType = builder.internType(voidType);
                     }
                 }
+            }
+        }
+        // Dispatch kontekstual ke_teks: call di-lower langsung via
+        // resolveCallee (BUKAN emitCallByName), jadi rewrite di kedua
+        // tempat itu tak tercapai. Argumen kompleks -> ke_teks_kompleks.
+        if (module.functions[callee].name == "ke_teks" && operands.size() >= 2 &&
+            operands[1].kind == IrOperandKind::ValueV) {
+            auto& f = builder.function(currentFunc);
+            const auto& av = f.values[operands[1].id];
+            TypeId at = (av.kind == IrValue::Kind::Instr &&
+                         av.payload < f.instrs.size())
+                            ? f.instrs[av.payload].resultType : av.type;
+            bool isKompleks =
+                at != InvalidType && at < module.types.size() &&
+                module.types[at].kind == IrTypeKind::Struct &&
+                module.types[at].name == "bilangan_kompleks";
+            if (!isKompleks && av.kind == IrValue::Kind::Instr &&
+                av.payload < f.instrs.size()) {
+                const auto& ci = f.instrs[av.payload];
+                if (ci.op == IrOpcode::Call && !ci.operands.empty() &&
+                    ci.operands[0].kind == IrOperandKind::FuncV) {
+                    const FuncId fid = static_cast<FuncId>(ci.operands[0].id);
+                    if (fid < module.functions.size()) {
+                        const std::string& nm = module.functions[fid].name;
+                        isKompleks = (nm == "kx" || (nm.rfind("kx_", 0) == 0 && nm != "kx_modulus" && nm != "kx_argumen"));
+                    }
+                }
+            }
+            // Cabang float HANYA utk konteks kompleks (arg = hasil call
+            // kx_modulus/kx_argumen). Float biasa (operasi_float dll) tak
+            // tersentuh -> jalur lama ke_teks (format %.6f) yang sudah ✅.
+            bool kxFloatCtx = false;
+            if (av.kind == IrValue::Kind::Instr && av.payload < f.instrs.size()) {
+                const auto& ci0 = f.instrs[av.payload];
+                if (ci0.op == IrOpcode::Call && !ci0.operands.empty() &&
+                    ci0.operands[0].kind == IrOperandKind::FuncV) {
+                    const FuncId fid0 = static_cast<FuncId>(ci0.operands[0].id);
+                    if (fid0 < module.functions.size()) {
+                        const std::string& nm0 = module.functions[fid0].name;
+                        kxFloatCtx = (nm0 == "kx_modulus" || nm0 == "kx_argumen");
+                    }
+                }
+            }
+            if (!isKompleks && kxFloatCtx && at != InvalidType &&
+                at < module.types.size() &&
+                module.types[at].kind == IrTypeKind::Float &&
+                module.types[at].sizeBytes == 8) {
+                // ke_teks(desimal) -> rh_float_to_text; arg float via jalur
+                // runtime builtin belum didukung -> tulis tipe Int 8B pada
+                // instruksi pembuat arg agar arg-prep integer (bit double
+                // di %rdi, runtime bit-copy balik ke double).
+                auto it3 = functionsByName.find("ke_teks_desimal");
+                if (it3 == functionsByName.end()) {
+                    const FuncId kd = builder.createFunction(
+                        "ke_teks_desimal", InvalidType, expr->range.begin,
+                        IrFunctionKind::External);
+                    builder.function(kd).isBuiltin = true;
+                    functionsByName["ke_teks_desimal"] = kd;
+                }
+                operands[0] = IrOperand::func(functionsByName["ke_teks_desimal"]);
+                TypeId intT = InvalidType;
+                for (TypeId t = 0; t < module.types.size(); ++t) {
+                    if (module.types[t].kind == IrTypeKind::Int &&
+                        module.types[t].sizeBytes == 8) { intT = t; break; }
+                }
+                if (intT != InvalidType && av.kind == IrValue::Kind::Instr &&
+                    av.payload < f.instrs.size()) {
+                    f.instrs[av.payload].resultType = intT;
+                    f.values[operands[1].id].type = intT;
+                }
+            }
+            if (isKompleks) {
+                // Stub variadic (kx/kx_*) punya resultType fallback Float
+                // (id 4) -> arg-prep backend salah jalur (float/xmm) dan
+                // tampilkan salah dispatch. Tulis tipe kompleks yang benar.
+                TypeId kxT = InvalidType;
+                for (TypeId t = 0; t < module.types.size(); ++t) {
+                    if (module.types[t].kind == IrTypeKind::Struct &&
+                        module.types[t].name == "bilangan_kompleks") {
+                        kxT = t; break;
+                    }
+                }
+                // HANYA tulis tipe kompleks untuk call yang return kompleks.
+                // kx_modulus/kx_argumen return desimal -> retype mereka
+                // membuat tampilkan format kompleks untuk nilai double.
+                if (kxT != InvalidType && av.kind == IrValue::Kind::Instr &&
+                    av.payload < f.instrs.size()) {
+                    const auto& ci = f.instrs[av.payload];
+                    bool retKompleks = false;
+                    if (ci.op == IrOpcode::Call && !ci.operands.empty() &&
+                        ci.operands[0].kind == IrOperandKind::FuncV) {
+                        const FuncId fid = static_cast<FuncId>(ci.operands[0].id);
+                        if (fid < module.functions.size()) {
+                            const std::string& nm = module.functions[fid].name;
+                            retKompleks = !(nm == "kx_modulus" ||
+                                            nm == "kx_argumen");
+                        }
+                    }
+                    if (retKompleks) {
+                        auto& vv = f.values[operands[1].id];
+                        f.instrs[vv.payload].resultType = kxT;
+                        vv.type = kxT;
+                    }
+                }
+                auto it2 = functionsByName.find("ke_teks_kompleks");
+                if (it2 == functionsByName.end()) {
+                    const FuncId kc = builder.createFunction(
+                        "ke_teks_kompleks", InvalidType, expr->range.begin,
+                        IrFunctionKind::External);
+                    builder.function(kc).isBuiltin = true;
+                    functionsByName["ke_teks_kompleks"] = kc;
+                }
+                operands[0] = IrOperand::func(functionsByName["ke_teks_kompleks"]);
             }
         }
         const ValueId callResult =

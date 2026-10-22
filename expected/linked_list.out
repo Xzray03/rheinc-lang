@@ -1,0 +1,18 @@
+Ukuran: 5
+  [0] = 5
+  [1] = 30
+  [2] = 20
+  [3] = 10
+  [4] = 40
+  [5] = 0
+20 ditemukan di indeks 2
+Hapus depan: 5
+Hapus belakang: 40
+larik[0] = 30
+larik[1] = 20
+larik[2] = 10
+larik[3] = 0
+d2 ukuran: 3
+Kosong? benar
+ptr[0]: 99
+w.d[0]: 5

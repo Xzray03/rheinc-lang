@@ -301,7 +301,30 @@ ValueId AstToIrTranslator::Impl::lowerMemberRead(const ExprNode* expr) {
     ValueId current = lookupLocal(root->name);
     if (current == InvalidValue) return InvalidValue;
     for (const MemberStep& step : steps) {
-        const TypeId fieldType = memberFieldType(*this, step);
+        TypeId fieldType = memberFieldType(*this, step);
+        // Field generik T (TypeVariable) -> mapType default bilangan
+        // (DEVIATIONS D-2) padahal instansiasi konkret (Pasangan(teks)
+        // -> field View). Resolve dari IR container type TERINSTANISIASI
+        // (tipe value SSA `current`) — extract resultType benar ->
+        // print/home/slot semua benar (generik.rhc).
+        {
+            TypeId curTy = InvalidType;
+            const auto& cv = builder.function(currentFunc).values[current];
+            if (cv.kind == IrValue::Kind::Instr &&
+                cv.payload < builder.function(currentFunc).instrs.size()) {
+                curTy = builder.function(currentFunc)
+                            .instrs[cv.payload].resultType;
+            } else {
+                curTy = cv.type;
+            }
+            if (curTy != InvalidType && curTy < module.types.size() &&
+                module.types[curTy].kind == IrTypeKind::Struct &&
+                step.index < module.types[curTy].fields.size()) {
+                const TypeId f2 =
+                    module.types[curTy].fields[step.index].type;
+                if (f2 != InvalidType) fieldType = f2;
+            }
+        }
         current = builder.emit(IrOpcode::Extract, fieldType,
                                {IrOperand::value(current),
                                 IrOperand::imm(step.index)},

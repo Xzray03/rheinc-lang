@@ -1,0 +1,11 @@
+Ukuran: 3
+  [0] = 30
+  [1] = 20
+  [2] = 10
+  [3] = 0
+Diambil: 30
+20 ditemukan di indeks 0
+larik[0] = 20
+larik[1] = 10
+larik[2] = 0
+Kosong? benar

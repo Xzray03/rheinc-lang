@@ -65,6 +65,11 @@ struct AstToIrTranslator::Impl {
     struct ScopeEnv {
         std::unordered_map<std::string, ValueId> vars;
         std::vector<const StmtNode*> defers;   // body jamin, urutan FIFO
+        // Nama yang DIPANGGIL (variabel ...) di scope ini — bukan hasil
+        // assignment. Dipakai merge cabang jika untuk membedakan update
+        // variabel luar vs shadow: shadow mati saat scope pop, update
+        // variabel luar harus menembus join (phi).
+        std::unordered_set<std::string> declared;
     };
     std::vector<ScopeEnv> env;
 
@@ -233,17 +238,35 @@ struct AstToIrTranslator::Impl {
     }
 
     // helper kecil
+    // Flattened view SEMUA layer env (innermost menang) — semantik
+    // resolusi nama lexical. Dipakai merge cabang jika supaya variabel
+    // scope LUAR yang di-assign di dalam cabang ikut ter-merge (phi di
+    // join), bukan hanya nama di env.back() (preseden: snapshot lanjut
+    // di LowerWhileStatement; tanpa ini `selama l { jika ... { l = salah
+    // } }` infinite & do-while kondisi membaca value tak dominan).
+    NameValueMap flattenEnv() const {
+        NameValueMap flat;
+        for (const auto& layer : env) {
+            for (const auto& [n, v] : layer.vars) flat[n] = v;
+        }
+        return flat;
+    }
     void pushEnv() { env.emplace_back(); }
     // Tangkap isi scope terdalam saat pop bila flag aktif — dipakai
     // lowering loop untuk membaca env akhir body SEBELUM scope-nya hilang
     // (assignment menulis ke scope terdalam, bukan scope pendeklarasi).
     void popEnv() {
-        if (capturePoppedEnv) poppedEnv = env.back().vars;
+        if (capturePoppedEnv) {
+            poppedEnv = env.back().vars;
+            poppedDeclared = env.back().declared;
+        }
         env.pop_back();
     }
-    // Aktifkan tangkapan popEnv untuk satu body loop; hasil di poppedEnv.
+    // Aktifkan tangkapan popEnv untuk satu body loop/cabang jika;
+    // hasil di poppedEnv + poppedDeclared.
     bool capturePoppedEnv = false;
     NameValueMap poppedEnv;
+    std::unordered_set<std::string> poppedDeclared;
     const NameValueMap& currentVars() const { return env.back().vars; }
     // Nilai tersimpan mentah: SSA value biasa, atau ptr Alloc untuk
     // variabel memory-style. Tidak meng-emit instruksi.

@@ -11,7 +11,13 @@ namespace rhc {
 bool AstToIrTranslator::Impl::lowerIfStatement(const IfStmt* stmt) {
     if (failed || builder.broken() || !blockOpen()) return false;
 
-    const NameValueMap preEnv = env.back().vars;
+    // Snapshot env.back() asli untuk restore antar cabang; basis merge
+    // = flattenEnv() (SEMUA layer) agar variabel scope luar yang
+    // di-assign di dalam cabang ikut ter-merge lewat phi join — tanpa
+    // ini nilai baru terjebak di scope cabang yang pop (loop while
+    // infinite; do-while kondisi membaca value yang tak mendominasi).
+    const NameValueMap preBackVars = env.back().vars;
+    const NameValueMap preEnv = flattenEnv();
 
     // Kondisi dievaluasi di block SAAT INI (sebelum cabang dibuat).
     const ValueId condition = lowerExpr(stmt->condition);
@@ -27,10 +33,27 @@ bool AstToIrTranslator::Impl::lowerIfStatement(const IfStmt* stmt) {
                            IrOperand::block(elseB)},
                           stmt->range.begin);
 
-    // Cabang then.
+    // Cabang then. Assignment ke variabel luar menulis scope terdalam
+    // (assignLocal), yang hilang saat body (compound) pop — capture lewat
+    // capturePoppedEnv, lalu gabung ke snapshot pra-cabang. Nama yang
+    // DIPANGGIL ulang di cabang (shadow) tidak menembus join.
     setCurrent(thenB);
-    if (!lowerStmt(stmt->thenBranch)) return false;
-    const NameValueMap thenEnv = env.back().vars;
+    const bool savedCaptureThen = capturePoppedEnv;
+    capturePoppedEnv = true; poppedEnv.clear(); poppedDeclared.clear();
+    if (!lowerStmt(stmt->thenBranch)) { capturePoppedEnv = savedCaptureThen; return false; }
+    capturePoppedEnv = savedCaptureThen;
+    NameValueMap thenEnv = preEnv;
+    for (const auto& [name, v] : poppedEnv) {
+        if (!preEnv.count(name)) continue;      // lahir di cabang: tak hidup di join
+        if (poppedDeclared.count(name)) continue;  // shadow: mati saat pop
+        thenEnv[name] = v;
+    }
+    // Cabang tanpa compound (statement tunggal): update langsung ke
+    // env.back() — ambil diff-nya (no-op bila compound sudah restore).
+    for (const auto& [name, v] : env.back().vars) {
+        const auto it = preEnv.find(name);
+        if (it != preEnv.end() && it->second != v) thenEnv[name] = v;
+    }
     BlockId thenEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, thenEnd, IrOpcode::Br,
@@ -40,12 +63,24 @@ bool AstToIrTranslator::Impl::lowerIfStatement(const IfStmt* stmt) {
     }
 
     // Cabang else — mulai dari env yang sama dengan sebelum jika.
-    env.back().vars = preEnv;
+    env.back().vars = preBackVars;
     setCurrent(elseB);
+    const bool savedCaptureElse = capturePoppedEnv;
+    capturePoppedEnv = true; poppedEnv.clear(); poppedDeclared.clear();
     if (stmt->elseBranch) {
-        if (!lowerStmt(stmt->elseBranch)) return false;
+        if (!lowerStmt(stmt->elseBranch)) { capturePoppedEnv = savedCaptureElse; return false; }
     }
-    const NameValueMap elseEnv = env.back().vars;
+    capturePoppedEnv = savedCaptureElse;
+    NameValueMap elseEnv = preEnv;
+    for (const auto& [name, v] : poppedEnv) {
+        if (!preEnv.count(name)) continue;
+        if (poppedDeclared.count(name)) continue;
+        elseEnv[name] = v;
+    }
+    for (const auto& [name, v] : env.back().vars) {
+        const auto it = preEnv.find(name);
+        if (it != preEnv.end() && it->second != v) elseEnv[name] = v;
+    }
     BlockId elseEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, elseEnd, IrOpcode::Br,
@@ -63,7 +98,7 @@ bool AstToIrTranslator::Impl::lowerIfStatement(const IfStmt* stmt) {
         // Kedua cabang berakhir — join tak tercapai.
         builder.setTerminator(currentFunc, joinB, IrOpcode::Unreachable, {},
                               stmt->range.begin);
-        env.back().vars = preEnv;
+        env.back().vars = preBackVars;
         setCurrent(InvalidBlock);  // join tak tercapai: skip sampai block baru
         return !builder.broken();
     }

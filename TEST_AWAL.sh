@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TEST_AWAL.sh - Kompilasi, jalankan, dan validasi 30 file korpus RUNTIME OK.
+# TEST_AWAL.sh - Kompilasi, jalankan, dan validasi 61 file korpus RUNTIME OK.
 #
 # Usage:
 #   ./TEST_AWAL.sh            compile + run + tampilkan semua output + validasi
@@ -23,7 +23,8 @@ normalize() {
     sed -E -e 's/(Buffer dialokasikan di: )[0-9]+/\1<ALAMAT>/' \
            -e 's|/tmp/rheinc-test\.[A-Za-z0-9]+|<CWD>|g' \
            -e 's/(Alamat nilai: )[0-9]+/\1<ALAMAT>/' \
-           -e 's/(Pointer kosong: )[0-9]+/\1<ALAMAT>/' "$1"
+           -e 's/(Pointer kosong: )[0-9]+/\1<ALAMAT>/' \
+           -e 's/^Linux [^ ]+ /Linux <HOSTNAME> /' "$1"
 }
 
 FILES=(
@@ -37,10 +38,17 @@ FILES=(
   penggabungan_array.rhc pengurutan_array.rhc pemotongan_teks.rhc
   cacahan.rhc sum_type.rhc struktur.rhc struktur_dengan_bitfield.rhc
   casting.rhc konversi_tipe.rhc literal_lanjutan.rhc tunjuk.rhc
-  operasi_memori.rhc operasi_memori_otomatis.rhc lambda.rhc
+  operasi_memori.rhc operasi_memori_otomatis.rhc lambda.rhc generik.rhc
   rhpp/tambahkan.rhc rhpp/warning.rhc rhpp/error_warning_inactive.rhc
   rhpp/preprocessor.rhc rhpp/jika_makro_fungsi.rhc rhpp/variadic.rhc
   rhpp/variadic_opt.rhc rhpp/makro_fungsi_bersarang.rhc
+  calc.rhc
+  iterator.rhc
+  stack.rhc
+  queue.rhc
+  linked_list.rhc
+  operasi_float.rhc
+  bilangan_kompleks.rhc
 )
 
 MODE="${1:-}"

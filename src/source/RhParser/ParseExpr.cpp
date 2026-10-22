@@ -574,14 +574,26 @@ ExprNode* Parser::parseIdentifierOrCallExpression() {
 ExprNode* Parser::parseCallExpression(ExprNode* callee, SourceRange startRange) {
     std::vector<ExprNode*> arguments;
     while (!tokens_.is(TokenKind::RParen) && tokens_.current().kind != TokenKind::Eof) {
+        bool sawDengan = false;
         if (tokens_.isContextual(ContextualKeywordID::Dengan)) {
             tokens_.consume();
+            sawDengan = true;
         }
         if (tokens_.is(TokenKind::Identifier) && tokens_.peek().kind == TokenKind::Equal) {
             const Token name = tokens_.consume();
             tokens_.consume();
-            arguments.push_back(astContext_.create<NamedArgumentExpr>(
-                tokenText(name), parseSliceArgument(), makeRange(name)));
+            if (sawDengan) {
+                // Type argument generik: T = Type -> value TypeExpr
+                // (bukan ekspresi nilai) — lowering skip via kind
+                // TypeExpr (generik.rhc: maks(dengan T = bilangan, 3, 4)).
+                arguments.push_back(astContext_.create<NamedArgumentExpr>(
+                    tokenText(name),
+                    astContext_.create<TypeExpr>(parseTypeRepr(), makeRange(name)),
+                    makeRange(name)));
+            } else {
+                arguments.push_back(astContext_.create<NamedArgumentExpr>(
+                    tokenText(name), parseSliceArgument(), makeRange(name)));
+            }
         } else {
             arguments.push_back(parseSliceArgument());
         }

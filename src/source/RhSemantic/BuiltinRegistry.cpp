@@ -100,7 +100,7 @@ void BuiltinRegistry::registerBuiltinTypes(SemanticContext& context) {
     addObject("Barrier", {{"tunggu", hampa}});
     addObject("Sinyal", {{"kirim", hampa}, {"tunggu", error}, {"blokir", error}, {"abaikan", hampa}});
     addObject("Pembangkit", {{"masih_ada", logika}, {"berikutnya", error}, {"reset", hampa}}, {"T", "R"});
-    addObject("Iterator", {{"masih_ada", logika}, {"berikutnya", error}, {"reset", hampa}}, {"T"});
+    addObject("Iterator", {}, {"T"});   // pointer ke state node arena (8B)
     addObject("Daftar", {{"tambah", hampa}, {"hapus", hampa}, {"ukuran", bilangan}, {"kosong", logika}, {"cari", bilangan}, {"ambil", error}, {"atur", hampa}, {"bersihkan", hampa}}, {"T"});
     addObject("Antrian", {{"push", hampa}, {"pop", error}, {"ukuran", bilangan}, {"kosong", logika}, {"depan", error}, {"belakang", error}}, {"T"});
     addObject("Tumpukan", {{"push", hampa}, {"pop", error}, {"ukuran", bilangan}, {"kosong", logika}, {"atas", error}}, {"T"});
@@ -239,7 +239,9 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
             registerPrecise("tumpukan_ke_larik", {{"t", tumpukanT}}, larikT, {tvT});
         }
         // Complex number helpers (kx_*) and fixed-point alias dt.
-        for (const char* name : {"kx_modulus", "kx_konjugat", "kx_argumen", "kx_polar",
+        registerVariadic("kx_modulus", desimal);
+        registerVariadic("kx_argumen", desimal);
+        for (const char* name : {"kx_konjugat", "kx_polar",
                                  "kx_akar", "kx_pangkat", "kx_sin", "kx_cos", "kx_tan",
                                  "kx_exp", "kx_log"}) {
             Type* ctorType = lookupType(name);
@@ -249,6 +251,10 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
             if (std::string(name) == "btb") alias = "bilangan_tanpa_batas";
             else if (std::string(name) == "dt") alias = "desimal_tetap";
             else if (std::string(name) == "kx") alias = "bilangan_kompleks";
+            else if (std::string(name) == "iterator_mulai")
+                alias = "Iterator";   // return object Iterator (bukan
+            else if (std::string(name) == "iterator_akhir")
+                alias = "Iterator";   // error -> fat16 state, iterator.rhc)
             if (alias) ctorType = lookupType(alias);
             if (!ctorType && name[0] >= 'a' && name[0] <= 'z') {
                 // Inkonsistensi registry: object terdaftar kapital-first
@@ -483,6 +489,10 @@ void BuiltinRegistry::registerBuiltinFunctions(SemanticContext& context) {
             if (std::string(name) == "btb") alias = "bilangan_tanpa_batas";
             else if (std::string(name) == "dt") alias = "desimal_tetap";
             else if (std::string(name) == "kx") alias = "bilangan_kompleks";
+            else if (std::string(name) == "iterator_mulai")
+                alias = "Iterator";   // return object Iterator (bukan
+            else if (std::string(name) == "iterator_akhir")
+                alias = "Iterator";   // error -> fat16 state, iterator.rhc)
             if (alias) ctorType = lookupType(alias);
             if (!ctorType && name[0] >= 'a' && name[0] <= 'z') {
                 // Inkonsistensi registry: object terdaftar kapital-first

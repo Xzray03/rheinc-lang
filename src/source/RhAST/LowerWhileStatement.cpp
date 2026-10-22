@@ -117,9 +117,10 @@ bool AstToIrTranslator::Impl::lowerWhileStatement(const WhileStmt* stmt) {
 
     // Body: assignment meng-update env; pemakaian nama membaca phi.
     setCurrent(bodyB);
+    const bool savedCapture = capturePoppedEnv;
     capturePoppedEnv = true; poppedEnv.clear();
-    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
-    capturePoppedEnv = false;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = savedCapture; return false; }
+    capturePoppedEnv = savedCapture;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(condB)}, stmt->range.begin);
@@ -230,9 +231,10 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
         carried.emplace_back(name, phi);
     }
 
+    const bool savedCapture = capturePoppedEnv;
     capturePoppedEnv = true; poppedEnv.clear();
-    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
-    capturePoppedEnv = false;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = savedCapture; return false; }
+    capturePoppedEnv = savedCapture;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, currentBlock, IrOpcode::Br,
                               {IrOperand::block(condB)}, stmt->range.begin);
@@ -246,8 +248,12 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
     // body = poppedEnv + pelengkap fnLocals (pola sama postBodyEnv;
     // loop var dari env.back() — fnLocals bisa berisi exit-phi loop
     // sebelumnya, dua loop `untuk n` berturut).
+    // Nilai yang mengalir ke condB (kondisi tak mengubah env): poppedEnv
+    // (scope body terpop) + pelengkap fnLocals utk carried (assignment di
+    // scope yang sudah pop tidak terlihat di env terbuka — bug hitung=0
+    // bilangan_prima). Dipakai JUGA utk exit phi di bawah.
+    NameValueMap bodyEndEnv = poppedEnv;
     {
-        NameValueMap bodyEndEnv = poppedEnv;
         const NameValueMap& fnL = builder.function(currentFunc).locals;
         for (const auto& [name, phi] : carried) {
             if (bodyEndEnv.count(name)) continue;
@@ -313,7 +319,13 @@ bool AstToIrTranslator::Impl::lowerDoWhileStatement(const DoWhileStmt* stmt) {
     for (const auto& [name, phi] : carried) {
         const TypeId outT = builder.function(currentFunc).values[phi].type;
         const ValueId out = builder.createPhi(outT, currentFunc, exitB, 0, name);
-        builder.addPhiIncoming(currentFunc, out, condB, phi);
+        // Incoming dari condB HARUS nilai AKHIR body (yang mengalir lewat
+        // condB), bukan phi header: header phi (di bodyB) dievaluasi saat
+        // START body — nilai yang keluar lewat condB = bodyEndEnv (bug:
+        // `ulangi { m = m+1 } selama l` membaca m satu iterasi tertinggal).
+        const auto itE = bodyEndEnv.find(name);
+        builder.addPhiIncoming(currentFunc, out, condB,
+                               itE != bodyEndEnv.end() ? itE->second : phi);
         env.back().vars[name] = out;
         builder.function(currentFunc).locals[name] = out;
     }
@@ -382,6 +394,17 @@ bool AstToIrTranslator::Impl::lowerForEachIterator(const ForStmt* stmt,
         return error(AstIrErrorCode::MatchNonSum, stmt->iterable,
                      "iterator_berikutnya tidak menghasilkan tipe sum "
                      "(resolusi Opsi gagal)");
+    }
+    // Registry iterator_berikutnya tak membawa tipe hasil (fallback Void),
+    // padahal backend membaca layout Sum dari instr.resultType call — tulis
+    // tipe Opsi ter-resolve ke instruksi call agar Extract payload benar.
+    {
+        auto& fnMod = builder.function(currentFunc);
+        auto& bv = fnMod.values[berikutnya];
+        if (bv.kind == IrValue::Kind::Instr && bv.payload < fnMod.instrs.size()) {
+            fnMod.instrs[bv.payload].resultType = sumTypeId;
+            bv.type = sumTypeId;   // verifikasi: value.type == resultType instr
+        }
     }
     const IrType sumType = module.types[sumTypeId];  // by value: anti-UAF realloc
     int adaIndex = -1, kosongIndex = -1;
@@ -653,9 +676,10 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
         {IrOperand::value(iterable), IrOperand::value(i1)},
         stmt->range.begin, elemName);
     bindLocal(elemName, elem);
+    const bool savedCapture = capturePoppedEnv;
     capturePoppedEnv = true; poppedEnv.clear();
-    if (!lowerStmt(stmt->body)) { capturePoppedEnv = false; return false; }
-    capturePoppedEnv = false;
+    if (!lowerStmt(stmt->body)) { capturePoppedEnv = savedCapture; return false; }
+    capturePoppedEnv = savedCapture;
     BlockId bodyEnd = currentBlock;
     if (blockOpen()) {
         builder.setTerminator(currentFunc, bodyEnd, IrOpcode::Br,
@@ -695,8 +719,16 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
             }
             latchIdx = builder.createPhi(elementType, currentFunc, updateB, 0,
                                          liName);
-            // incoming: dari akhir body (poppedEnv) & continue-sites.
-            const auto& postBody = poppedEnv;
+            // incoming: dari akhir body & continue-sites. Merge SEMUA
+            // layer scope — poppedEnv saja (scope terakhir) melewatkan
+            // indexName (scope foreach, bukan body) -> latch phi kosong
+            // -> inc dari garbage -> 1 iter saja (foreach sugar).
+            NameValueMap postBody = poppedEnv;
+            for (const auto& layer : env) {
+                for (const auto& [n2, v2] : layer.vars) {
+                    if (!postBody.count(n2)) postBody[n2] = v2;
+                }
+            }
             for (const auto& [pred, envMap] : continuesFE) {
                 const auto cv = envMap.find(indexName);
                 if (cv != envMap.end()) {
@@ -743,11 +775,23 @@ bool AstToIrTranslator::Impl::lowerForEach(const ForStmt* stmt) {
     // Wiring incoming phi condB (carriedFE): nama yang berubah mendapat
     // incoming dari updateB = nilai env akhir (valueAfter); nama yang
     // sama -> self-incoming (benign, removeable).
+    // Nilai back-edge: MERGE poppedEnv (scope terakhir) + function
+    // locals — poppedEnv saja melewatkan index foreach (scope terpisah)
+    // -> phi index tanpa incoming back-edge (each.i tak advance,
+    // foreach print element pertama berulang, iterator.rhc hang).
+    const NameValueMap& fnLc = builder.function(currentFunc).locals;
     for (const auto& [name, phi] : carriedFE) {
         const auto itAfter = poppedEnv.find(name);
-        if (itAfter == poppedEnv.end()) continue;
-        if (itAfter->second == phi) continue;  // tak berubah -> self
-        builder.addPhiIncoming(currentFunc, phi, updateB, itAfter->second);
+        ValueId v = InvalidValue;
+        if (itAfter != poppedEnv.end()) {
+            v = itAfter->second;
+        } else {
+            const auto itL = fnLc.find(name);
+            if (itL == fnLc.end()) continue;
+            v = itL->second;
+        }
+        if (v == phi) continue;  // tak berubah -> self
+        builder.addPhiIncoming(currentFunc, phi, updateB, v);
     }
     // Nilai keluar loop = EXIT PHI (lihat lowerWhileStatement): value di
     // exit block mendominasi semua pemakaian setelah loop.
@@ -880,9 +924,10 @@ bool AstToIrTranslator::Impl::lowerForStatement(const ForStmt* stmt) {
 
     // Body.
     setCurrent(bodyB);
+    const bool savedCapture = capturePoppedEnv;
     capturePoppedEnv = true; poppedEnv.clear();
-    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = false; return false; }
-    capturePoppedEnv = false;
+    if (!lowerStmt(stmt->body)) { loopStack.pop_back(); capturePoppedEnv = savedCapture; return false; }
+    capturePoppedEnv = savedCapture;
     // poppedEnv (overwrite) = scope TERAKHIR yang pop saja; assignment
     // update-through menulis ke layer scope phi (tak ikut pop saat body)
     // sehingga bisa terlewat (bug: hitung=0 di bilangan_prima — carried

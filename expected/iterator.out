@@ -1,0 +1,50 @@
+Manual: 10
+Manual: 20
+Manual: 30
+Manual: 40
+Manual: 50
+
+Sugar dasar:
+10
+20
+30
+40
+50
+
+Dengan indeks:
+0: 10
+1: 20
+2: 30
+3: 40
+4: 50
+
+Dengan langkah 2:
+10
+30
+50
+
+Dengan indeks dan langkah:
+0: 10
+2: 30
+4: 50
+
+Antrian:
+3
+2
+1
+
+Tumpukan:
+3
+2
+1
+
+Daftar:
+3
+2
+1
+
+Daftar ganda mundur:
+10
+20
+30
+w.it pertama: 10

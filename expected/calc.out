@@ -1,0 +1,69 @@
+╔══════════════════════════════════════════════════╗
+║          KALKULATOR SEDERHANA - RheinC           ║
+╚══════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────┐
+│               PILIH OPERASI                        │
+├────────────────────────────────────────────────────┤
+│  1. Penjumlahan  (+)                               │
+│  2. Pengurangan  (-)                               │
+│  3. Perkalian    (*)                               │
+│  4. Pembagian    (/)                               │
+│  5. Sisa Bagi    (%)                               │
+│  6. Semua Operasi                                  │
+│  0. Keluar                                         │
+└────────────────────────────────────────────────────┘
+
+Pilih operasi (0-6): 
+Masukkan bilangan pertama (a): Masukkan bilangan kedua (b): ┌──────────────────────────────────────────────────┐
+│                HASIL PENJUMLAHAN                 │
+├──────────────────────────────────────────────────┤
+│   10 + 3 = 13
+└──────────────────────────────────────────────────┘
+
+Lanjutkan? (y/n): 
+┌────────────────────────────────────────────────────┐
+│               PILIH OPERASI                        │
+├────────────────────────────────────────────────────┤
+│  1. Penjumlahan  (+)                               │
+│  2. Pengurangan  (-)                               │
+│  3. Perkalian    (*)                               │
+│  4. Pembagian    (/)                               │
+│  5. Sisa Bagi    (%)                               │
+│  6. Semua Operasi                                  │
+│  0. Keluar                                         │
+└────────────────────────────────────────────────────┘
+
+Pilih operasi (0-6): 
+Masukkan bilangan pertama (a): Masukkan bilangan kedua (b): 
+❌ ERROR: Tidak dapat membagi dengan nol!
+
+┌────────────────────────────────────────────────────┐
+│               PILIH OPERASI                        │
+├────────────────────────────────────────────────────┤
+│  1. Penjumlahan  (+)                               │
+│  2. Pengurangan  (-)                               │
+│  3. Perkalian    (*)                               │
+│  4. Pembagian    (/)                               │
+│  5. Sisa Bagi    (%)                               │
+│  6. Semua Operasi                                  │
+│  0. Keluar                                         │
+└────────────────────────────────────────────────────┘
+
+Pilih operasi (0-6): 
+Masukkan bilangan pertama (a): Masukkan bilangan kedua (b): ╔══════════════════════════════════════════════════╗
+║              HASIL SEMUA OPERASI                 ║
+╠══════════════════════════════════════════════════╣
+║   a = 7
+║   b = 2
+╠══════════════════════════════════════════════════╣
+║   Penjumlahan : 7 + 2 = 9
+║   Pengurangan : 7 - 2 = 5
+║   Perkalian   : 7 * 2 = 14
+║   Pembagian   : 7 / 2 = 3
+║   Sisa Bagi   : 7 % 2 = 1
+╚══════════════════════════════════════════════════╝
+
+Lanjutkan? (y/n): ╔══════════════════════════════════════════════════╗
+║ Terima kasih telah menggunakan kalkulator RheinC!║
+╚══════════════════════════════════════════════════╝

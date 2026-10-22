@@ -7,6 +7,10 @@ i = 4
 Berhenti di i = 5
 Test 2: Lanjut melewati bilangan genap
 i = 1 (ganjil)
+i = 3 (ganjil)
+i = 5 (ganjil)
+i = 7 (ganjil)
+i = 9 (ganjil)
 Test 3: Nested loops
   i=1, j=1, i*j=1
   i=1, j=2, i*j=2

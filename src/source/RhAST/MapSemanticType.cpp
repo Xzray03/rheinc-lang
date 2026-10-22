@@ -39,6 +39,19 @@ TypeId AstToIrTranslator::Impl::mapType(const Type* type,
                 f.type = mapType(memberType, node, "obj-member");
                 module.types[id].fields.push_back(std::move(f));
             }
+            // sizeBytes dari total fields — default 0 membuat
+            // slotUnitsOf/phi-move salah (iterator.rhc: packed phi
+            // tak tersalin, selesai langsung true).
+            {
+                std::uint32_t total = 0;
+                for (const auto& f : module.types[id].fields) {
+                    total += (f.type < module.types.size())
+                                 ? module.types[f.type].sizeBytes
+                                 : 8;
+                }
+                module.types[id].sizeBytes = total;
+                module.types[id].alignBytes = 8;
+            }
             return id;
         }
         const auto* builtin = static_cast<const BuiltinType*>(type);

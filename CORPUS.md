@@ -6,11 +6,11 @@ async.rhc
 atomic.rhc
 berhenti_lanjut.rhc ✅ (RUNTIME OK)
 big_integer.rhc
-bilangan_kompleks.rhc
+bilangan_kompleks.rhc ✅ RUNTIME OK (catatan: im hasil pembagian & Opsi ADA binding 16B; desimal_tetap/skala tidak diterapkan)
 bilangan_prima.rhc ✅ (RUNTIME OK)
 bitwise.rhc ✅ (RUNTIME OK)
 cacahan.rhc ✅ (RUNTIME OK)
-calc.rhc
+calc.rhc ✅ RUNTIME OK
 casting.rhc ✅ (RUNTIME OK)
 channel.rhc
 coroutine.rhc
@@ -20,7 +20,7 @@ fixed_point.rhc
 float.rhc ✅ (RUNTIME OK)
 fungsi_dan_prosedur.rhc ✅ (RUNTIME OK)
 generator.rhc
-generik.rhc
+generik.rhc ✅ (RUNTIME OK)
 goto.rhc ✅ (RUNTIME OK)
 halo_dunia.rhc ✅ (RUNTIME OK)
 hampa.rhc ✅ (RUNTIME OK)
@@ -28,7 +28,7 @@ increment-decrement.rhc ✅ (RUNTIME OK)
 integer.rhc ✅ (RUNTIME OK)
 interaktif.rhc ✅ (RUNTIME OK)
 io.rhc ✅ (RUNTIME OK)
-iterator.rhc
+iterator.rhc ✅ RUNTIME OK
 karakter.rhc ✅ (RUNTIME OK)
 konstanta.rhc ✅ (RUNTIME OK)
 konversi_tipe.rhc ✅ (RUNTIME OK)
@@ -37,13 +37,13 @@ lexer_error/komentar_blok_tak_tertutup.rhc ✅ (ERROR BENAR)
 lexer_error/literal_error.rhc ✅ (ERROR BENAR)
 lexer_error/raw_string_tak_tertutup.rhc ✅ (ERROR BENAR)
 lexer_error/utf8_tidak_valid.rhc ✅ (ERROR BENAR)
-linked_list.rhc
+linked_list.rhc ✅ RUNTIME OK
 literal_lanjutan.rhc ✅ (RUNTIME OK)
 logika.rhc ✅ (RUNTIME OK)
 matriks.rhc
 mutex.rhc
 multi_goto.rhc ✅ (RUNTIME OK)
-operasi_float.rhc
+operasi_float.rhc ✅ RUNTIME OK
 operasi_memori.rhc ✅ (RUNTIME OK)
 operasi_memori_otomatis.rhc ✅ (RUNTIME OK)
 pemotongan_teks.rhc ✅ (RUNTIME OK)
@@ -55,14 +55,14 @@ perintah_sistem.rhc ✅ (RUNTIME OK)
 perulangan.rhc ✅ (RUNTIME OK)
 pilih.rhc ✅ (RUNTIME OK)
 prototipe_fungsi.rhc ✅ (RUNTIME OK)
-queue.rhc
+queue.rhc ✅ RUNTIME OK
 rekursif.rhc ✅ (RUNTIME OK)
-rhpp/circular_a.rhh
-rhpp/circular_b.rhh
+rhpp/circular_a.rhh ✅ (OK, HEADER BUKAN UNTUK DIKOMPILASI)
+rhpp/circular_b.rhh ✅ (OK, HEADER BUKAN UNTUK DIKOMPILASI)
 rhpp/circular_include.rhc ✅ (ERROR BENAR)
-rhpp/deklarasi.rhh
-rhpp/deklarasi2.rhh
-rhpp/deklarasi3.rhh
+rhpp/deklarasi.rhh ✅ (OK, HEADER BUKAN UNTUK DIKOMPILASI)
+rhpp/deklarasi2.rhh ✅ (OK, HEADER BUKAN UNTUK DIKOMPILASI)
+rhpp/deklarasi3.rhh ✅ (OK, HEADER BUKAN UNTUK DIKOMPILASI)
 rhpp/error.rhc ✅ (ERROR BENAR)
 rhpp/error_warning_inactive.rhc ✅ (RUNTIME OK)
 rhpp/jika_makro_fungsi.rhc ✅ (RUNTIME OK)
@@ -77,7 +77,7 @@ rhpp/warning.rhc ✅ (RUNTIME OK)
 scope_dan_shadowing.rhc ✅ (RUNTIME OK)
 signal_handling.rhc
 slicing.rhc
-stack.rhc
+stack.rhc ✅ RUNTIME OK
 struktur.rhc ✅ (RUNTIME OK)
 struktur_dengan_bitfield.rhc ✅ (RUNTIME OK)
 sum_type.rhc ✅ (RUNTIME OK)

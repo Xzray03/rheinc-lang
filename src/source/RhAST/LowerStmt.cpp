@@ -2,6 +2,13 @@
 #include <functional>
 #include "RhAST/AstToIrTranslatorImpl.h"
 
+// Decode string literal (didefinisikan di LowerExpr.cpp, namespace rhc)
+// — dipakai cabang konstruksi object dengan named-args (spec §15.3).
+namespace rhc {
+bool decodeStringLiteral(const StringLiteralExpr& node, std::string& out);
+}
+using rhc::decodeStringLiteral;
+
 #include "RhParser/Stmt.h"
 #include "RhSemantic/SemanticAnalyzer.h"
 #include "RhSemantic/SemanticContext.h"
@@ -137,11 +144,65 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
                 return false;
             }
         } else {
+            // Konstruksi object dengan named-args tanpa initializer
+            // (spec §15.3): variabel a: bilangan_kompleks(basis=...,
+            // real="...", imajiner="...") -> call kx(real, imajiner).
+            // Hanya object bilangan_kompleks; deklarasi lain tak tersentuh.
+            if (node->type && node->type->kind == AstKind::CallTypeRepr) {
+                const auto* ctr = static_cast<const CallTypeRepr*>(node->type);
+                if (ctr->name == "bilangan_kompleks") {
+                    ValueId rv = InvalidValue, iv = InvalidValue;
+                    for (const auto* a : ctr->arguments) {
+                        if (!a->value) continue;
+                        ValueId* slotArg = nullptr;
+                        if (a->name == "real")       slotArg = &rv;
+                        else if (a->name == "imajiner") slotArg = &iv;
+                        if (!slotArg) continue;
+                        if (a->value->kind == AstKind::StringLiteralExpr) {
+                            // value string di TypeRepr tak di-type-check
+                            // semantic (getExprType = Error) -> bangun
+                            // ConstString langsung dengan tipe teks.
+                            const auto* sl =
+                                static_cast<const StringLiteralExpr*>(a->value);
+                            std::string decoded;
+                            decodeStringLiteral(*sl, decoded);
+                            TypeId tekst = mapType(
+                                semantic->context().types().getBuiltinType(
+                                    BuiltinTypeKind::Teks),
+                                a->value);
+                            ConstId cid = encodeStringLiteral(decoded, tekst, a->value);
+                            *slotArg = builder.emit(
+                                IrOpcode::ConstString, tekst,
+                                {IrOperand::constant(cid)},
+                                stmt->range.begin);
+                        } else {
+                            *slotArg = lowerExpr(a->value);
+                        }
+                    }
+                    if (rv != InvalidValue && iv != InvalidValue) {
+                        initial = emitCallByName("kx", {rv, iv},
+                                                 stmt->range.begin);
+                        // retype hasil ke varType (object instantiation) —
+                        // mekanisme sama retype larik sized di atas.
+                        if (initial != InvalidValue &&
+                            varType != InvalidType) {
+                            auto& f = builder.function(currentFunc);
+                            auto& vv = f.values[initial];
+                            if (vv.kind == IrValue::Kind::Instr &&
+                                vv.payload < f.instrs.size()) {
+                                f.instrs[vv.payload].resultType = varType;
+                                vv.type = varType;
+                            }
+                        }
+                    }
+                }
+            }
             // Default value eksplisit (zero/empty/construct), bukan
             // ConstInt 0 mentah — tipe non-integer butuh representasi
             // default yang sesuai (spesifikasi: verbose & eksplisit).
-            initial = emitDefaultValue(varType, semanticType,
-                                       stmt->range.begin);
+            if (initial == InvalidValue)
+                initial = emitDefaultValue(varType, semanticType,
+                                           stmt->range.begin);
             if (initial == InvalidValue && !failed) {
                 return error(AstIrErrorCode::UnsupportedNode, stmt,
                              "default value tipe variabel belum didukung");
@@ -170,6 +231,26 @@ bool AstToIrTranslator::Impl::lowerStmt(const StmtNode* stmt) {
                                        {IrOperand::value(initial)},
                                        stmt->range.begin, node->name);
                 if (builder.broken()) return false;
+            }
+        }
+        // Larik hasil call builtin (ke_larik dll): registry menyatakan
+        // return 'larik' unsized (View-sized, 2 unit) -> slot sempit,
+        // elemen larik[N] menimpa slot tetangga. Annotasi larik[N] menang:
+        // tulis tipe varType ke instr+value hasil SEBELUM backend mengalokasi
+        // slot (mekanisme sama dengan foreach Opsi di LowerWhileStatement).
+        if (!failed && initial != InvalidValue && varType != InvalidType &&
+            module.types.size() > varType &&
+            module.types[varType].kind == IrTypeKind::Array) {
+            auto& fnMod = builder.function(currentFunc);
+            auto& iv = fnMod.values[initial];
+            if (iv.kind == IrValue::Kind::Instr && iv.payload < fnMod.instrs.size()) {
+                const TypeId rt = fnMod.instrs[iv.payload].resultType;
+                if (module.types.size() > rt &&
+                    module.types[rt].kind == IrTypeKind::Array &&
+                    module.types[rt].arraySize < module.types[varType].arraySize) {
+                    fnMod.instrs[iv.payload].resultType = varType;
+                    iv.type = varType;
+                }
             }
         }
         bindLocal(node->name, initial);
