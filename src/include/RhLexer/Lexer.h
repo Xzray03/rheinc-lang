@@ -39,15 +39,6 @@ private:
     Token scanCharConstant();
     bool tryScanRawString(Token& result);
     Token scanOperatorOrPunctuator();
-    Token scanUnknown();
-
-    bool isIdentifierStart(char32_t cp) const;
-    bool isIdentifierContinue(char32_t cp) const;
-    bool isAsciiIdentifierStart(char32_t cp) const;
-    bool isAsciiIdentifierContinue(char32_t cp) const;
-
-    bool isHorizontalWhitespace(char32_t cp) const;
-    bool isValidEscape(char32_t cp) const;
 
     void error(SourceLocation loc, std::uint32_t length, const std::string& message);
 

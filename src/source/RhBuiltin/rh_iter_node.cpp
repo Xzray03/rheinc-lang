@@ -7,3 +7,6 @@ long iter_node_kind(long long it) { return *(long*)((char*)it + 16); }
 long iter_node_packed(long long it) { return *(long*)((char*)it + 8); }
 void iter_node_set_packed(long long it, long p) { *(long*)((char*)it + 8) = p; }
 void iter_node_set_arr(long long it, void* a) { *(void**)((char*)it) = a; }
+
+long idx_of(long p) { return (long)((unsigned long)p >> 32); }
+long cnt_of(long p) { return (long)(p & 0xFFFFFFFFL); }

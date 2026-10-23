@@ -12,5 +12,5 @@ long iter_node_packed(long long it);
 void iter_node_set_packed(long long it, long p);
 void iter_node_set_arr(long long it, void* a);
 
-static long idx_of(long p) { return (long)((unsigned long)p >> 32); }
-static long cnt_of(long p) { return (long)(p & 0xFFFFFFFFL); }
+long idx_of(long p);
+long cnt_of(long p);

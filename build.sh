@@ -2,9 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
-CXX="${CXX:-g++}"
-CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic -Werror}"
+source "$ROOT_DIR/src/build_module/build_flags.sh"
+BUILD_DIR="$RHEINC_BUILD_DIR"
+CXX="$RHEINC_CXX"
+CXXFLAGS="$RHEINC_CXXFLAGS"
 mkdir -p "$BUILD_DIR/bin" "$BUILD_DIR/obj-cache/RheincMain" "$BUILD_DIR/state/RheincMain"
 source "$ROOT_DIR/src/build_module/build_common.sh"
 
@@ -70,7 +71,7 @@ for module in "${modules[@]}"; do
   if [[ "$WITH_TESTS" == "1" ]]; then
     RHEINC_BUILD_TESTS=1 bash "$ROOT_DIR/src/build_module/$module/build.sh"
   else
-    RHEINC_BUILD_TESTS=0 bash "$ROOT_DIR/src/build_module/$module/build.sh" --no-tests
+    RHEINC_BUILD_TESTS=0 bash "$ROOT_DIR/src/build_module/$module/build.sh"
   fi
 done
 
@@ -97,34 +98,29 @@ libs=(
   "$BUILD_DIR/libs/rheinc_core.a"
 )
 
-if [[ -f "$final_source" ]]; then
-  if rh_needs_rebuild "$final_obj" "$final_obj.d" "$final_source"; then
-    echo "[CXX] RheincMain.o"
-    rh_compile_cxx "$final_source" "$final_obj" \
-      -I"$ROOT_DIR/src/include" \
-      -DRHEINC_LIBRARY_DIR=\"$BUILD_DIR/libs/RhBuiltin\"
-  else
-    echo "[SKIP] object fresh: RheincMain.o"
-  fi
-
-  relink=0
-  [[ -f "$final_binary" ]] || relink=1
-  [[ "$final_obj" -nt "$final_binary" ]] && relink=1
-  for lib in "${libs[@]}"; do
-    [[ "$lib" -nt "$final_binary" ]] && relink=1
-  done
-
-  if [[ "$relink" == "1" ]]; then
-    echo "[CXX-LD] $final_binary"
-    "$CXX" $CXXFLAGS \
-      "$final_obj" \
-      "${libs[@]}" \
-      -o "$final_binary"
-  else
-    echo "[SKIP] final fresh: rheinc"
-  fi
-  echo "[OK] root build selesai: $final_binary"
+if rh_needs_rebuild "$final_obj" "$final_obj.d" "$final_source"; then
+  echo "[CXX] RheincMain.o"
+  rh_compile_cxx "$final_source" "$final_obj" \
+    -I"$ROOT_DIR/src/include" \
+    -DRHEINC_LIBRARY_DIR=\"$BUILD_DIR/libs/RhBuiltin\"
 else
-  echo "[OK] root production libraries selesai"
-  echo "[INFO] final binary 'rheinc' belum tersedia; tunggu codegen selesai"
+  echo "[SKIP] object fresh: RheincMain.o"
 fi
+
+relink=0
+[[ -f "$final_binary" ]] || relink=1
+[[ "$final_obj" -nt "$final_binary" ]] && relink=1
+for lib in "${libs[@]}"; do
+  [[ "$lib" -nt "$final_binary" ]] && relink=1
+done
+
+if [[ "$relink" == "1" ]]; then
+  echo "[CXX-LD] $final_binary"
+  "$CXX" $CXXFLAGS \
+    "$final_obj" \
+    "${libs[@]}" \
+    -o "$final_binary"
+else
+  echo "[SKIP] final fresh: rheinc"
+fi
+echo "[OK] root build selesai: $final_binary"

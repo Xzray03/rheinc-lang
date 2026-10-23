@@ -6,14 +6,12 @@ ROOT_DIR="$(cd -- "$MODULE_DIR/../../.." && pwd)"
 
 BUILD_TESTS="${RHEINC_BUILD_TESTS:-1}"
 RUN_TESTS="${RHEINC_RUN_TESTS:-0}"
-if [[ "${1:-}" == "--no-tests" ]]; then
-  BUILD_TESTS=0
-fi
 
-CXX="${CXX:-g++}"
-AR="${AR:-ar}"
-CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic -Werror}"
-BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
+source "$ROOT_DIR/src/build_module/build_flags.sh"
+CXX="$RHEINC_CXX"
+AR="$RHEINC_AR"
+CXXFLAGS="$RHEINC_CXXFLAGS"
+BUILD_DIR="$RHEINC_BUILD_DIR"
 OBJ_DIR="${RHEINC_OBJ_CACHE_DIR:-$BUILD_DIR/obj-cache/RhPreprocessor}"
 LIB_DIR="$BUILD_DIR/libs"
 BIN_TEST_DIR="$BUILD_DIR/bin-test"
@@ -24,7 +22,7 @@ source "$ROOT_DIR/src/build_module/build_common.sh"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$BIN_TEST_DIR" "$OBJ_STATE_DIR"
 
 # RhPreprocessor depends on RhCore and RhLexer production archives.
-RHEINC_BUILD_TESTS=0 bash "$ROOT_DIR/src/build_module/RhLexer/build.sh" --no-tests
+RHEINC_BUILD_TESTS=0 bash "$ROOT_DIR/src/build_module/RhLexer/build.sh"
 
 hash_file() {
   [[ -f "$1" ]] || return 1
@@ -42,7 +40,7 @@ compute_include_hash() {
 
 FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | cksum | awk '{print $1}')"
 INCLUDE_HASH=""
-TEST_SOURCE="$ROOT_DIR/src/source/RhPreprocessor/PreprocessorDumpTool.cpp"
+TEST_SOURCE="$ROOT_DIR/src/DumpTool/RhPreprocessor/PreprocessorDumpTool.cpp"
 TEST_BINARY="$BIN_TEST_DIR/rheinc_preprocessor_test"
 PREPROCESSOR_ARCHIVE="$LIB_DIR/rheinc_preprocessor.a"
 PREPROCESSOR_ARCHIVE_STATE="$STATE_DIR/rheinc_preprocessor.a.sum"

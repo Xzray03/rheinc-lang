@@ -3,15 +3,16 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
+source "$ROOT_DIR/src/build_module/build_flags.sh"  # build_flags dulu: set BUILD_DIR via RHEINC_BUILD_DIR
+BUILD_DIR="$RHEINC_BUILD_DIR"
 OBJ_DIR="$BUILD_DIR/obj-cache/RhBuiltin"
 LIB_DIR="$BUILD_DIR/libs/RhBuiltin"
 STATE_DIR="$BUILD_DIR/state/RhBuiltin"
+CXX="$RHEINC_CXX"
+CXXFLAGS="$RHEINC_CXXFLAGS"
 mkdir -p "$OBJ_DIR" "$LIB_DIR" "$STATE_DIR"
 source "$ROOT_DIR/src/build_module/build_common.sh"
 
-CXX="${CXX:-g++}"
-CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic}"
 FLAGS_STATE="$STATE_DIR/flags"
 FLAGS_ID="$(rh_flags_id "$CXX $CXXFLAGS")"
 if [[ ! -f "$FLAGS_STATE" || "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then

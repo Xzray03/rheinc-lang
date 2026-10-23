@@ -6,21 +6,19 @@ ROOT_DIR="$(cd -- "$MODULE_DIR/../../.." && pwd)"
 
 BUILD_TESTS="${RHEINC_BUILD_TESTS:-1}"
 RUN_TESTS="${RHEINC_RUN_TESTS:-0}"
-if [[ "${1:-}" == "--no-tests" ]]; then
-  BUILD_TESTS=0
-fi
 
 # RhAST bergantung pada seluruh pipeline front-end; bangun dependency
 # (RhSemantic merangkap parser/preprocessor/lexer/core via rekursi).
 if [[ "${RHEINC_SKIP_DEPS:-0}" != "1" ]]; then
-  (cd "$ROOT_DIR" && bash src/build_module/RhIR/build.sh --no-tests)
-  (cd "$ROOT_DIR" && bash src/build_module/RhSemantic/build.sh --no-tests)
+  (cd "$ROOT_DIR" && RHEINC_BUILD_TESTS=0 bash src/build_module/RhIR/build.sh)
+  (cd "$ROOT_DIR" && RHEINC_BUILD_TESTS=0 bash src/build_module/RhSemantic/build.sh)
 fi
 
-CXX="${CXX:-g++}"
-AR="${AR:-ar}"
-CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic -Werror}"
-BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
+source "$ROOT_DIR/src/build_module/build_flags.sh"
+CXX="$RHEINC_CXX"
+AR="$RHEINC_AR"
+CXXFLAGS="$RHEINC_CXXFLAGS"
+BUILD_DIR="$RHEINC_BUILD_DIR"
 OBJ_DIR="$BUILD_DIR/obj-cache/RhAST"
 LIB_DIR="$BUILD_DIR/libs"
 BIN_TEST_DIR="$BUILD_DIR/bin-test"
@@ -49,7 +47,7 @@ compute_include_hash() {
 
 FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | cksum | awk '{print $1}')"
 INCLUDE_HASH=""
-TEST_SOURCE="$ROOT_DIR/src/source/RhAST/AstIrDumpTool.cpp"
+TEST_SOURCE="$ROOT_DIR/src/DumpTool/RhAST/AstIrDumpTool.cpp"
 TEST_BINARY="$BIN_TEST_DIR/rheinc_ast_test"
 AST_ARCHIVE="$LIB_DIR/rheinc_ast.a"
 AST_ARCHIVE_STATE="$STATE_DIR/rheinc_ast.a.sum"

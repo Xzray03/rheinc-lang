@@ -18,12 +18,6 @@ static double kx_fmod2pi(double x) {
     while (x < -KX_PI) x += KX_2PI;
     return x;
 }
-static double kx_pow_int(double b, int e) {
-    double r = 1.0;
-    bool neg = e < 0; if (neg) e = -e;
-    for (int k = 0; k < e; ++k) r *= b;
-    return neg ? 1.0 / r : r;
-}
 double kx_sin(double x) {
     x = kx_fmod2pi(x);
     double r = x, t = x;

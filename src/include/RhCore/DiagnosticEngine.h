@@ -30,7 +30,11 @@ class DiagnosticEngine {
 public:
     explicit DiagnosticEngine(const SourceManager& sourceManager,
                               std::size_t maxErrors = 20)
-        : sourceManager_(sourceManager), maxErrors_(maxErrors) {}
+        : sourceManager_(sourceManager),
+          // Invariant: minimal 1 error boleh tercatat, supaya hasErrors()
+          // tidak pernah dusta (maxErrors_=0 akan membuang SEMUA error
+          // dan membuat pipeline lanjut buta).
+          maxErrors_(maxErrors < 1 ? 1 : maxErrors) {}
 
     void report(DiagnosticSeverity severity, FileID file, SourceLocation loc,
                 std::uint32_t length, std::string message);
@@ -38,7 +42,10 @@ public:
     void note(FileID file, SourceLocation loc, std::uint32_t length, std::string message);
     void warning(FileID file, SourceLocation loc, std::uint32_t length, std::string message);
     void error(FileID file, SourceLocation loc, std::uint32_t length, std::string message);
-    void fatal(FileID file, SourceLocation loc, std::uint32_t length, std::string message);
+    // Fatal = kondisi tak-terpulihkan: setelah diagnostic tercatat, SEMUA
+    // proses turunan dibunuh (SIGKILL), lalu proses ini bunuh diri
+    // (SIGKILL). Tidak pernah kembali ke caller.
+    [[noreturn]] void fatal(FileID file, SourceLocation loc, std::uint32_t length, std::string message);
 
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t errorCount() const { return errorCount_; }
@@ -46,11 +53,19 @@ public:
     bool hasErrors() const { return errorCount_ != 0; }
 
 private:
+    bool isDuplicate(const Diagnostic& diag) const;
+    // Cetak seluruh diagnostic ke stderr (dipakai jalur Fatal sebelum kill).
+    void dumpToStderr() const;
+    // SIGKILL semua proses turunan (scan /proc), lalu SIGKILL diri sendiri.
+    [[noreturn]] void terminateProcessTree();
+
     const SourceManager& sourceManager_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t maxErrors_ = 20;
     std::size_t errorCount_ = 0;
     std::size_t warningCount_ = 0;
+    bool capNoticeShown_ = false;   // note "batas error tercapai" cukup sekali
+    bool noteChainOpen_ = false;    // note hanya sah menyusul error/warning tercatat
 };
 
 } // namespace rhc

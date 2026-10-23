@@ -6,14 +6,12 @@ ROOT_DIR="$(cd -- "$MODULE_DIR/../../.." && pwd)"
 
 BUILD_TESTS="${RHEINC_BUILD_TESTS:-1}"
 RUN_TESTS="${RHEINC_RUN_TESTS:-0}"
-if [[ "${1:-}" == "--no-tests" ]]; then
-  BUILD_TESTS=0
-fi
 
-CXX="${CXX:-g++}"
-AR="${AR:-ar}"
-CXXFLAGS="${CXXFLAGS:--std=c++20 -Wall -Wextra -Wpedantic -Werror}"
-BUILD_DIR="${RHEINC_BUILD_DIR:-$ROOT_DIR/Build}"
+source "$ROOT_DIR/src/build_module/build_flags.sh"
+CXX="$RHEINC_CXX"
+AR="$RHEINC_AR"
+CXXFLAGS="$RHEINC_CXXFLAGS"
+BUILD_DIR="$RHEINC_BUILD_DIR"
 OBJ_DIR="$BUILD_DIR/obj-cache/RhLexer"
 OBJ_BASIC_DIR="$OBJ_DIR/basic"
 OBJ_LEXER_DIR="$OBJ_DIR/lexer"
@@ -41,7 +39,7 @@ compute_include_hash() {
 
 FLAGS_ID="$(printf '%s' "$CXX $AR $CXXFLAGS" | cksum | awk '{print $1}')"
 INCLUDE_HASH=""
-TEST_SOURCE="$ROOT_DIR/src/source/RhLexer/TokenDumpTool.cpp"
+TEST_SOURCE="$ROOT_DIR/src/DumpTool/RhLexer/TokenDumpTool.cpp"
 TEST_BINARY="$BIN_TEST_DIR/rheinc_lexer_test"
 CORE_ARCHIVE="$LIB_DIR/rheinc_core.a"
 LEXER_ARCHIVE="$LIB_DIR/rheinc_lexer.a"
@@ -56,7 +54,14 @@ ARCHIVES_REBUILT=0
 
 core_sources=(
   src/source/RhCore/SourceManager.cpp
-  src/source/RhCore/DiagnosticEngine.cpp
+  src/source/RhCore/DiagnosticEngineIsDuplicate.cpp
+  src/source/RhCore/DiagnosticEngineDumpToStderr.cpp
+  src/source/RhCore/DiagnosticEngineTerminateProcessTree.cpp
+  src/source/RhCore/DiagnosticEngineReport.cpp
+  src/source/RhCore/DiagnosticEngineNote.cpp
+  src/source/RhCore/DiagnosticEngineWarning.cpp
+  src/source/RhCore/DiagnosticEngineError.cpp
+  src/source/RhCore/DiagnosticEngineFatal.cpp
 )
 
 lexer_sources=(
@@ -66,6 +71,16 @@ lexer_sources=(
   src/source/RhLexer/OperatorTable.cpp
   src/source/RhLexer/LexerCursor.cpp
   src/source/RhLexer/Lexer.cpp
+  src/source/RhLexer/Lexer/LexerToken.cpp
+  src/source/RhLexer/Lexer/LexerWhitespace.cpp
+  src/source/RhLexer/Lexer/LexerNewline.cpp
+  src/source/RhLexer/Lexer/LexerComment.cpp
+  src/source/RhLexer/Lexer/LexerIdentifier.cpp
+  src/source/RhLexer/Lexer/LexerNumeric.cpp
+  src/source/RhLexer/Lexer/LexerString.cpp
+  src/source/RhLexer/Lexer/LexerStringRaw.cpp
+  src/source/RhLexer/Lexer/LexerChar.cpp
+  src/source/RhLexer/Lexer/LexerOperator.cpp
 )
 
 if [[ -f "$FLAGS_STATE" ]] && [[ "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then
