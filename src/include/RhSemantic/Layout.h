@@ -25,7 +25,7 @@ inline std::uint64_t alignUp(std::uint64_t value, std::uint64_t align) {
 // references are pointer-sized (8). Unsized arrays report size 0.
 // Sets `*infinite` when the type has no finite size (e.g. a struct that
 // contains itself by value); `visiting` must be an empty vector per top call.
-TypeLayout computeLayout(Type* type, std::unordered_map<Type*, TypeLayout>& memo,
+inline TypeLayout computeLayout(Type* type, std::unordered_map<Type*, TypeLayout>& memo,
                          std::vector<Type*>& visiting, bool* infinite) {
     if (!type) return {};
     if (dynamic_cast<ErrorType*>(type)) return {};

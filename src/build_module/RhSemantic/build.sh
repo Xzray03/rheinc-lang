@@ -53,10 +53,14 @@ sources=(
   src/source/RhSemantic/Scope.cpp
   src/source/RhSemantic/TypeContext.cpp
   src/source/RhSemantic/BuiltinRegistry.cpp
+  src/source/RhSemantic/BuiltinRegistry/BuiltinRegistryFunctions.cpp
+  src/source/RhSemantic/BuiltinRegistry/BuiltinRegistryTypes.cpp
   src/source/RhSemantic/SemanticContext.cpp
   src/source/RhSemantic/TypeResolver.cpp
   src/source/RhSemantic/SemanticAnalyzer.cpp
-  src/source/RhSemantic/SemanticDecl.cpp
+  src/source/RhSemantic/SemanticAnalyzer/SemanticAnalyzerTypes.cpp
+  src/source/RhSemantic/SemanticDecl/SemanticDeclCollect.cpp
+  src/source/RhSemantic/SemanticDecl/SemanticDeclAnalyze.cpp
   src/source/RhSemantic/SemanticStmt.cpp
   src/source/RhSemantic/SemanticExpr.cpp
 )
