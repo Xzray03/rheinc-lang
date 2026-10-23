@@ -62,7 +62,11 @@ sources=(
   src/source/RhPreprocessor/DirectiveParser.cpp
   src/source/RhPreprocessor/PreprocessorTokenUtil.cpp
   src/source/RhPreprocessor/PreprocessorExpression.cpp
-  src/source/RhPreprocessor/MacroExpander.cpp
+  src/source/RhPreprocessor/MacroExpander/MacroInvoke.cpp
+  src/source/RhPreprocessor/MacroExpander/MacroRescan.cpp
+  src/source/RhPreprocessor/MacroExpander/MacroSubstitute.cpp
+  src/source/RhPreprocessor/MacroExpander/MacroPaste.cpp
+  src/source/RhPreprocessor/MacroExpander/MacroArguments.cpp
 )
 
 if [[ -f "$FLAGS_STATE" ]] && [[ "$(cat "$FLAGS_STATE")" != "$FLAGS_ID" ]]; then
