@@ -66,6 +66,7 @@ ast_sources=(
   src/source/RhAST/InsertPhiAtJoin.cpp
   src/source/RhAST/LowerArray.cpp
   src/source/RhAST/LowerExpr.cpp
+  src/source/RhAST/LowerSlice.cpp
   src/source/RhAST/LowerFunction.cpp
   src/source/RhAST/LowerGlobal.cpp
   src/source/RhAST/LowerIfStatement.cpp
@@ -75,7 +76,10 @@ ast_sources=(
   src/source/RhAST/LowerStmt.cpp
   src/source/RhAST/LowerTernaryExpr.cpp
   src/source/RhAST/LowerTranslationUnit.cpp
+  src/source/RhAST/LowerLoopControl.cpp
   src/source/RhAST/LowerWhileStatement.cpp
+  src/source/RhAST/LowerForEach.cpp
+  src/source/RhAST/LowerForStatement.cpp
   src/source/RhAST/MapSemanticType.cpp
   src/source/RhAST/ValidateAst.cpp
 )
